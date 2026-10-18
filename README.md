@@ -19,7 +19,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 
 尚未包含：
 
-- `brain/` 的任意 DAG 重排、模型 prompt 执行器、社区 registry：当前有 FastLoop + SlowLoop、workflow skill 执行与验证/信任门；
+- `brain/` 的任意 DAG 重排、外部模型接入、社区 registry：当前有 FastLoop + SlowLoop、workflow/prompt skill（模型端口）、验证/信任门；
 - preview mirror + 用户触摸接管的真机链路；
 - `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
 - 新 loop 的真实设备验收；

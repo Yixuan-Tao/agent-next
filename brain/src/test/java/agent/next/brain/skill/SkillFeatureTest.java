@@ -40,9 +40,11 @@ public final class SkillFeatureTest {
         workflowRunsThroughFastLoop();
         permissionsAreEnforced();
         promptNeedsModel();
+        promptUsesModel();
+        promptRejectsHighRisk();
         applicabilityAndVerifier();
         registryAdmission();
-        System.out.println("SkillFeatureTest: PASS (workflow, verifier, permissions, registry)");
+        System.out.println("SkillFeatureTest: PASS (workflow, prompt model, verifier, registry)");
     }
 
     private static void workflowRunsThroughFastLoop() {
@@ -77,6 +79,44 @@ public final class SkillFeatureTest {
         expect(IllegalArgumentException.class,
                 () -> new SkillWorkflowPolicy(prompt, Map.of()),
                 "prompt skill needs a model policy, not the workflow policy");
+        expect(IllegalArgumentException.class,
+                () -> new PromptSkillPolicy(skill("workflow.prompt", new SkillBody.Workflow(
+                        List.of(new SkillOperation.Tap(SkillSelector.textContains("Search"),
+                                RiskClass.LOW))), SkillTrust.VERIFIED,
+                        SkillApplicability.always()), Map.of(), request -> null),
+                "prompt policy requires a prompt body");
+    }
+
+    private static void promptUsesModel() {
+        SkillPackage prompt = skill("prompt.search", new SkillBody.Prompt("Search the shop."),
+                SkillTrust.VERIFIED, SkillApplicability.always());
+        SkillModel model = request -> switch (request.step()) {
+            case 0 -> new SkillModelStep.SetText(SkillSelector.editable(), "短袖T恤",
+                    RiskClass.REVERSIBLE_SIDE_EFFECT);
+            case 1 -> new SkillModelStep.Tap(SkillSelector.clickableTextContains("Search"),
+                    RiskClass.LOW);
+            default -> new SkillModelStep.Done("model is done");
+        };
+        LoopResult result = new FastLoop(new LoopFakeDevice(), target(), task(), graph(),
+                new PromptSkillPolicy(prompt, Map.of(), model), new DefaultRiskGate(),
+                new NoHumanGateway(), new InMemoryWorkingMemory(),
+                new InMemoryEpisodicMemory()).run();
+        check(result.status() == LoopResult.Status.DONE, "prompt skill completes");
+        check(result.actions() == 2, "prompt skill uses two model steps");
+    }
+
+    private static void promptRejectsHighRisk() {
+        SkillPackage prompt = skill("prompt.risky", new SkillBody.Prompt("Do something risky."),
+                SkillTrust.VERIFIED, SkillApplicability.always());
+        SkillModel model = request -> new SkillModelStep.Tap(
+                SkillSelector.textContains("Search"), RiskClass.COMMITMENT);
+        LoopResult result = new FastLoop(new LoopFakeDevice(), target(), task(), graph(),
+                new PromptSkillPolicy(prompt, Map.of(), model), new DefaultRiskGate(),
+                new NoHumanGateway(), new InMemoryWorkingMemory(),
+                new InMemoryEpisodicMemory()).run();
+        check(result.status() == LoopResult.Status.SLOW_LOOP,
+                "high-risk model step is not executed");
+        check(result.actions() == 0, "high-risk model step performs no action");
     }
 
     private static void applicabilityAndVerifier() {

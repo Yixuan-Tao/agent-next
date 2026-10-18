@@ -190,7 +190,7 @@
 **决策**
 
 - Skill 是**可选加速/可靠性层**，不是主控制流。没有匹配 skill 时，FastLoop/通用规划必须仍能工作。
-- Skill body 允许 `workflow`、`prompt`、`hybrid`；确定性 `SkillWorkflowPolicy` 只执行 workflow/hybrid 的语义操作，prompt 由未来的模型策略加载。
+- Skill body 允许 `workflow`、`prompt`、`hybrid`；确定性 `SkillWorkflowPolicy` 只执行 workflow/hybrid 的语义操作，prompt 由 `PromptSkillPolicy` + `SkillModel` 模型端口加载（外部模型尚未接入）。
 - Skill 工件和 skill-facing API **不得包含坐标、`Point`、原始 `DeviceApi`、shell/输入注入**。只允许语义选择器和语义操作；坐标只能存在于受信任的 device strategy。
 - Skill 动作必须经过 FastLoop 的 `RiskGate`/`HumanGateway`；skill 自己声明的风险不可信，不能绕过承诺/凭据/接管边界。
 - `COMMUNITY`/`SELF_GENERATED` skill 必须经过验证（静态检查、回放/矩阵、行为验证）和信任门才能安装；不得自动上线。需记录版本、来源、digest、验证报告，支持撤销/回滚。
@@ -223,7 +223,7 @@
 ## 后续执行项（非决策）
 
 1. 在旧仓库打归档 tag，确认只读。
-2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、12 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke、可选 `SkillPackage`/`SkillWorkflowPolicy`/`SkillRegistry` 已完成；下一步 prompt/模型策略、社区 registry 与更多场景。
+2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、12 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke、可选 `SkillPackage`/`SkillWorkflowPolicy`/`PromptSkillPolicy`（模型端口）/`SkillRegistry` 已完成；下一步外部模型接入、社区 registry 签名/扫描与更多场景。
 3. 定义确认卡/接管 UI 的最小字段与审计事件。
 4. 落实记忆加密、保留期任务与清除级联。
 5. 在 Chain A/B 验收中记录确认次数、接管次数、误提交/错发为 0。

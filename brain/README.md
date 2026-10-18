@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层、host 场景测试和真机京东搜索 smoke；模型调用、prompt 执行器、社区 registry、完整动态重规划尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、host 场景测试和真机京东搜索 smoke；外部模型接入、社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -12,6 +12,7 @@
 | `Skill` / `SkillStep` | 带前置/后置条件、回退、风险和成本的语义技能（旧声明式模型） |
 | `skill.SkillPackage` / `SkillBody` | 可安装 skill：contract、workflow/prompt/hybrid、permissions、applicability、verifier、trust、provenance |
 | `skill.SkillWorkflowPolicy` | 把语义 workflow 映射成 LoopAction，经 FastLoop RiskGate 执行；不接触 DeviceApi/坐标 |
+| `skill.PromptSkillPolicy` / `SkillModel` | prompt skill 的模型端口：只返回语义 Tap/SetText/Back/Done，拒绝 high-risk 步骤；不接触 DeviceApi/坐标 |
 | `skill.SkillRegistry` / `SkillValidator` / `SkillCandidate` | 信任分级与准入；社区/自生成必须验证，支持撤销 |
 | `Effect` / `StateFingerprint` / `EffectEvaluator` | 动作前后状态比较：Changed/NoChange/Loading/Error/Navigated |
 | `RiskClass` / `ActionDescriptor` / `RiskDecision` / `DefaultRiskGate` | 风险分类与 Allow/Confirm/Handoff/Deny |
@@ -62,7 +63,8 @@ Skill 是**可选加速层**；没有匹配 skill 时，FastLoop/通用规划仍
 - `SkillWorkflowPolicy`：把语义 `Tap`/`SetText`/`Back` 映射成 `LoopAction`，交给 FastLoop 的 `RiskGate`；不拿到 `DeviceApi`/`Point`。
 - `SkillSelector`：封闭的语义选择器集合（viewId/text/clickable/editable），**没有坐标**。
 - `SkillRegistry`：`OFFICIAL`/`VERIFIED` 可直接安装；`COMMUNITY`/`SELF_GENERATED` 必须通过 `SkillValidator`。`SkillCandidate` 只能 propose，不能自行上线；支持撤销。
-- `prompt` body 由未来的模型策略加载；确定性 `SkillWorkflowPolicy` 明确拒绝 prompt，避免绕过模型/验证。
+- `prompt` body 由 `PromptSkillPolicy` + `SkillModel` 执行；模型只收到 observation/prompt/参数/capability 名，只能返回语义选择器。外部模型尚未接入，host 测试用 deterministic fake。
+- `PromptSkillPolicy` 只接受 `LOW`/`REVERSIBLE_SIDE_EFFECT` 模型步骤；高风险/未知步骤不执行，仍受 RiskGate/validation 约束。
 
 ## device-api 边界
 
@@ -87,7 +89,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ## 明确不包含
 
 - 任意 DAG 重排、多技能组合、条件 verifier；当前只有 replace / insertBefore / removeAndRewire；
-- 模型调用、prompt 执行器、社区 registry 的签名/扫描实现；当前只有准入接口与内存 registry；
+- 外部模型接入、社区 registry 的签名/扫描实现；当前只有模型端口/内存 registry；
 - OCR/视觉策略与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。
