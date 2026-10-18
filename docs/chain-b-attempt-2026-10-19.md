@@ -2,7 +2,7 @@
 
 日期：2026-10-19  
 设备：Redmi Pad Pro，Android 16 / API 36  
-状态：**部分完成**；JD 搜索 DONE，加购/购物车段被商品详情页阻塞
+状态：**部分完成**；JD 搜索 DONE，加购/购物车段被商品详情页无障碍结构阻塞
 
 ## 已完成：JD 搜索
 
@@ -65,3 +65,22 @@ JD 商品详情页对无障碍树几乎不暴露文本；模型只能反复 Tap 
 - 为 JD 商品详情增加 domain/wait/专用 verifier，或改成确定性的“搜索 → 第一款 → 规格 → 加购”路径；
 - 购物车 verifier 应能读取商品标题 + XL，并断言没有结算按钮/未进入支付；
 - 若详情页仍被风控/登录阻塞，要显式 NEED_USER/STOPPED，不能假装 DONE。
+
+## JD 商品详情无障碍探测（2026-10-19）
+
+对 s3 商品详情页做了完整 node dump（96 个节点）：
+
+```text
+clickable nodes: 2
+  1. ScrollView  [0,0,720,1280]
+  2. ScrollView  [0,186,720,1280]
+text: 几乎全为空
+viewId: 顶层容器若干，无“加入购物车/规格/XL”可点击节点
+```
+
+结论：
+
+- 不是模型选错 selector，而是 JD 详情页把内容画在自定义 View 里；
+- 通用 `DeviceApi` 只能 tap/swipe 坐标，无法通过语义 selector 找到规格/加购按钮；
+- 继续让 prompt model 重试只会产生无效动作，必须做 scoped coordinate/domain/web 路径；
+- 在拿到可靠详情页坐标/结构前，不应继续自动点击，避免误触“立即购买”。
