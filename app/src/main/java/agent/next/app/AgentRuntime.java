@@ -371,6 +371,12 @@ public final class AgentRuntime {
                 public TargetHandle open(String packageName) throws DeviceException {
                     TargetHandle opened = delegate.open(packageName);
                     activeTarget = opened;
+                    try {
+                        Thread.sleep(1200L);
+                        api.observations().observe(opened, ObservationOptions.defaults());
+                    } catch (Throwable waitFailure) {
+                        Log.w(TAG, "target settle failed: " + waitFailure);
+                    }
                     prepareAppEntry(packageName, opened);
                     return opened;
                 }
@@ -429,6 +435,10 @@ public final class AgentRuntime {
                     }
                     if (!node.text().isBlank()) {
                         sample.append(node.text()).append(" | ");
+                    } else if (!node.viewId().isBlank()) {
+                        sample.append("id=").append(node.viewId()).append(" | ");
+                    } else if (!node.contentDescription().isBlank()) {
+                        sample.append("desc=").append(node.contentDescription()).append(" | ");
                     }
                 }
                 Log.i(TAG, "verify " + subgoal.id() + " -> " + verification.satisfied()

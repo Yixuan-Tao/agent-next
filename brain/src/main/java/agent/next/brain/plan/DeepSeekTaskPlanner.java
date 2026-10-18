@@ -44,7 +44,7 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
             }
             return PlanningResult.clarify(question);
         }
-        requireKeys(root, Set.of("task", "subgoals", "assumptions"));
+        requireKeys(root, Set.of("task", "subgoals"));
         Map<String, Object> task = map(root.get("task"), "task");
         requireKeys(task, Set.of("successCriteria"));
         List<String> criteria = strings(task.get("successCriteria"), "successCriteria", 1, 8);
