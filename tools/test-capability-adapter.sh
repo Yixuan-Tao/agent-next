@@ -27,6 +27,7 @@ find "$ADAPTER_ROOT/device-api/src/main/java" -name '*.java' -print \
 
 ADAPTER_MAIN="$ADAPTER_BUILD/adapter-sources.list"
 cat > "$ADAPTER_MAIN" <<EOF
+$ADAPTER_ROOT/capability/src/main/java/agent/phone/capability/AndroidPreviewController.java
 $ADAPTER_ROOT/capability/src/main/java/agent/phone/capability/BlockingDeviceApi.java
 $ADAPTER_ROOT/capability/src/main/java/agent/phone/connection/Capabilities.java
 $ADAPTER_ROOT/capability/src/main/java/agent/phone/connection/ConnectionDriver.java
@@ -39,9 +40,9 @@ $ADAPTER_ROOT/capability/src/main/java/agent/phone/connection/TargetObservation.
 $ADAPTER_ROOT/capability/src/main/java/agent/phone/connection/TargetSession.java
 EOF
 "$ADAPTER_JAVAC" --release 8 -encoding UTF-8 -Xlint:all,-options -Werror \
-  -cp "$ADAPTER_BUILD/device-api" -d "$ADAPTER_BUILD/adapter" @"$ADAPTER_MAIN"
+  -cp "$ADAPTER_BUILD/device-api:$ADAPTER_ROOT/tools/service-tests/stubs" -d "$ADAPTER_BUILD/adapter" @"$ADAPTER_MAIN"
 
-ADAPTER_CP="$ADAPTER_BUILD/device-api:$ADAPTER_BUILD/device-api-tests:$ADAPTER_BUILD/adapter"
+ADAPTER_CP="$ADAPTER_BUILD/device-api:$ADAPTER_BUILD/device-api-tests:$ADAPTER_BUILD/adapter:$ADAPTER_ROOT/tools/service-tests/stubs"
 "$ADAPTER_JAVAC" --release 8 -encoding UTF-8 -Xlint:all,-options -Werror \
   -cp "$ADAPTER_CP" -d "$ADAPTER_BUILD/tests" \
   "$ADAPTER_ROOT/capability/src/test/java/agent/phone/connection/FakeConnectionDriver.java" \

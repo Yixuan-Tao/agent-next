@@ -38,6 +38,14 @@ public interface ConnectionDriver extends AutoCloseable {
 
     void moveTargetToDisplay(int displayId, java.util.function.Consumer<Boolean> callback);
 
+    boolean startPreviewMirror(android.view.Surface surface);
+
+    void stopPreviewMirror();
+
+    boolean userTap(int x, int y);
+
+    boolean userSwipe(int x1, int y1, int x2, int y2, int durationMs);
+
     void disconnect();
 
     @Override

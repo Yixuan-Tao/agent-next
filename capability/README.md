@@ -22,7 +22,8 @@ api.close();
 - `Observation.activityName` 目前为空：capability 的 observation 还没有当前 Activity 字段；`TargetInfo.activityName` 是启动 Activity。
 - `InputReceipt.VERIFIED` 表示服务端文本回执/回读路径被接受；adapter 不额外再读字段。
 - `TargetInfo.foreground` 目前恒为 `true`；`Frame.capturedAt` 是 adapter 接收时间，序列/尺寸来自服务端证据。
-- preview mirror 和用户触摸注入（`userTap`/`userSwipe`）仍由 app 层直接用 `ShizukuConnection`，`DeviceApi` 端口暂不接收 Android `Surface`。
+- preview mirror 和用户触摸注入通过 capability-only `AndroidPreviewController` 暴露（`BlockingDeviceApi` 实现）；`device-api` 仍不接收 Android `Surface`。
+- host adapter 已覆盖 start/stop preview 和 userTap/userSwipe 参数；真实 Surface 视频、触摸接管仍待真机。
 
 ## host 契约
 
@@ -44,4 +45,4 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 - user-service version/tag/process 为 `13` / `agent.next.connection.v13` / `agent_next_shell`。
 - `ShellService(Context)` 用 Context 的 package 解析 owner app UID；无参构造回退到 `agent.next.app`。
 
-真机 input/task move 尚未通过 adapter 验证。
+真机 input/task move 已通过 adapter 深 smoke；preview surface/touch takeover 仍需真机验收。

@@ -79,9 +79,29 @@ public final class ShizukuConnectionDriver implements ConnectionDriver {
         connection.back();
     }
 
-    @Override
+
     public void moveTargetToDisplay(int displayId, java.util.function.Consumer<Boolean> callback) {
         connection.moveTargetToDisplay(displayId, callback);
+    }
+
+
+    public boolean startPreviewMirror(android.view.Surface surface) {
+        return connection.startPreviewMirror(surface);
+    }
+
+
+    public void stopPreviewMirror() {
+        connection.stopPreviewMirror();
+    }
+
+
+    public boolean userTap(int x, int y) {
+        return connection.userTap(x, y);
+    }
+
+
+    public boolean userSwipe(int x1, int y1, int x2, int y2, int durationMs) {
+        return connection.userSwipe(x1, y1, x2, y2, durationMs);
     }
 
     @Override

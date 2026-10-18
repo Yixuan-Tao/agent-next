@@ -26,6 +26,7 @@ import agent.next.device.TargetInfo;
 import agent.next.device.TargetSpec;
 import agent.next.device.TaskController;
 import agent.next.device.UiNode;
+import android.view.Surface;
 import agent.phone.connection.Capabilities;
 import agent.phone.connection.ConnectionDriver;
 import agent.phone.connection.ConnectionDriverFactory;
@@ -52,7 +53,7 @@ import java.util.function.Predicate;
  * <p>The coordinator's own deadline is 10 seconds; the default here is 15
  * seconds so cleanup/error states have a chance to surface first.</p>
  */
-public final class BlockingDeviceApi implements DeviceApi, ConnectionDriver.Listener {
+public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewController, ConnectionDriver.Listener {
 
     private static final long DEFAULT_TIMEOUT_MS = 15_000L;
     private static final String DISPLAY_NAME = "agent-phone";
@@ -594,6 +595,44 @@ public final class BlockingDeviceApi implements DeviceApi, ConnectionDriver.List
             throw new DeviceException(DeviceException.Code.UNAVAILABLE, "device is not connected");
         }
         return current;
+    }
+
+    @Override
+    public void startPreview(DisplayHandle display, Surface surface) throws DeviceException {
+        activeDisplay(display);
+        requireReady();
+        if (surface == null || !surface.isValid()) {
+            throw rejected("preview surface is invalid");
+        }
+        if (!driver.startPreviewMirror(surface)) {
+            throw rejected("preview mirror was rejected");
+        }
+    }
+
+    @Override
+    public void stopPreview(DisplayHandle display) throws DeviceException {
+        activeDisplay(display);
+        driver.stopPreviewMirror();
+    }
+
+    @Override
+    public void userTap(TargetHandle target, int x, int y) throws DeviceException {
+        targetFor(target);
+        requireReady();
+        if (x < 0 || y < 0 || !driver.userTap(x, y)) {
+            throw rejected("user tap was rejected");
+        }
+    }
+
+    @Override
+    public void userSwipe(TargetHandle target, int startX, int startY, int endX, int endY,
+            int durationMs) throws DeviceException {
+        targetFor(target);
+        requireReady();
+        if (startX < 0 || startY < 0 || endX < 0 || endY < 0
+                || durationMs <= 0 || !driver.userSwipe(startX, startY, endX, endY, durationMs)) {
+            throw rejected("user swipe was rejected");
+        }
     }
 
     private ConnectionState requireReady() throws DeviceException {

@@ -18,6 +18,10 @@ public final class FakeConnectionDriver implements ConnectionDriver {
     private FrameEvidence.Capture frame;
     private long observationSequence;
     private long frameSequence;
+    private boolean previewStarted;
+    private int lastTapX = -1;
+    private int lastTapY = -1;
+    private int lastSwipeDuration = -1;
 
     public void attach(Listener listener) {
         this.listener = listener;
@@ -133,6 +137,49 @@ public final class FakeConnectionDriver implements ConnectionDriver {
         emit(ConnectionState.Status.CONNECTED, ConnectionState.Reason.AVAILABLE,
                 ConnectionState.DisplayOperation.NONE, ConnectionState.TargetOperation.NONE);
         callback.accept(Boolean.TRUE);
+    }
+
+    @Override
+    public boolean startPreviewMirror(android.view.Surface surface) {
+        if (surface == null || !surface.isValid()) {
+            return false;
+        }
+        previewStarted = true;
+        return true;
+    }
+
+    @Override
+    public void stopPreviewMirror() {
+        previewStarted = false;
+    }
+
+    @Override
+    public boolean userTap(int x, int y) {
+        lastTapX = x;
+        lastTapY = y;
+        return true;
+    }
+
+    @Override
+    public boolean userSwipe(int x1, int y1, int x2, int y2, int durationMs) {
+        lastSwipeDuration = durationMs;
+        return true;
+    }
+
+    public boolean previewStarted() {
+        return previewStarted;
+    }
+
+    public int lastTapX() {
+        return lastTapX;
+    }
+
+    public int lastTapY() {
+        return lastTapY;
+    }
+
+    public int lastSwipeDuration() {
+        return lastSwipeDuration;
     }
 
     @Override

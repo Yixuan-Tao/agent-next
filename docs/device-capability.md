@@ -46,6 +46,7 @@
 - `FrameSafetyPolicy`：owned/unrooted 窗口例外、焦点/层变化、黑帧/尺寸拒绝。
 - `AndroidInputDispatcher`：定向 tap/swipe/key；不借用全局输入法/剪贴板。
 - `PreviewMirror`：shellContext + DisplayManager(Context) + `com.android.shell` + `setDisplayIdToMirror` + **仅 AUTO_MIRROR**；SurfaceView/TextureView 由 app 提供。
+- `AndroidPreviewController`：capability-only 端口，`BlockingDeviceApi` 暴露 start/stop mirror 与 userTap/userSwipe；`device-api` 不引入 Android Surface。
 - `TargetTaskMover`：隐藏 `ActivityTaskManager` root task move；只允许 display 0 或当前私有 display。
 - `ServicePolicy`/`PrimaryTaskPolicy`：单任务/主屏争用/失败清理。
 
@@ -64,7 +65,7 @@ GRADLE_USER_HOME=<cache> QUAL_JAVA_HOME=<jdk21> sh tools/test-shizuku-adapter.sh
 - Shizuku 13.1.5 adapter PASS；
 - 纯 JVM `device-api` 首版已定义（`FakeDeviceApi` 契约 PASS）；
 - capability adapter（`BlockingDeviceApi` + `ShizukuConnectionDriver`）host 契约 PASS；
-- adapter 真机 smoke PASS（`agent.next.app` → Shizuku → private display → 京东 observe/frame/tap/setText/search/task-move/release）；主屏 agent 输入被拒绝；瞬时窗口变化映射为 `WINDOW_CHANGED`，可重试 observe；详见 [device-adapter-smoke-2026-10-19.md](device-adapter-smoke-2026-10-19.md)；
+ - adapter 真机 smoke PASS（`agent.next.app` → Shizuku → private display → 京东 observe/frame/tap/setText/search/task-move/release）；主屏 agent 输入被拒绝；瞬时窗口变化映射为 `WINDOW_CHANGED`，可重试 observe；详见 [device-adapter-smoke-2026-10-19.md](device-adapter-smoke-2026-10-19.md)；
 - 设备首轮回归（2026-10-19，Redmi Pad Pro / API 36）：testkit shell 诊断的 display/observe/frame/input/touch/task-move/frame-memory PASS；真实 mirror/touch takeover 与 1200s 并发未覆盖。详见 [device-regression-2026-10-19.md](device-regression-2026-10-19.md)。
 
 ## 不在 capability 内

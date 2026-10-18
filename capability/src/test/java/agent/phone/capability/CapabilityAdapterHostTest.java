@@ -13,6 +13,7 @@ import agent.next.device.Point;
 import agent.next.device.TargetHandle;
 import agent.next.device.TargetSpec;
 import agent.next.device.UiNode;
+import android.view.Surface;
 import agent.phone.connection.FakeConnectionDriver;
 
 /** Host contract run for the synchronous capability adapter. */
@@ -43,6 +44,7 @@ public final class CapabilityAdapterHostTest {
         }
         api.close();
         mainScreenInputRejected();
+        previewAndUserTouch();
         System.out.println("CapabilityAdapterHostTest: PASS (BlockingDeviceApi on FakeConnectionDriver)");
     }
 
@@ -77,6 +79,38 @@ public final class CapabilityAdapterHostTest {
         InputReceipt tap = api.input().tap(target, restored, center(editable(restored)));
         if (tap.status() != InputStatus.INJECTED) {
             throw new AssertionError("input after returning to the private display");
+        }
+        api.targets().release(target);
+        api.displays().release(display);
+        api.close();
+    }
+
+    private static void previewAndUserTouch() throws Exception {
+        FakeConnectionDriver driver = new FakeConnectionDriver();
+        BlockingDeviceApi api = new BlockingDeviceApi(listener ->
+                {
+                    driver.attach(listener);
+                    return driver;
+                }, 2_000L);
+        api.connect();
+        DisplayHandle display = api.displays().create(DisplaySpec.standard());
+        TargetHandle target = api.targets().open(display,
+                TargetSpec.single("task-preview", "com.example.shop"));
+        api.startPreview(display, new Surface());
+        if (!driver.previewStarted()) {
+            throw new AssertionError("preview must be started");
+        }
+        api.userTap(target, 123, 456);
+        if (driver.lastTapX() != 123 || driver.lastTapY() != 456) {
+            throw new AssertionError("user tap coordinates");
+        }
+        api.userSwipe(target, 10, 20, 30, 40, 500);
+        if (driver.lastSwipeDuration() != 500) {
+            throw new AssertionError("user swipe duration");
+        }
+        api.stopPreview(display);
+        if (driver.previewStarted()) {
+            throw new AssertionError("preview must be stopped");
         }
         api.targets().release(target);
         api.displays().release(display);
