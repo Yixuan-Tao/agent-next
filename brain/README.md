@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、host 场景测试和真机京东搜索 smoke；模型调用、技能库、完整动态重规划尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层、host 场景测试和真机京东搜索 smoke；模型调用、prompt 执行器、社区 registry、完整动态重规划尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -9,7 +9,10 @@
 | `AutonomyLevel` / `ActionKind` / `AutonomyGrant` / `AutonomyPolicy` | A0–A4 自主级别与动作许可；A4 在 v1 由 `TaskSpec` 拒绝 |
 | `TaskSpec` / `Budget` / `SuccessCriterion` | 目标、约束、成功标准、允许 App、预算 |
 | `Subgoal` / `Condition` / `Fallback` / `TaskGraph` | 可修改的任务图：依赖、就绪、完成、失败、跳过、替换、删除 |
-| `Skill` / `SkillStep` | 带前置/后置条件、回退、风险和成本的语义技能 |
+| `Skill` / `SkillStep` | 带前置/后置条件、回退、风险和成本的语义技能（旧声明式模型） |
+| `skill.SkillPackage` / `SkillBody` | 可安装 skill：contract、workflow/prompt/hybrid、permissions、applicability、verifier、trust、provenance |
+| `skill.SkillWorkflowPolicy` | 把语义 workflow 映射成 LoopAction，经 FastLoop RiskGate 执行；不接触 DeviceApi/坐标 |
+| `skill.SkillRegistry` / `SkillValidator` / `SkillCandidate` | 信任分级与准入；社区/自生成必须验证，支持撤销 |
 | `Effect` / `StateFingerprint` / `EffectEvaluator` | 动作前后状态比较：Changed/NoChange/Loading/Error/Navigated |
 | `RiskClass` / `ActionDescriptor` / `RiskDecision` / `DefaultRiskGate` | 风险分类与 Allow/Confirm/Handoff/Deny |
 | `ConfirmationRequest` / `ConfirmationToken` | 承诺确认；token 绑定 payload hash，内容变化即失效 |
@@ -36,7 +39,7 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`。
-- 11 个 host suite 中的 `LoopTest`/`SlowLoopTest` 覆盖成功、无效果升级、预算、凭据 handoff、承诺确认、replace/ask/stop/continue 与 runner 重规划。
+- 12 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest` 覆盖快慢循环、预算、重规划、workflow skill、verifier、permissions 与 registry 准入。
 
 ## Slow loop
 
@@ -50,6 +53,16 @@ observe → policy.complete? → policy.next → risk gate
 - `Stop`：返回停止/失败。
 
 `LoopRunner` 负责 attempt 循环：FastLoop → 若 `SLOW_LOOP` 则 SlowLoop → REPLANNED/CONTINUE 再跑，记录 `attempts`/`replans`/`totalActions`。动作/时长预算跨 attempt 汇总（用剩余预算派生每次 FastLoop 的 TaskSpec）。
+
+## Skill layer
+
+Skill 是**可选加速层**；没有匹配 skill 时，FastLoop/通用规划仍能工作。
+
+- `SkillPackage`：contract、workflow/prompt/hybrid body、permissions、applicability、verifier、trust、provenance。
+- `SkillWorkflowPolicy`：把语义 `Tap`/`SetText`/`Back` 映射成 `LoopAction`，交给 FastLoop 的 `RiskGate`；不拿到 `DeviceApi`/`Point`。
+- `SkillSelector`：封闭的语义选择器集合（viewId/text/clickable/editable），**没有坐标**。
+- `SkillRegistry`：`OFFICIAL`/`VERIFIED` 可直接安装；`COMMUNITY`/`SELF_GENERATED` 必须通过 `SkillValidator`。`SkillCandidate` 只能 propose，不能自行上线；支持撤销。
+- `prompt` body 由未来的模型策略加载；确定性 `SkillWorkflowPolicy` 明确拒绝 prompt，避免绕过模型/验证。
 
 ## device-api 边界
 
@@ -74,8 +87,8 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ## 明确不包含
 
 - 任意 DAG 重排、多技能组合、条件 verifier；当前只有 replace / insertBefore / removeAndRewire；
-- 模型调用、prompt、技能库、OCR/视觉策略；
-- 更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
+- 模型调用、prompt 执行器、社区 registry 的签名/扫描实现；当前只有准入接口与内存 registry；
+- OCR/视觉策略与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。
 

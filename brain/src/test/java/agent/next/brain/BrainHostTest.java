@@ -2,6 +2,7 @@ package agent.next.brain;
 
 import agent.next.brain.loop.LoopTest;
 import agent.next.brain.loop.SlowLoopTest;
+import agent.next.brain.skill.SkillFeatureTest;
 
 /** Entry point for the dependency-free brain host tests. */
 public final class BrainHostTest {
@@ -21,6 +22,7 @@ public final class BrainHostTest {
         SkillTest.run();
         LoopTest.run();
         SlowLoopTest.run();
-        System.out.println("BrainHostTest: PASS (11 suites)");
+        SkillFeatureTest.run();
+        System.out.println("BrainHostTest: PASS (12 suites)");
     }
 }

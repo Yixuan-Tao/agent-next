@@ -16,6 +16,7 @@
 | D6 | 接管方式 | **预览触摸为主**；主屏接管为显式 fallback |
 | D7 | 文字/IME | 优先 target-bound `setText`；不做自有 IME；IME 场景走主屏接管 |
 | D8 | testkit 发布 | 内部保留，不随产品发布 |
+| D9 | Skill 层 | **可选加速层**；无坐标/原始设备权限；社区/自生成需验证与信任门 |
 
 ## D1 默认自主级别：A3
 
@@ -184,6 +185,34 @@
 - 这些工具是回归资产，也是攻击面和维护负担；不应进入用户设备上的产品包。
 - 旧仓库的测试脚本只作参考，新仓库只保留必要部分。
 
+## D9 Skill 层：可选、无坐标、受治理
+
+**决策**
+
+- Skill 是**可选加速/可靠性层**，不是主控制流。没有匹配 skill 时，FastLoop/通用规划必须仍能工作。
+- Skill body 允许 `workflow`、`prompt`、`hybrid`；确定性 `SkillWorkflowPolicy` 只执行 workflow/hybrid 的语义操作，prompt 由未来的模型策略加载。
+- Skill 工件和 skill-facing API **不得包含坐标、`Point`、原始 `DeviceApi`、shell/输入注入**。只允许语义选择器和语义操作；坐标只能存在于受信任的 device strategy。
+- Skill 动作必须经过 FastLoop 的 `RiskGate`/`HumanGateway`；skill 自己声明的风险不可信，不能绕过承诺/凭据/接管边界。
+- `COMMUNITY`/`SELF_GENERATED` skill 必须经过验证（静态检查、回放/矩阵、行为验证）和信任门才能安装；不得自动上线。需记录版本、来源、digest、验证报告，支持撤销/回滚。
+- 自进化只能产生 candidate，不能自行批准；高风险 skill 需要人审。
+
+**理由**
+
+- 通用 agent 的长尾 App 不可能全靠手写流程；skill 能沉淀重复经验，但固定脚本会退化成 RPA。
+- 社区/自生成 skill 是不可信第三方代码；公开 skill 生态已出现 prompt injection、凭据窃取和供应链攻击。
+- 坐标是设备/分辨率绑定的；把它留在受信任适配层，skill 才可能跨设备复用。
+
+**实现约束**
+
+- `SkillPackage` 只含 contract、body、permissions、applicability、verifier、trust、provenance。
+- `SkillWorkflowPolicy` 把语义操作映射成 `LoopAction`，不直接调用 `DeviceApi`。
+- `SkillRegistry` 对不受信来源强制 validation；撤销后不得再被检索/执行。
+- Prompt skill 不得由确定性执行器直接跑；模型策略仍需经过 action space 的坐标禁令和 RiskGate。
+
+**复审触发**
+
+- 社区 skill 验证成本过高或误报率不可接受；或 skill 生态出现新的供应链攻击模式。
+
 ## 决策依赖
 
 - D1 依赖 D2/D3 的承诺边界：A3 只对“已确认的承诺动作”执行，凭据仍全部人工。
@@ -194,7 +223,7 @@
 ## 后续执行项（非决策）
 
 1. 在旧仓库打归档 tag，确认只读。
-2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、11 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke 已完成；下一步模型决策、技能库与更多场景。
+2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、12 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke、可选 `SkillPackage`/`SkillWorkflowPolicy`/`SkillRegistry` 已完成；下一步 prompt/模型策略、社区 registry 与更多场景。
 3. 定义确认卡/接管 UI 的最小字段与审计事件。
 4. 落实记忆加密、保留期任务与清除级联。
 5. 在 Chain A/B 验收中记录确认次数、接管次数、误提交/错发为 0。

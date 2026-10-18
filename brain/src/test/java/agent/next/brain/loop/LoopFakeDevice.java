@@ -30,7 +30,10 @@ import java.util.EnumSet;
 import java.util.List;
 
 /** Tiny scripted device for the fast-loop host tests. */
-final class LoopFakeDevice implements DeviceApi {
+public final class LoopFakeDevice implements DeviceApi {
+
+    public LoopFakeDevice() {
+    }
 
     private boolean closed;
     private boolean results;
