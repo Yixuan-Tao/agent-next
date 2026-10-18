@@ -98,3 +98,19 @@ viewId: 顶层容器若干，无“加入购物车/规格/XL”可点击节点
 - host test：风险信号 → `NEED_USER actions=0`。
 
 在拿到可靠的 JD 详情页坐标/domain 路径且账户不触发风控前，Chain B 不应继续自动点击。
+
+## JD cart-tab probe（失败）
+
+尝试用 scoped 底栏坐标打开购物车：
+
+```text
+JD home tab selected
+verify s1 -> false ...
+FAILED · observe failed: UNAVAILABLE
+```
+
+- home tab 后 JD 页面进入不可观察/不可用状态；
+- 没有到购物车，没有结算；
+- 说明 JD 在当前账户/风控下连“打开购物车”都不稳定，继续盲试没有价值。
+
+结论：Chain B 的剩余部分需要**人工接管/主屏 handoff**，或换一个未被风控的 JD 账户/设备；在风控解除前不应继续自动点击。
