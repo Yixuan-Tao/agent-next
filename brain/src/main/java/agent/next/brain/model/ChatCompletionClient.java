@@ -17,16 +17,33 @@ public final class ChatCompletionClient {
     private static final int MAX_CONTENT_CHARS = 1_048_576;
     private static final int MAX_IMAGE_BYTES = 4_194_304;
 
+    @FunctionalInterface
+    public interface Sleeper {
+        void sleep(long millis) throws InterruptedException;
+    }
+
     private final ModelConfig config;
     private final ChatCompletionTransport transport;
+    private final Sleeper sleeper;
+    private final int maxRetries;
 
     public ChatCompletionClient(ModelConfig config) {
         this(config, new HttpChatCompletionTransport());
     }
 
     public ChatCompletionClient(ModelConfig config, ChatCompletionTransport transport) {
+        this(config, transport, millis -> Thread.sleep(millis), 2);
+    }
+
+    public ChatCompletionClient(ModelConfig config, ChatCompletionTransport transport,
+            Sleeper sleeper, int maxRetries) {
         this.config = Objects.requireNonNull(config, "config");
         this.transport = Objects.requireNonNull(transport, "transport");
+        this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
+        if (maxRetries < 0 || maxRetries > 3) {
+            throw new IllegalArgumentException("maxRetries must be 0..3");
+        }
+        this.maxRetries = maxRetries;
     }
 
     public String complete(String prompt, int maxTokens) throws IOException {
@@ -61,7 +78,7 @@ public final class ChatCompletionClient {
                 + ",\"max_tokens\":" + maxTokens
                 + ",\"messages\":" + messages
                 + "}";
-        String raw = transport.post(config.endpoint(), "Bearer " + config.apiKey(), body);
+        String raw = postWithRetry(body);
         if (raw == null || raw.length() > MAX_CONTENT_CHARS) {
             throw new IOException("invalid model response size");
         }
@@ -86,6 +103,30 @@ public final class ChatCompletionClient {
             throw new IOException("model response has no content");
         }
         return content;
+    }
+
+    private String postWithRetry(String body) throws IOException {
+        IOException last = null;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                return transport.post(config.endpoint(), "Bearer " + config.apiKey(), body);
+            } catch (ModelHttpException failure) {
+                last = failure;
+                if (!failure.retryable() || attempt == maxRetries) {
+                    throw failure;
+                }
+                long wait = failure.retryAfterMillis() > 0
+                        ? Math.min(5000, failure.retryAfterMillis())
+                        : Math.min(4000, 500L << attempt);
+                try {
+                    sleeper.sleep(wait);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("model retry interrupted", interrupted);
+                }
+            }
+        }
+        throw last == null ? new IOException("model call failed") : last;
     }
 
     private static void validatePrompt(String prompt) {

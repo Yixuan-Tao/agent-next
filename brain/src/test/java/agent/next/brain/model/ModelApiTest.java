@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Tests for the copied chat-completions API and semantic JSON parser. */
@@ -33,6 +36,7 @@ public final class ModelApiTest {
         clientParsesCompletion();
         clientParsesImageCompletion();
         clientRejectsNonStop();
+        clientRetries429();
         skillModelParsesSemanticStep();
         skillModelUsesFrame();
         skillModelRejectsCoordinates();
@@ -85,6 +89,28 @@ public final class ModelApiTest {
             check(request.get().contains("\"content\":\"hello\""), "prompt encoded");
         } catch (IOException failure) {
             throw new AssertionError("completion test I/O", failure);
+        }
+    }
+
+    private static void clientRetries429() {
+        AtomicInteger calls = new AtomicInteger();
+        List<Long> sleeps = new ArrayList<>();
+        ChatCompletionTransport transport = (url, auth, body) -> {
+            if (calls.incrementAndGet() == 1) {
+                throw new ModelHttpException(429, 100);
+            }
+            return completion("{\"ok\":true}");
+        };
+        ModelConfig config = new ModelConfig("https://example.test", "deepseek-flash",
+                "test-key");
+        try {
+            String content = new ChatCompletionClient(config, transport,
+                    sleeps::add, 2).complete("hello", 128);
+            check(content.equals("{\"ok\":true}"), "retry returns content");
+            check(calls.get() == 2, "one retry after 429");
+            check(sleeps.size() == 1 && sleeps.get(0) == 100L, "retry-after honored");
+        } catch (IOException failure) {
+            throw new AssertionError("retry test I/O", failure);
         }
     }
 

@@ -32,7 +32,15 @@ public final class HttpChatCompletionTransport implements ChatCompletionTranspor
             }
             int code = connection.getResponseCode();
             if (code != 200) {
-                throw new IOException("model service HTTP " + code);
+                long retryAfter = 0;
+                String header = connection.getHeaderField("Retry-After");
+                if (header != null) {
+                    try {
+                        retryAfter = Long.parseLong(header.trim()) * 1000L;
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+                throw new ModelHttpException(code, retryAfter);
             }
             try (InputStream input = connection.getInputStream()) {
                 return readLimited(input);
