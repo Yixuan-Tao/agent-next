@@ -15,19 +15,26 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import agent.next.device.DeviceCapabilities;
+import agent.next.device.DeviceException;
 import agent.next.device.DisplayHandle;
 import agent.next.device.DisplaySpec;
 import agent.next.device.Frame;
+import agent.next.device.InputReceipt;
+import agent.next.device.InputStatus;
 import agent.next.device.NodeFlag;
 import agent.next.device.Observation;
 import agent.next.device.ObservationOptions;
 import agent.next.device.ObservationStatus;
+import agent.next.device.Point;
 import agent.next.device.TargetHandle;
+import agent.next.device.TargetInfo;
 import agent.next.device.TargetSpec;
 import agent.next.device.UiNode;
 import agent.phone.capability.BlockingDeviceApi;
 import agent.phone.connection.ShizukuConnectionDriver;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -141,32 +148,85 @@ public final class ShellActivity extends Activity {
                     TargetSpec.single("smoke-task", TARGET_PACKAGE));
             append("target: " + target.token() + " package=" + target.packageName());
 
-            Observation observation = api.observations().observe(
-                    target, ObservationOptions.defaults());
-            append("observe: " + observation.status()
-                    + " nodes=" + observation.nodes().size()
-                    + " window=" + observation.windowId()
-                    + " activity='" + observation.activityName() + "'");
-            if (observation.status() == ObservationStatus.READY) {
-                int editable = 0;
-                int clickable = 0;
-                for (UiNode node : observation.nodes()) {
-                    if (node.hasFlag(NodeFlag.EDITABLE)) {
-                        editable++;
-                    }
-                    if (node.hasFlag(NodeFlag.CLICKABLE)) {
-                        clickable++;
-                    }
+            Observation home = observeReady(api, target, "home");
+            int editable = 0;
+            int clickable = 0;
+            for (UiNode node : home.nodes()) {
+                if (node.hasFlag(NodeFlag.EDITABLE)) {
+                    editable++;
                 }
-                append("editable=" + editable + " clickable=" + clickable);
-
-                Frame frame = api.observations().captureFrame(target);
-                append("frame: " + frame.width() + "x" + frame.height()
-                        + " png=" + frame.png().length + " sequence=" + frame.sequence());
-                append("SMOKE PASS");
-            } else {
-                append("SMOKE FAIL: observation status " + observation.status());
+                if (node.hasFlag(NodeFlag.CLICKABLE)) {
+                    clickable++;
+                }
             }
+            append("editable=" + editable + " clickable=" + clickable);
+
+            Frame frame = api.observations().captureFrame(target);
+            append("frame: " + frame.width() + "x" + frame.height()
+                    + " png=" + frame.png().length + " sequence=" + frame.sequence());
+            saveFrame(frame);
+
+            UiNode searchEntry = findSearchEntry(home);
+            Point searchPoint;
+            if (searchEntry == null) {
+                // JD 16.1 renders the home search bar without accessibility text
+                // or a clickable node; this shell is a fixed smoke probe.
+                searchPoint = new Point(360, 180);
+                append("search entry not in tree; using fixed JD coordinate " + searchPoint);
+            } else {
+                searchPoint = center(searchEntry);
+                append("search entry node=" + searchEntry.index());
+            }
+            InputReceipt entryTap = api.input().tap(target, home, searchPoint);
+            append("tap search entry: " + entryTap.status());
+            Thread.sleep(1_500L);
+
+            Observation search = observeReady(api, target, "search");
+            UiNode field = findEditable(search);
+            if (field == null) {
+                throw new IllegalStateException("search field is not editable");
+            }
+            String text = "短袖T恤 男款 XL";
+            InputReceipt input = api.input().setText(target, search, field.ref(), text);
+            append("setText: " + input.status() + " verified=" + input.verified());
+            if (input.status() != InputStatus.VERIFIED) {
+                throw new IllegalStateException("setText was not verified");
+            }
+            Thread.sleep(800L);
+
+            Observation typed = observeReady(api, target, "typed");
+            UiNode typedField = findEditable(typed);
+            append("field text='" + (typedField == null ? "<missing>" : typedField.text()) + "'");
+
+            UiNode searchButton = findSearchButton(typed);
+            if (searchButton == null) {
+                throw new IllegalStateException("search button not found");
+            }
+            InputReceipt submit = api.input().tap(target, typed, center(searchButton));
+            append("tap search: " + submit.status());
+            Thread.sleep(2_000L);
+
+            Observation results = observeReady(api, target, "results");
+            append("results nodes=" + results.nodes().size());
+
+            TargetInfo main = api.tasks().moveToMain(target);
+            append("moveToMain display=" + main.displayId());
+            try {
+                api.input().tap(target, results, new Point(10, 10));
+                throw new IllegalStateException("main-screen agent input was not rejected");
+            } catch (DeviceException expected) {
+                append("main-screen input rejected: " + expected.code());
+                if (expected.code() != DeviceException.Code.REJECTED) {
+                    throw expected;
+                }
+            }
+
+            TargetInfo back = api.tasks().moveToPrivate(target, display);
+            append("moveToPrivate display=" + back.displayId());
+            Thread.sleep(1_200L);
+            Observation restored = observeReady(api, target, "restored");
+            append("restored nodes=" + restored.nodes().size());
+            append("SMOKE PASS");
         } catch (Throwable failure) {
             Log.e(TAG, "smoke failed", failure);
             append("SMOKE FAIL: " + failure);
@@ -192,6 +252,90 @@ public final class ShellActivity extends Activity {
             }
             running = false;
             append("--- smoke end ---");
+        }
+    }
+
+    private Observation observeReady(BlockingDeviceApi api, TargetHandle target, String label)
+            throws Exception {
+        Observation last = null;
+        for (int attempt = 1; attempt <= 6; attempt++) {
+            last = api.observations().observe(target, ObservationOptions.defaults());
+            append(label + ": " + last.status() + " nodes=" + last.nodes().size()
+                    + " window=" + last.windowId());
+            if (last.status() == ObservationStatus.READY) {
+                return last;
+            }
+            Thread.sleep(500L);
+        }
+        throw new IllegalStateException(label + " did not become READY: "
+                + (last == null ? "no observation" : last.status()));
+    }
+
+    private static UiNode findSearchEntry(Observation observation) {
+        for (UiNode node : observation.nodes()) {
+            if (node.hasFlag(NodeFlag.CLICKABLE) && containsSearch(node)) {
+                return node;
+            }
+        }
+        for (UiNode node : observation.nodes()) {
+            if (containsSearch(node)) {
+                return node;
+            }
+        }
+        // JD 16.1 draws the search bar as a wide custom clickable view with no
+        // accessibility text. Keep this heuristic scoped to the top area.
+        for (UiNode node : observation.nodes()) {
+            if (node.hasFlag(NodeFlag.CLICKABLE)
+                    && node.bounds().top() < 400
+                    && node.bounds().width() > 300
+                    && node.bounds().height() < 200) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    private static boolean containsSearch(UiNode node) {
+        return node.contentDescription().contains("搜索")
+                || node.text().contains("搜索")
+                || node.viewId().toLowerCase().contains("search");
+    }
+
+    private static UiNode findEditable(Observation observation) {
+        for (UiNode node : observation.nodes()) {
+            if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    private static UiNode findSearchButton(Observation observation) {
+        for (UiNode node : observation.nodes()) {
+            if (node.hasFlag(NodeFlag.CLICKABLE) && "搜索".equals(node.text().trim())) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    private static Point center(UiNode node) {
+        return new Point(node.bounds().centerX(), node.bounds().centerY());
+    }
+
+    private void saveFrame(Frame frame) {
+        try {
+            File dir = getExternalFilesDir(null);
+            if (dir == null) {
+                return;
+            }
+            File file = new File(dir, "smoke-frame.png");
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(frame.png());
+            }
+            append("frame saved: " + file.getAbsolutePath());
+        } catch (Throwable failure) {
+            append("frame save failed: " + failure);
         }
     }
 

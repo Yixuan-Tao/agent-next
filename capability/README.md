@@ -34,7 +34,9 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 
 ## 真机 smoke
 
-`agent.next.app` 最小 shell 已在 Redmi Pad Pro / Android 16 上跑通：connect → create display → 启动京东 → observe（96 节点）→ frame（720×1280 PNG）→ release。详见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
+`agent.next.app` 最小 shell 已在 Redmi Pad Pro / Android 16 上跑通：connect → create display → 启动京东 → observe → frame → tap → setText → search → task move 往返 → release。搜索页字段回读 `短袖T恤 男款 XL`，结果页 55 节点，主屏 agent 输入被拒绝。详见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
+
+窗口切换后立即 observe 可能先 `WINDOW_CHANGED` 再 `ERROR/MALFORMED`；shell 用 1.5–2s 等待规避。这是接 brain loop 前需要修的观察状态问题。
 
 为支持新 app package：
 

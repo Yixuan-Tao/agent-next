@@ -1,6 +1,6 @@
 # capability adapter 真机 smoke（2026-10-19）
 
-状态：**PASS**。范围：最小 `app` shell → `BlockingDeviceApi` → `ShizukuConnectionDriver` → capability `ShellService`。这是 adapter 的真实设备端到端第一轮，不是产品 UI 或完整 loop 验收。
+状态：**PASS**（含 input/task move 深 smoke）。范围：最小 `app` shell → `BlockingDeviceApi` → `ShizukuConnectionDriver` → capability `ShellService`。这是 adapter 的真实设备端到端第一轮，不是产品 UI 或完整 loop 验收。
 
 ## 环境
 
@@ -50,6 +50,34 @@ display released
 - `InstalledAppIdentity.resolveUid(packageName)`：`ShellService(Context)` 用 Context 的 package 解析 owner app UID；无参构造回退到 `agent.next.app`。
 - `BlockingDeviceApi.connect()`：先等初始 `check` 结束（`canConnect`），再请求 Shizuku 权限；否则首次 `connect()` 会在 check 进行中被忽略，表现为卡住。
 - 最小 `app` 增加状态日志，真实设备上能看到 `DISCONNECTED → CONNECTING → CONNECTED`。
+
+## 补充：input / task move 深 smoke（同日）
+
+第一轮 smoke 只做 observe/frame。随后把 shell 扩展到输入与主屏接管：
+
+```text
+tap search entry: INJECTED
+search: READY nodes=96 window=3699
+setText: VERIFIED verified=true
+typed: READY nodes=96 window=3699
+field text='短袖T恤 男款 XL'
+tap search: INJECTED
+results: READY nodes=55 window=3700
+moveToMain display=0
+main-screen input rejected: REJECTED
+moveToPrivate display=153
+restored: READY nodes=55 window=3704
+SMOKE PASS
+```
+
+- 京东首页搜索栏在 accessibility 树里没有文本/可点击节点，shell 用固定坐标 `(360,180)` 点击；这是 smoke 探针的妥协。
+- 搜索页 editable 字段成功 `setText`，`VERIFIED`，回读 `短袖T恤 男款 XL`。
+- 点搜索后结果页 `READY`，55 个节点。
+- `moveToMain` 后 `displayId=0`，adapter 对 agent 输入返回 `REJECTED`（主屏只能由用户操作）。
+- `moveToPrivate` 后结果页仍 `READY`，55 个节点。
+- 释放后无 `agent-phone` display，主屏焦点回到 shell。
+
+已知边界：窗口切换后立刻 observe 会先返回 `WINDOW_CHANGED`，紧接着可能触发 `ERROR/MALFORMED`。深 smoke 在跳转后等待 1.5–2s 再 observe 才稳定通过；这是接 brain loop 前需要修的服务端观察状态问题。
 
 ## 未覆盖
 

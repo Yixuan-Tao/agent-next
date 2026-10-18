@@ -1,6 +1,6 @@
 # app（最小 shell，不是产品 UI）
 
-用于在真机上验证 `capability` → `device-api` 的适配链路。当前只有一个 `ShellActivity`：自动连接 Shizuku、创建 720×1280 private display、启动京东、观察、抓一帧、释放，并把状态写入日志/屏幕。
+用于在真机上验证 `capability` → `device-api` 的适配链路。当前只有一个 `ShellActivity`：自动连接 Shizuku、创建 720×1280 private display、启动京东、观察、抓帧、点搜索栏、`setText`、提交搜索、主屏 task move 往返、释放，并把状态写入日志/屏幕。
 
 ## 构建与安装
 
@@ -26,10 +26,13 @@ adb logcat -s AgentNextSmoke:I
 
 - 结果包含 `SMOKE PASS` 或 `SMOKE FAIL`。
 - 也可点页面底部“Run smoke again”。
+- 抓到的首帧写到 app 外部私有目录 `files/smoke-frame.png`，可用 `adb pull` 取出。
 
 ## 限制
 
-- 只做 connect/create/open/observe/frame/release；input/task move 还只在 host 契约里验证。
+- 京东首页搜索栏不在 accessibility 树里，当前用固定坐标 `(360,180)` 点击；这是 smoke 探针的妥协，不是新 brain 的 UI 策略。
+- 窗口切换后需要等待 1.5–2s 再 observe；立即 observe 可能先得到 `WINDOW_CHANGED`，再触发 `ERROR/MALFORMED`。这是 capability 观察状态待修的边界。
+- 主屏上的 agent 输入会被 adapter 拒绝；shell 只验证拒绝，不执行主屏动作。
 - 没有自然语言入口、确认卡、接管 UI、前台服务或快慢 loop。
 - 目标包写死为 `com.jingdong.app.mall`，仅用于 smoke。
 - `Observation.activityName` 为空；见 capability adapter 说明。
