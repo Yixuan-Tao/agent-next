@@ -410,6 +410,11 @@ public final class AgentRuntime {
                         && task.goal().contains("天气")) {
                     return new QuarkWeatherPolicy(task, subgoal);
                 }
+                if ("com.jingdong.app.mall".equals(target.packageName())
+                        && (subgoal.intent().contains("输入")
+                        || subgoal.intent().contains("提交"))) {
+                    prepareJdSearchEntry(target);
+                }
                 return promptPolicies.create(task, subgoal, target, attempt);
             };
             VerifierRegistry verifiers = new VerifierRegistry();
@@ -507,6 +512,49 @@ public final class AgentRuntime {
             Log.i(TAG, "Quark search entry opened");
         } catch (Throwable failure) {
             Log.w(TAG, "Quark entry prelude failed: " + failure);
+        }
+    }
+
+    private void prepareJdSearchEntry(TargetHandle target) {
+        try {
+            Observation observation = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            for (UiNode node : observation.nodes()) {
+                if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
+                    return;
+                }
+            }
+            UiNode entry = null;
+            for (UiNode node : observation.nodes()) {
+                if (node.hasFlag(NodeFlag.CLICKABLE) && (node.text().contains("搜索")
+                        || node.contentDescription().contains("搜索"))) {
+                    entry = node;
+                    break;
+                }
+            }
+            if (entry == null) {
+                for (UiNode node : observation.nodes()) {
+                    if (node.hasFlag(NodeFlag.CLICKABLE) && node.bounds().top() < 400
+                            && node.bounds().width() > 300 && node.bounds().height() < 200) {
+                        entry = node;
+                        break;
+                    }
+                }
+            }
+            if (entry == null) {
+                Log.i(TAG, "JD search entry not in tree; using scoped top search coordinate");
+                api.input().tap(target, observation, new Point(360, 180));
+                Thread.sleep(700L);
+                api.observations().observe(target, ObservationOptions.defaults());
+                return;
+            }
+            Point point = new Point(entry.bounds().centerX(), entry.bounds().centerY());
+            api.input().tap(target, observation, point);
+            Thread.sleep(700L);
+            api.observations().observe(target, ObservationOptions.defaults());
+            Log.i(TAG, "JD search entry opened");
+        } catch (Throwable failure) {
+            Log.w(TAG, "JD search entry prelude failed: " + failure);
         }
     }
 

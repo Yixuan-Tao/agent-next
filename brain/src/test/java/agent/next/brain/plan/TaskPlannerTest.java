@@ -23,7 +23,7 @@ public final class TaskPlannerTest {
         rejectsDisallowedApp();
         rejectsFirstTargetMismatch();
         rejectsCycle();
-        rejectsUnknownFields();
+        ignoresUnknownFields();
         System.out.println("TaskPlannerTest: PASS (plan, clarification, scope, DAG)");
     }
 
@@ -77,13 +77,13 @@ public final class TaskPlannerTest {
                 () -> plan(content), "cycle rejected");
     }
 
-    private static void rejectsUnknownFields() {
+    private static void ignoresUnknownFields() {
         String content = "{\"task\":{\"successCriteria\":[\"done\"]},"
                 + "\"subgoals\":[{\"id\":\"s1\",\"intent\":\"one\",\"dependsOn\":[],"
                 + "\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\","
                 + "\"required\":true,\"x\":1}],\"assumptions\":[]}";
-        expect(IllegalArgumentException.class,
-                () -> plan(content), "unknown fields rejected");
+        PlanningResult result = plan(content);
+        check(result.plan().subgoals().size() == 1, "unknown non-executable field is ignored");
     }
 
     private static String planWithFirstTarget(String target, String id, String dependsOn) {

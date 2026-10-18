@@ -187,9 +187,6 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
     }
 
     private static void requireKeys(Map<String, Object> value, Set<String> allowed) {
-        if (!allowed.containsAll(value.keySet())) {
-            throw new IllegalArgumentException("unexpected planner fields");
-        }
         for (String key : allowed) {
             if (!value.containsKey(key)) {
                 throw new IllegalArgumentException("missing planner field " + key);
