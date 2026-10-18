@@ -9,14 +9,16 @@
 ```text
 capability/   Android library：AIDL、Shizuku 连接、display/target、
               observation/frame、定向输入、preview mirror、主屏 task move、安全策略
+brain/        纯 JVM 领域骨架：TaskSpec/TaskGraph/Skill/Memory/Effect/RiskGate/HumanGateway
 testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
-tools/        capability 的 host 回归脚本
+tools/        capability/brain 的 host 回归脚本
 docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录
 ```
 
 尚未包含：
 
-- `brain/`：新的 TaskGraph、Skill、Memory、EffectVerifier、RiskGate、快慢 loop；
+- `brain/` 的完整实现：当前只有领域骨架和 host 测试，快慢循环、模型调用、技能库未接入；
+- `device-api`：brain 与 capability 之间的纯 JVM 边界（brain 目前不依赖 Android）；
 - `app/`：新的自然语言 UI/人工网关/前台服务；
 - 新 loop 的真实设备验收；
 - 真正的视频/文字接管 UI（capability 只提供底层能力）。
@@ -39,13 +41,15 @@ GRADLE_USER_HOME=/path/to/gradle-cache \
 QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-service.sh
 GRADLE_USER_HOME=/path/to/gradle-cache \
 QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-shizuku-adapter.sh
+QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ```
 
 已验证：
 
 - `:capability:assembleDebug` BUILD SUCCESSFUL；
 - `test-service.sh` 全部 PASS（服务/display/target/observation/frame/packet）；
-- `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）。
+- `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
+- `test-brain.sh` 全部 PASS（9 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill）。
 
 ## 新项目边界
 

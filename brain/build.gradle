@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    options.compilerArgs += ['-Xlint:all,-options', '-Werror']
+}
+
+tasks.register('hostTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the dependency-free brain host tests.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'agent.next.brain.BrainHostTest'
+    dependsOn tasks.named('testClasses')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('hostTest')
+}
