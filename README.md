@@ -56,7 +56,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
 - `test-device-api.sh` PASS（FakeDeviceApi 上的 display/target/observation/input/task-move 契约）；
 - `test-capability-adapter.sh` PASS（BlockingDeviceApi + FakeConnectionDriver 契约，含 preview/user touch 端口）；
-- 本地加密存储（AES-GCM + AndroidKeyStore）：`model-config.enc`、`episodic.enc` 已接入；设备迁移证据待补；
+- 本地加密存储（AES-GCM + AndroidKeyStore）：`model-config.enc`、`episodic.enc` 真机迁移验证 PASS；明文 config 已删除；
 - `test-brain.sh` 全部 PASS（17 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill/fast-loop/slow-loop-runner/skill-feature/model-api/task-planner/session-runner/session-bridge/session-integration）；
 - 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)；
 - capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；

@@ -1,6 +1,7 @@
 package agent.next.app.security;
 
 import android.content.Context;
+import android.util.Log;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 
@@ -10,7 +11,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.KeyStore;
-import java.security.SecureRandom;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -52,16 +52,19 @@ public final class EncryptedFileStore {
             cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, iv));
             return new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8);
         } catch (Exception failure) {
+            Log.e("AgentNextCrypto", "encrypted read failed", failure);
             throw new IOException("encrypted store read failed", failure);
         }
     }
 
     public static void write(Context context, File file, String value) throws IOException {
         try {
-            byte[] iv = new byte[IV_BYTES];
-            new SecureRandom().nextBytes(iv);
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.ENCRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, iv));
+            cipher.init(Cipher.ENCRYPT_MODE, key());
+            byte[] iv = cipher.getIV();
+            if (iv == null || iv.length != IV_BYTES) {
+                throw new IOException("invalid generated IV");
+            }
             byte[] cipherText = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
             File parent = file.getParentFile();
             if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
@@ -83,6 +86,7 @@ public final class EncryptedFileStore {
         } catch (IOException failure) {
             throw failure;
         } catch (Exception failure) {
+            Log.e("AgentNextCrypto", "encrypted write failed", failure);
             throw new IOException("encrypted store write failed", failure);
         }
     }

@@ -1,6 +1,6 @@
 # 本地加密存储（Phase 4 进行中）
 
-状态：代码已接入，**设备迁移验证待 Shizuku 连接恢复后补**。
+状态：**代码已接入并在 Android 16 平板验证迁移与读写**。
 
 ## 目标
 
@@ -33,15 +33,29 @@
 - `deleteTask(taskId)` / `clear()`；
 - 写失败不阻塞任务，当前进程内仍可读。
 
-## 待验证
+## 设备验证
 
-- 设备上首次 plan 后检查：
-  - `files/model-config.enc` 存在；
-  - `files/model-config.json` 不存在；
-  - 真实 planner 仍可用；
-  - `files/episodic.enc` 有加密内容，不能直接读出 JSON。
-- 当前测试时 Shizuku user service 反复 `System.exit`，导致 app connect 超时；这是测试环境阻塞，不是加密代码路径的结论。
-- 尚未实现 Settings/隐私页的“清除记忆/更换 key”UI。
+```text
+files/model-config.enc  185 bytes
+files/episodic.enc      805 bytes
+```
+
+- 旧 `model-config.json` 已删除；
+- 真实 planner 正常，任务 `DONE actions=1 attempts=2`；
+- `episodic.enc` 头部为 `AGNX1` magic + IV + 密文，不是明文 JSON：
+
+```text
+00000000: 4147 4e58 31b6 a806 a8a6 fb00 31b7 601e  AGNX1.......1.`.
+```
+
+实现关键点：Android Keystore 不允许调用方提供 IV
+（`Caller-provided IV not permitted`），已改为让 Keystore 生成随机 IV 并从
+`Cipher.getIV()` 写入文件；解密仍使用文件中的 IV。
+
+## 待做
+
+- Settings/隐私页的“清除记忆/更换 key”UI；
+- 任务结束后的保留/删除策略。
 
 ## 边界
 
