@@ -68,7 +68,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - Product UI/plan review smoke：真实模型四段计划、确认按钮、SessionRunner 接线 PASS；s2 加入 bounded scroll fallback 后 verifier 2/2 通过，DONE actions=1 attempts=2；详见 [docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；
 - Chain A PASS：Quark 天气结果 + 降雨信息视觉 verifier 2/2，calendar domain skill 创建“带伞”明天 09:00 提醒，DONE actions=3 attempts=6；详见 [docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；
 - Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `c3f6884b1bd09504d2c6a82f0e8dec6032f3ec0d18971467c49e0083138a9293`；隐私说明与 release notes 草案已写；
-- Model retry：408/429/5xx 有界退避（最多 2 次，Retry-After 优先）；host test PASS；
+- Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
 - Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
 - Target-loss fault：执行中关闭 JD → FAILED post-action observe failed，无 DONE/支付；
 - Network fault injection：规划中断网 → FAILED，无动作/无 DONE；详见 [docs/fault-injection-2026-10-19.md](docs/fault-injection-2026-10-19.md)；
