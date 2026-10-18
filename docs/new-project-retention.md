@@ -298,7 +298,7 @@ model API keys / model-config.json
 1. **冻结旧仓库**：记录 commit、设备/依赖版本；不再加旧 loop 功能。
 2. **复制 capability + testkit**：先跑 host 三套、合成前台 App、display/target/observation/input 设备回归。
 3. **定义 device-api**：AIDL/接口、能力清单、错误/超时/清理语义；旧实现可作为参考实现。首版纯 JVM 端口已完成（`device-api/` + `FakeDeviceApi` 契约），capability adapter host 契约与 app shell 真机 smoke（observe/frame/input/task move）已过；瞬时窗口变化已可重观察。
-4. **新 brain 骨架**：TaskSpec/TaskGraph/Skill/Memory/EffectVerifier/RiskGate/HumanGateway，先写 host 测试。领域模型 + `FastLoop`/`SlowLoop`（replace/insertBefore/remove）host 场景、跨 attempt 预算、FastLoop/LoopRunner 真机京东 smoke、workflow/prompt `SkillPackage`/`SkillWorkflowPolicy`/`PromptSkillPolicy`（模型端口）/`SkillRegistry` 已完成；旧 chat-completions 文本/单帧 PNG API 已移植且 app prompt 模式真机 PASS；视觉 verify/extract、`DeepSeekTaskPlanner`/`TaskPlan` 已完成；Subgoal 已带 targetPackage/verifierId；SessionRunner/SubgoalRunner host 已完成；app UI/human gateway 与社区 registry 待接。
+4. **新 brain 骨架**：TaskSpec/TaskGraph/Skill/Memory/EffectVerifier/RiskGate/HumanGateway，先写 host 测试。领域模型 + `FastLoop`/`SlowLoop`（replace/insertBefore/remove）host 场景、跨 attempt 预算、FastLoop/LoopRunner 真机京东 smoke、workflow/prompt `SkillPackage`/`SkillWorkflowPolicy`/`PromptSkillPolicy`（模型端口）/`SkillRegistry` 已完成；旧 chat-completions 文本/单帧 PNG API 已移植且 app prompt 模式真机 PASS；视觉 verify/extract、`DeepSeekTaskPlanner`/`TaskPlan` 已完成；Subgoal 已带 targetPackage/verifierId；SessionRunner/SubgoalRunner host 已完成，StageData 已可写入 WorkingMemory；app UI/human gateway 与社区 registry 待接。
 5. **新 UI 最小闭环**：自然语言 + 任务图确认 + 预览/接管 + 结果。当前只有用于 adapter smoke 的最小 app shell；产品 UI 未开始。
 6. **Chain A 非购物**：Quark 天气 → 日历；验证技能/记忆/重规划/verifier。
 7. **Chain B 购物**：Quark → JD 加购/购物车；人处理安全验证；支付前停。

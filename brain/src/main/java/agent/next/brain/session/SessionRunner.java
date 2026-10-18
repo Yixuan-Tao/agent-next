@@ -6,6 +6,7 @@ import agent.next.brain.HumanGateway;
 import agent.next.brain.RiskGate;
 import agent.next.brain.Subgoal;
 import agent.next.brain.TaskGraph;
+import agent.next.brain.TaskEvent;
 import agent.next.brain.TaskSpec;
 import agent.next.brain.WorkingMemory;
 import agent.next.brain.loop.LoopControl;
@@ -14,6 +15,7 @@ import agent.next.brain.loop.SlowLoop;
 import agent.next.brain.loop.SlowLoopContext;
 import agent.next.brain.loop.SlowLoopPolicy;
 import agent.next.brain.loop.SlowLoopResult;
+import agent.next.brain.model.StageData;
 import agent.next.brain.plan.TaskPlan;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceException;
@@ -21,6 +23,8 @@ import agent.next.device.ObservationOptions;
 import agent.next.device.TargetHandle;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -45,12 +49,24 @@ public final class SessionRunner {
     private final ObservationOptions observationOptions;
     private final int observationRetries;
     private final int maxAttempts;
+    private final SessionStageExtractor stageExtractor;
 
     public SessionRunner(DeviceApi api, TaskPlan plan, TargetBinder targets,
             SessionPolicyFactory policyFactory, SlowLoopPolicy slowLoopPolicy,
             VerifierRegistry verifiers, RiskGate riskGate, HumanGateway humanGateway,
             LoopControl control, WorkingMemory workingMemory, EpisodicMemory episodicMemory,
             ObservationOptions observationOptions, int observationRetries, int maxAttempts) {
+        this(api, plan, targets, policyFactory, slowLoopPolicy, verifiers, riskGate,
+                humanGateway, control, workingMemory, episodicMemory, observationOptions,
+                observationRetries, maxAttempts, null);
+    }
+
+    public SessionRunner(DeviceApi api, TaskPlan plan, TargetBinder targets,
+            SessionPolicyFactory policyFactory, SlowLoopPolicy slowLoopPolicy,
+            VerifierRegistry verifiers, RiskGate riskGate, HumanGateway humanGateway,
+            LoopControl control, WorkingMemory workingMemory, EpisodicMemory episodicMemory,
+            ObservationOptions observationOptions, int observationRetries, int maxAttempts,
+            SessionStageExtractor stageExtractor) {
         this.api = Objects.requireNonNull(api, "api");
         this.plan = Objects.requireNonNull(plan, "plan");
         this.targets = Objects.requireNonNull(targets, "targets");
@@ -68,6 +84,7 @@ public final class SessionRunner {
         }
         this.observationRetries = observationRetries;
         this.maxAttempts = maxAttempts;
+        this.stageExtractor = stageExtractor;
     }
 
     public SessionResult run() {
@@ -129,6 +146,7 @@ public final class SessionRunner {
 
                 switch (last.status()) {
                     case DONE:
+                        captureStage(task, current, last);
                         graph.complete(current.id());
                         continue;
                     case SLOW_LOOP:
@@ -179,6 +197,35 @@ public final class SessionRunner {
                     // cleanup is best-effort; the service will also clean on disconnect
                 }
             }
+        }
+    }
+
+    private void captureStage(TaskSpec task, Subgoal subgoal, LoopResult last) {
+        if (stageExtractor == null || last == null || last.lastObservation() == null) {
+            return;
+        }
+        try {
+            StageData data = stageExtractor.extract(task, subgoal, last.lastObservation());
+            if (data == null) {
+                return;
+            }
+            if (!data.summary().isEmpty()) {
+                workingMemory.put("stage." + subgoal.id() + ".summary", data.summary());
+                workingMemory.put("stage.last.summary", data.summary());
+            }
+            for (Map.Entry<String, String> entity : data.entities().entrySet()) {
+                workingMemory.put("stage." + subgoal.id() + ".entity." + entity.getKey(),
+                        entity.getValue());
+                workingMemory.put("stage.last.entity." + entity.getKey(), entity.getValue());
+            }
+            episodicMemory.append(new TaskEvent(task.id(), Instant.now(),
+                    TaskEvent.EventType.OBSERVATION, "stage extracted: " + subgoal.id(),
+                    Map.of("summaryChars", Integer.toString(data.summary().length()),
+                            "entities", Integer.toString(data.entities().size()))));
+        } catch (DeviceException | RuntimeException failure) {
+            episodicMemory.append(new TaskEvent(task.id(), Instant.now(),
+                    TaskEvent.EventType.FAILURE, "stage extraction failed: " + subgoal.id(),
+                    Map.of()));
         }
     }
 

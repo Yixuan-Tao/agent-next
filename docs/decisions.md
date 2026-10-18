@@ -243,7 +243,7 @@
 ## 后续执行项（非决策）
 
 1. 在旧仓库打归档 tag，确认只读。
-2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、15 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke、可选 `SkillPackage`/`SkillWorkflowPolicy`/`PromptSkillPolicy`（模型端口）/`SkillRegistry`、旧 chat-completions 文本/单帧 PNG API 移植、app prompt 模式真机 smoke、视觉 verify/extract 真机 smoke、TaskPlanner、SessionRunner/SubgoalRunner（多 target + verifier + slow-loop 主图）已完成；下一步密码级 app UI/human gateway、社区 registry、多帧与更多场景。
+2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、15 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke、可选 `SkillPackage`/`SkillWorkflowPolicy`/`PromptSkillPolicy`（模型端口）/`SkillRegistry`、旧 chat-completions 文本/单帧 PNG API 移植、app prompt 模式真机 smoke、视觉 verify/extract 真机 smoke、TaskPlanner、SessionRunner/SubgoalRunner（多 target + verifier + slow-loop 主图 + StageData）已完成；下一步 app UI/human gateway、社区 registry、多帧与更多场景。
 3. 定义确认卡/接管 UI 的最小字段与审计事件。
 4. 落实记忆加密、保留期任务与清除级联。
 5. 在 Chain A/B 验收中记录确认次数、接管次数、误提交/错发为 0。

@@ -16,6 +16,7 @@ import agent.next.brain.loop.LoopControl;
 import agent.next.brain.loop.LoopFakeDevice;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.brain.loop.LoopResult;
+import agent.next.brain.model.StageData;
 import agent.next.brain.loop.SlowLoopDecision;
 import agent.next.brain.plan.TaskPlan;
 import agent.next.device.DeviceException;
@@ -25,6 +26,7 @@ import agent.next.device.TargetHandle;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -53,17 +55,25 @@ public final class SessionRunnerTest {
                         new SubgoalVerifier.Verification(true, "verified " + subgoal.id()));
         SessionPolicyFactory policies = (taskSpec, subgoal, target, attempt) ->
                 (LoopPolicy) context -> Optional.empty();
+        InMemoryWorkingMemory memory = new InMemoryWorkingMemory();
         SessionRunner runner = new SessionRunner(api, plan, binder, policies,
                 context -> new SlowLoopDecision.Stop("test"), verifiers,
                 new DefaultRiskGate(), new NoHumanGateway(), LoopControl.none(),
-                new InMemoryWorkingMemory(), new InMemoryEpisodicMemory(),
-                ObservationOptions.defaults(), 3, 8);
+                memory, new InMemoryEpisodicMemory(),
+                ObservationOptions.defaults(), 3, 8,
+                (taskSpec, subgoal, observation) ->
+                        new StageData("summary " + subgoal.id(),
+                                Map.of("entity", subgoal.id())));
         SessionResult result = runner.run();
         check(result.status() == SessionResult.Status.DONE, "session done");
         check(result.attempts() == 2, "two subgoal attempts");
         check(binder.opened.equals(List.of("com.quark.browser", "com.android.calendar")),
                 "target packages switched in order");
         check(binder.released == 2, "both targets released");
+        check(memory.get("stage.weather.summary").orElse("").contains("weather"),
+                "stage summary persisted");
+        check(memory.get("stage.last.entity.entity").orElse("").contains("calendar"),
+                "last stage entity persisted");
     }
 
     private static void failsClosedWithoutVerifier() {

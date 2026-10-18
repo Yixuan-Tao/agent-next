@@ -65,7 +65,8 @@ observe → policy.complete? → policy.next → risk gate
 - `VerifierRegistry` 是显式 allowlist；未知 verifier fail closed。
 - 跨 subgoal 保留主 TaskGraph；`SLOW_LOOP` 在主图上执行 replace/insert/remove，再继续。
 - 全局 action/time 预算、attempt 上限、`LoopControl` 停止；target 在完成/失败/停止后释放。
-- StageData 传递、app 计划确认、UI 尚未接入。
+- 每个 subgoal 完成后可调用 app 注入的 `SessionStageExtractor`，把 StageData 写入 WorkingMemory（`stage.<id>.*` 和 `stage.last.*`）；失败记录事件但不阻断主流程。
+- app 计划确认、UI、真实视觉 extractor 尚未接入。
 
 ## Slow loop
 
