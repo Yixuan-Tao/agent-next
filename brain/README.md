@@ -48,7 +48,7 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`；`LoopControl` 在步骤边界暂停，停止返回 `STOPPED`。
-- 16 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest`/`SessionRunnerTest`/`SessionBridgeTest` 覆盖快慢循环、重规划、skill、视觉验证、计划、target 切换与 verifier。
+- 17 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest`/`SessionRunnerTest`/`SessionBridgeTest`/`SessionIntegrationTest` 覆盖快慢循环、重规划、skill、视觉验证、计划、target 切换与 verifier。
 
 ## Planning
 
