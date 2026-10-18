@@ -132,6 +132,9 @@ public final class BlockingDeviceApi implements DeviceApi, ConnectionDriver.List
         EnumSet<DeviceFeature> features = EnumSet.noneOf(DeviceFeature.class);
         if (capabilities.supported) {
             features = EnumSet.allOf(DeviceFeature.class);
+            if (!capabilities.previewMirror) {
+                features.remove(DeviceFeature.PREVIEW_MIRROR);
+            }
         }
         return new DeviceCapabilities(capabilities.protocol, capabilities.api,
                 capabilities.serviceUid, capabilities.appUid, capabilities.supported, features);

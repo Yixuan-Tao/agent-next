@@ -9,6 +9,7 @@ public final class ProtocolPolicy {
     public static final String KEY_APP_UID = "app_uid";
     public static final String KEY_SUPPORTED = "supported";
     public static final String KEY_SCOPE = "scope";
+    public static final String KEY_PREVIEW_MIRROR = "preview_mirror";
 
     private ProtocolPolicy() { }
 
@@ -19,7 +20,7 @@ public final class ProtocolPolicy {
     }
 
     public static boolean isSupported(int api, int serviceUid) {
-        return api == 36 && serviceUid == 2000;
+        return api >= 33 && api <= 36 && serviceUid == 2000;
     }
 
     public static boolean validateCapabilities(int protocol, int api, int serviceUid,

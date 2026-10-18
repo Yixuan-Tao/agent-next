@@ -8,6 +8,7 @@ import android.os.Process;
 import android.os.SharedMemory;
 import android.system.OsConstants;
 import android.util.Log;
+import agent.phone.capability.PreviewCapabilities;
 import agent.phone.ipc.IAgentShell;
 import agent.phone.connection.ObservationPackets;
 import agent.phone.connection.TargetPackets;
@@ -74,6 +75,8 @@ public final class ShellService extends IAgentShell.Stub {
             capabilities.putBoolean(ProtocolPolicy.KEY_SUPPORTED,
                     ProtocolPolicy.isSupported(Build.VERSION.SDK_INT, Process.myUid()));
             capabilities.putString(ProtocolPolicy.KEY_SCOPE, ProtocolPolicy.SCOPE);
+            capabilities.putBoolean(ProtocolPolicy.KEY_PREVIEW_MIRROR,
+                    PreviewCapabilities.probe().mirrorUsable());
             return capabilities;
         } finally {
             Binder.restoreCallingIdentity(identity);

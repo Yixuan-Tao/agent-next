@@ -27,7 +27,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 
 ## 构建
 
-需要 Android SDK 36、JDK 21、Gradle wrapper。`local.properties` 不提交，按本机 SDK 路径创建。
+需要 Android SDK 36、JDK 21、Gradle wrapper。Beta 基线为 Android 13（API 33）及以上；第二台 Android 13 手机待连接验收。`local.properties` 不提交，按本机 SDK 路径创建。
 
 ```sh
 JAVA_HOME=/path/to/jdk21 \
@@ -61,6 +61,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；
 - FastLoop 真机 smoke PASS：京东首页 → 搜索 → setText → 提交 → 结果页，DONE actions=4；详见 [docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；
 - LoopRunner 真机 smoke PASS：第一轮 NO_EFFECT → SlowLoop 替换 approach → 第二轮成功，DONE attempts=2 replans=1 totalActions=6；详见 [docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；
+- 兼容性准入：Android 16 平板上 `mode=compat` PASS，shell service 报告 `PREVIEW_MIRROR`；Android 13 手机待连接；详见 [docs/android-13-compat.md](docs/android-13-compat.md)；
 - Prompt Skill 真机 smoke PASS：真实 DeepSeek 模型输出 SetText/Tap/Wait 语义动作，经 RiskGate 执行，JD 结果页 verifier 通过，DONE actions=4；视觉 verify `verified=true matched=2 missing=0`，extract 30 字摘要/7 实体；详见 [docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)。
 
 ## 新项目边界

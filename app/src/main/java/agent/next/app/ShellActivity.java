@@ -3,6 +3,7 @@ package agent.next.app;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -69,6 +70,7 @@ import agent.next.brain.skill.SkillVerifier;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceCapabilities;
 import agent.next.device.DeviceException;
+import agent.next.device.DeviceFeature;
 import agent.next.device.DisplayHandle;
 import agent.next.device.DisplaySpec;
 import agent.next.device.Frame;
@@ -84,6 +86,7 @@ import agent.next.device.TargetInfo;
 import agent.next.device.TargetSpec;
 import agent.next.device.UiNode;
 import agent.phone.capability.BlockingDeviceApi;
+import agent.phone.capability.PreviewCapabilities;
 import agent.phone.connection.ShizukuConnectionDriver;
 
 import java.io.File;
@@ -124,6 +127,8 @@ public final class ShellActivity extends Activity {
             startLoopRunner();
         } else if ("prompt".equals(getIntent().getStringExtra("mode"))) {
             startPromptSkill();
+        } else if ("compat".equals(getIntent().getStringExtra("mode"))) {
+            startCompatProbe();
         } else if (getIntent().getBooleanExtra("autorun", true)) {
             startSmoke();
         }
@@ -197,6 +202,14 @@ public final class ShellActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         promptParams.topMargin = padding / 2;
         root.addView(prompt, promptParams);
+
+        Button compat = new Button(this);
+        compat.setText("Run compatibility probe");
+        compat.setOnClickListener(view -> startCompatProbe());
+        LinearLayout.LayoutParams compatParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        compatParams.topMargin = padding / 2;
+        root.addView(compat, compatParams);
         root.setGravity(Gravity.TOP);
         return root;
     }
@@ -235,6 +248,88 @@ public final class ShellActivity extends Activity {
         running = true;
         append("--- prompt skill start ---");
         worker.execute(this::runPromptSkill);
+    }
+
+    private void startCompatProbe() {
+        if (running) {
+            return;
+        }
+        running = true;
+        append("--- compatibility probe start ---");
+        worker.execute(this::runCompatProbe);
+    }
+
+    private void runCompatProbe() {
+        BlockingDeviceApi api = null;
+        DisplayHandle display = null;
+        TargetHandle target = null;
+        try {
+            append("compat: android=" + Build.VERSION.RELEASE
+                    + " sdk=" + Build.VERSION.SDK_INT + " model=" + Build.MODEL);
+            append("compat: " + PreviewCapabilities.probe());
+            String packageName = getIntent().getStringExtra("package");
+            if (packageName == null || packageName.isBlank()) {
+                packageName = TARGET_PACKAGE;
+            }
+            if (!isInstalled(packageName)) {
+                append("COMPAT SKIP: package not installed " + packageName);
+                return;
+            }
+            api = new BlockingDeviceApi(
+                    listener -> new ShizukuConnectionDriver(getApplicationContext(), listener),
+                    60_000L);
+            append("compat: connect");
+            api.connect();
+            DeviceCapabilities capabilities = api.capabilities();
+            append("compat: device=" + capabilities
+                    + " previewMirror=" + capabilities.has(DeviceFeature.PREVIEW_MIRROR));
+            display = api.displays().create(DisplaySpec.standard());
+            append("compat: display " + display.token());
+            target = api.targets().open(display,
+                    TargetSpec.single("compat-task", packageName));
+            append("compat: target " + target.token());
+            Observation observation = observeReady(api, target, "compat");
+            append("compat: observe nodes=" + observation.nodes().size()
+                    + " package=" + observation.packageName());
+            Frame frame = api.observations().captureFrame(target);
+            append("compat: frame " + frame.width() + "x" + frame.height()
+                    + " png=" + frame.png().length);
+            append("COMPAT PASS");
+        } catch (Throwable failure) {
+            Log.e(TAG, "compatibility probe failed", failure);
+            append("COMPAT FAIL: " + failure);
+        } finally {
+            if (target != null) {
+                try {
+                    api.targets().release(target);
+                    append("compat: target released");
+                } catch (Throwable failure) {
+                    append("compat: release target " + failure);
+                }
+            }
+            if (display != null) {
+                try {
+                    api.displays().release(display);
+                    append("compat: display released");
+                } catch (Throwable failure) {
+                    append("compat: release display " + failure);
+                }
+            }
+            if (api != null) {
+                api.close();
+            }
+            running = false;
+            append("--- compatibility probe end ---");
+        }
+    }
+
+    private boolean isInstalled(String packageName) {
+        try {
+            getPackageManager().getPackageInfo(packageName, 0);
+            return true;
+        } catch (Throwable missing) {
+            return false;
+        }
     }
 
     private void runPromptSkill() {

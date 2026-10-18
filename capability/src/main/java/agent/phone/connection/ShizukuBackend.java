@@ -400,7 +400,8 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
         int serviceUid = bundle.getInt(ProtocolPolicy.KEY_SERVICE_UID, -1);
         int appUid = bundle.getInt(ProtocolPolicy.KEY_APP_UID, -1);
         boolean supported = bundle.getBoolean(ProtocolPolicy.KEY_SUPPORTED);
+        boolean previewMirror = bundle.getBoolean(ProtocolPolicy.KEY_PREVIEW_MIRROR, false);
         ProtocolPolicy.validateCapabilities(protocol, api, serviceUid, appUid, Process.myUid(), supported);
-        return new Capabilities(protocol, api, serviceUid, appUid, supported);
+        return new Capabilities(protocol, api, serviceUid, appUid, supported, previewMirror);
     }
 }

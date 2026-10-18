@@ -1,6 +1,6 @@
 # capability 契约（新项目）
 
-状态：从旧仓库 `agent-phone` 复制并通过 host 回归；尚未接入新 brain/app。
+状态：从旧仓库 `agent-phone` 复制并通过 host 回归；已接入新 app，Beta 平台底线为 Android 13（API 33）。
 
 ## 模块
 
@@ -72,6 +72,7 @@ GRADLE_USER_HOME=<cache> QUAL_JAVA_HOME=<jdk21> sh tools/test-shizuku-adapter.sh
 - 任务规划/技能/记忆/风险门/完成判定（新 brain）；
 - 自然语言 UI、确认卡、文字/IME 接管 UI；
 - 模型调用、OCR、购物车/日历等领域 verifier（可作为独立插件）；
+- Android 13 真机验收（Shizuku/display/target/frame/mirror）；
 - 真实 JD/日历等新 loop 验收。
 
 ## 设备回归前提

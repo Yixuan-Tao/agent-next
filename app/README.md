@@ -9,6 +9,8 @@
 
 ## 构建与安装
 
+Beta 基线为 Android 13（API 33）及以上；`app` 以 Java 17 编译，`capability` 保持 Java 8。
+
 ```sh
 JAVA_HOME=/path/to/jdk21 \
 GRADLE_USER_HOME=/path/to/gradle-cache \
@@ -21,6 +23,9 @@ adb shell am start -n agent.next.app/.ShellActivity
 debug 签名使用被忽略的 `work/signing/debug.keystore`，不是产品密钥。
 
 ## 运行
+
+- 兼容性准入（不做输入）：`adb shell am start -n agent.next.app/.ShellActivity --es mode compat --es package com.jingdong.app.mall`，结果看 `COMPAT PASS`；详见 [android-13-compat.md](../docs/android-13-compat.md)。
+
 
 - 首次启动会弹 Shizuku 授权；选择“始终允许”。
 - 默认启动跑 smoke；跑 FastLoop 用：

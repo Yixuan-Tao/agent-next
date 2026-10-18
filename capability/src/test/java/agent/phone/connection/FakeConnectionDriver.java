@@ -162,7 +162,7 @@ public final class FakeConnectionDriver implements ConnectionDriver {
             return;
         }
         listener.onStateChanged(new ConnectionState(status, reason,
-                new Capabilities(11, 36, 2000, 10000, status == ConnectionState.Status.CONNECTED),
+                new Capabilities(11, 36, 2000, 10000, status == ConnectionState.Status.CONNECTED, true),
                 true, false, display, displayOperation, target, observation, frame,
                 targetOperation));
     }

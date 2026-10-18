@@ -46,7 +46,8 @@ public final class ServicePolicyTest {
 
     private static void supportIsLimitedToTheVerifiedEnvironment() {
         check(ProtocolPolicy.isSupported(36, 2000), "API 36 and shell are supported");
-        for (int api : new int[] {-1, 0, 35, 37}) {
+        check(ProtocolPolicy.isSupported(33, 2000), "API 33 and shell are supported");
+        for (int api : new int[] {-1, 0, 32, 37}) {
             check(!ProtocolPolicy.isSupported(api, 2000), "unknown APIs are not verified");
         }
         for (int uid : new int[] {-1, 0, 1000, 10000}) {

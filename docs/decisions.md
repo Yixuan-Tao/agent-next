@@ -17,6 +17,7 @@
 | D7 | 文字/IME | 优先 target-bound `setText`；不做自有 IME；IME 场景走主屏接管 |
 | D8 | testkit 发布 | 内部保留，不随产品发布 |
 | D9 | Skill 层 | **可选加速层**；无坐标/原始设备权限；社区/自生成需验证与信任门 |
+| D10 | Beta 平台底线 | **Android 13 / API 33**；目标 API 36；低于 33 需重新评估 |
 
 ## D1 默认自主级别：A3
 
@@ -213,6 +214,25 @@
 
 - 社区 skill 验证成本过高或误报率不可接受；或 skill 生态出现新的供应链攻击模式。
 
+
+## D10 Beta 平台底线：Android 13
+
+**决策**
+
+- 内部 Beta 的 `minSdk` 为 **33（Android 13）**，`compileSdk/targetSdk` 保持 36。
+- 第二台验收手机为 Android 13/API 33；若实际低于 33，需另开兼容阶段或更换设备。
+- API 33 必须实测：Shizuku 用户服务、私有 display、target、observe/frame、定向输入、
+  task move、preview mirror；mirror 不可用时必须显式 fallback，不能假装实时预览。
+- API 33 的前台服务类型使用 `dataSync`；API 34+ 使用 `specialUse`。
+
+**理由**
+
+- 用户目标是内部 Beta + 一台 Android 13 手机；当前 minSdk 36 无法安装。
+- 只降低 minSdk 而不做真机兼容验证会制造“构建通过但设备不可用”的假通过。
+
+**复审触发**
+
+- 第二台手机低于 API 33；或 Android 13 mirror/服务类型无法满足 Beta 验收。
 ## 决策依赖
 
 - D1 依赖 D2/D3 的承诺边界：A3 只对“已确认的承诺动作”执行，凭据仍全部人工。

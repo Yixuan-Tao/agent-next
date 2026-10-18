@@ -528,7 +528,7 @@ public final class ConnectionCoordinatorTest {
             started.countDown();
             if (block) release.await();
             returned.countDown();
-            return new Capabilities(1, 36, 2000, 10234, true);
+            return new Capabilities(1, 36, 2000, 10234, true, true);
         }
         @Override public void destroy() { destroyed.incrementAndGet(); }
     }
