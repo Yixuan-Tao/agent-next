@@ -81,3 +81,22 @@ INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
 4. 打开 Settings → 导入 `model-config.json`（新增的 document picker）。
 
 在此之前，Android 13/release 安装验收无法继续。
+
+## 自动校验
+
+```sh
+JAVA_HOME=/path/to/jdk21 ANDROID_SDK_ROOT=/path/to/android-sdk \
+  sh tools/verify-release.sh
+```
+
+检查：
+
+- apksigner 证书 `CN=AgentNext Beta`；
+- package `agent.next.app`；
+- minSdk 33 / targetSdk 36；
+- launcher MainActivity；
+- release `PreviewActivity` exported=false；
+- 与 `dist/agent-next-beta-0.1.apk.sha256` 一致。
+
+本次输出：`RELEASE PASS`，SHA-256
+`c3f6884b1bd09504d2c6a82f0e8dec6032f3ec0d18971467c49e0083138a9293`。
