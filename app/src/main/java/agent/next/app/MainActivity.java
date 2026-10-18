@@ -1,8 +1,10 @@
 package agent.next.app;
 
 import android.app.Activity;
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -55,6 +57,11 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         runtime = AgentRuntime.get(this);
         runtime.setListener(this);
         runtime.setConfirmationPresenter(this::askConfirmation);
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 41);
+        }
     }
 
     @Override
@@ -117,7 +124,10 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         runButton = new Button(this);
         runButton.setText("确认并执行");
         runButton.setEnabled(false);
-        runButton.setOnClickListener(view -> runtime.runPlan());
+        runButton.setOnClickListener(view -> {
+            AgentTaskService.start(this);
+            runtime.runPlan();
+        });
         stopButton = new Button(this);
         stopButton.setText("停止");
         stopButton.setOnClickListener(view -> runtime.stop());
@@ -197,12 +207,19 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
                 AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT));
         planView.setText("规划中…");
         runButton.setEnabled(false);
+        AgentTaskService.start(this);
         runtime.plan(request);
     }
 
     @Override
     public void onState(AgentRuntime.State state, String detail) {
         status.setText(state + " · " + detail);
+        AgentTaskService.update(this, state + " · " + detail);
+        if (state == AgentRuntime.State.DONE || state == AgentRuntime.State.STOPPED
+                || state == AgentRuntime.State.FAILED || state == AgentRuntime.State.NEED_USER
+                || state == AgentRuntime.State.AWAITING_PLAN) {
+            AgentTaskService.stop(this);
+        }
         append("state: " + state + " · " + detail);
         stopButton.setEnabled(state == AgentRuntime.State.RUNNING);
         planButton.setEnabled(state == AgentRuntime.State.IDLE
@@ -241,6 +258,7 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
 
     @Override
     public void onSessionResult(SessionResult result) {
+        AgentTaskService.stop(this);
         append("result: " + result.status() + " · " + result.detail()
                 + " actions=" + result.actions() + " attempts=" + result.attempts());
         runButton.setEnabled(false);

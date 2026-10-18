@@ -68,7 +68,7 @@ result: DONE · all subgoals verified actions=1 attempts=2
 ## 已知缺口
 
 - 计划质量仍取决于模型：subgoal 数量/措辞会变化；当前是“查看首页”安全任务。
-- - 共享 preview/touch pause/resume 已在 Android 16 平板验证；没有前台服务/常驻通知，Activity 关闭仍会中止 runtime 生命周期。
+- - 共享 preview/touch pause/resume、前台服务/通知 stop action 已在 Android 16 平板验证；20 分钟后台/进程回收仍未测。
 - 没有计划编辑/澄清回填；澄清只展示问题。
 - 未做加密 memory/settings/隐私页。
 - Android 13 手机未连接。
