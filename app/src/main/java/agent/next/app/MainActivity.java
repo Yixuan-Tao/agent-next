@@ -68,10 +68,18 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         runtime = AgentRuntime.get(this);
         runtime.setListener(this);
         runtime.setConfirmationPresenter(this::askConfirmation);
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 41);
+        if (Build.VERSION.SDK_INT >= 33) {
+            boolean needPost = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED;
+            boolean needCalendar = checkSelfPermission(Manifest.permission.READ_CALENDAR)
+                    != PackageManager.PERMISSION_GRANTED
+                    || checkSelfPermission(Manifest.permission.WRITE_CALENDAR)
+                    != PackageManager.PERMISSION_GRANTED;
+            if (needPost || needCalendar) {
+                requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS,
+                        Manifest.permission.READ_CALENDAR,
+                        Manifest.permission.WRITE_CALENDAR}, 41);
+            }
         }
     }
 

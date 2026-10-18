@@ -42,6 +42,7 @@ public final class SkillFeatureTest {
         promptNeedsModel();
         promptUsesModel();
         promptRejectsHighRisk();
+        promptRejectsUndeclaredBack();
         applicabilityAndVerifier();
         registryAdmission();
         System.out.println("SkillFeatureTest: PASS (workflow, prompt model, verifier, registry)");
@@ -103,6 +104,20 @@ public final class SkillFeatureTest {
                 new InMemoryEpisodicMemory()).run();
         check(result.status() == LoopResult.Status.DONE, "prompt skill completes");
         check(result.actions() == 2, "prompt skill uses two model steps");
+    }
+
+    private static void promptRejectsUndeclaredBack() {
+        SkillPackage prompt = skill("prompt.back", new SkillBody.Prompt("Go back."),
+                SkillTrust.VERIFIED, SkillApplicability.always(),
+                new SkillPermissions(Set.of(SkillCapability.TAP), Set.of("com.example.shop")));
+        SkillModel model = request -> new SkillModelStep.Back(RiskClass.LOW);
+        LoopResult result = new FastLoop(new LoopFakeDevice(), target(), task(), graph(),
+                new PromptSkillPolicy(prompt, Map.of(), model), new DefaultRiskGate(),
+                new NoHumanGateway(), new InMemoryWorkingMemory(),
+                new InMemoryEpisodicMemory()).run();
+        check(result.status() == LoopResult.Status.SLOW_LOOP,
+                "undeclared Back is not executed");
+        check(result.actions() == 0, "undeclared Back performs no action");
     }
 
     private static void promptRejectsHighRisk() {

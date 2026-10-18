@@ -6,6 +6,9 @@ import android.os.Looper;
 import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
+import agent.next.app.calendar.CalendarPolicy;
+import agent.next.app.calendar.CalendarStore;
+import agent.next.app.calendar.CalendarSubgoalVerifier;
 import agent.next.app.security.EncryptedEpisodicMemory;
 import agent.next.app.security.EncryptedModelConfigStore;
 import agent.next.brain.InMemoryWorkingMemory;
@@ -40,6 +43,8 @@ import agent.next.device.DeviceException;
 import agent.next.device.DisplayHandle;
 import agent.next.device.Frame;
 import agent.next.device.Observation;
+import agent.next.device.NodeFlag;
+import agent.next.device.Point;
 import agent.next.device.ObservationOptions;
 import agent.next.device.TargetHandle;
 import android.view.Surface;
@@ -85,6 +90,7 @@ public final class AgentRuntime {
     private final ExecutorService previewWorker = Executors.newSingleThreadExecutor();
     private final InMemoryWorkingMemory memory = new InMemoryWorkingMemory();
     private final EncryptedEpisodicMemory episodic;
+    private final CalendarStore calendarStore;
     private final UiHumanGateway human = new UiHumanGateway();
     private volatile Listener listener;
     private volatile State state = State.IDLE;
@@ -101,6 +107,7 @@ public final class AgentRuntime {
     private AgentRuntime(Context context) {
         this.context = context.getApplicationContext();
         this.episodic = new EncryptedEpisodicMemory(this.context);
+        this.calendarStore = new CalendarStore(this.context);
     }
 
     public static AgentRuntime get(Context context) {
@@ -363,6 +370,7 @@ public final class AgentRuntime {
                 public TargetHandle open(String packageName) throws DeviceException {
                     TargetHandle opened = delegate.open(packageName);
                     activeTarget = opened;
+                    prepareAppEntry(packageName, opened);
                     return opened;
                 }
 
@@ -391,20 +399,49 @@ public final class AgentRuntime {
                         + (step == null ? "null" : step.getClass().getSimpleName()) + extra);
                 return step;
             };
-            SessionPolicyFactory policies = new PromptSessionPolicyFactory(
+            SessionPolicyFactory promptPolicies = new PromptSessionPolicyFactory(
                     loggingModel, frames, memory);
+            SessionPolicyFactory policies = (task, subgoal, target, attempt) -> {
+                if ("com.android.calendar".equals(target.packageName())) {
+                    return new CalendarPolicy(calendarStore, task, subgoal);
+                }
+                return promptPolicies.create(task, subgoal, target, attempt);
+            };
             VerifierRegistry verifiers = new VerifierRegistry();
             SubgoalVerifier visualDelegate = new VisualSubgoalVerifier(visualModel, frames);
             SubgoalVerifier visual = (task, subgoal, target, observation) -> {
                 SubgoalVerifier.Verification verification =
                         visualDelegate.verify(task, subgoal, target, observation);
+                StringBuilder sample = new StringBuilder();
+                for (var node : observation.nodes()) {
+                    if (sample.length() > 200) {
+                        break;
+                    }
+                    if (!node.text().isBlank()) {
+                        sample.append(node.text()).append(" | ");
+                    }
+                }
                 Log.i(TAG, "verify " + subgoal.id() + " -> " + verification.satisfied()
-                        + " (" + verification.evidence() + ")");
+                        + " (" + verification.evidence() + ") nodes="
+                        + observation.nodes().size() + " pkg=" + observation.packageName()
+                        + " act=" + observation.activityName() + " text=" + sample);
                 return verification;
             };
-            verifiers.register("visual", visual);
-            verifiers.register("calendar.event", visual);
-            verifiers.register("jd.cart", visual);
+            CalendarSubgoalVerifier calendarVerifier =
+                    new CalendarSubgoalVerifier(calendarStore);
+            SubgoalVerifier routed = (task, subgoal, target, observation) -> {
+                if ("com.android.calendar".equals(target.packageName())) {
+                    SubgoalVerifier.Verification verification = calendarVerifier.verify(
+                            task, subgoal, target, observation);
+                    Log.i(TAG, "verify calendar " + subgoal.id() + " -> "
+                            + verification.satisfied() + " (" + verification.evidence() + ")");
+                    return verification;
+                }
+                return visual.verify(task, subgoal, target, observation);
+            };
+            verifiers.register("visual", routed);
+            verifiers.register("calendar.event", routed);
+            verifiers.register("jd.cart", routed);
             SessionRunner runner = new SessionRunner(api, confirmed, binder, policies,
                     slow -> new SlowLoopDecision.Stop("v1 stops on slow loop"),
                     verifiers, new DefaultRiskGate(), human, runControl, memory, episodic,
@@ -430,6 +467,41 @@ public final class AgentRuntime {
             fail("执行失败: " + failure.getMessage());
         } finally {
             closeDevice();
+        }
+    }
+
+    private void prepareAppEntry(String packageName, TargetHandle target) {
+        if (!"com.quark.browser".equals(packageName)) {
+            return;
+        }
+        try {
+            Observation observation = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            for (UiNode node : observation.nodes()) {
+                if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
+                    return;
+                }
+            }
+            UiNode entry = null;
+            for (UiNode node : observation.nodes()) {
+                if (node.hasFlag(NodeFlag.CLICKABLE)
+                        && (node.text().contains("把问题和任务告诉我")
+                        || node.text().contains("搜索"))) {
+                    entry = node;
+                    break;
+                }
+            }
+            if (entry == null) {
+                Log.i(TAG, "Quark entry not found");
+                return;
+            }
+            Point point = new Point(entry.bounds().centerX(), entry.bounds().centerY());
+            api.input().tap(target, observation, point);
+            Thread.sleep(800L);
+            api.observations().observe(target, ObservationOptions.defaults());
+            Log.i(TAG, "Quark search entry opened");
+        } catch (Throwable failure) {
+            Log.w(TAG, "Quark entry prelude failed: " + failure);
         }
     }
 

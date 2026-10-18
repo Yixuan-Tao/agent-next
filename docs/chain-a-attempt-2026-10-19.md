@@ -43,3 +43,9 @@ result: STOPPED actions=3 attempts=1
 - 增加“点击后等待页面稳定”的显式 observe/wait，而不是立即判定；
 - 为 Quark 搜索页增加本地/视觉专用 verifier，避免只用意图判断；
 - 再尝试 Chain A；若 Quark 仍不可用，按 D4 可换成系统天气 App，但需重新确认计划。
+
+## 2026-10-19 后续
+
+- 增加了 Quark 搜索入口 prelude，s1 曾通过（matched=2/2），但不同 run 仍会 flail（Back/重复 SetText），Chain A 不稳定。
+- 增加了 calendar domain skill（CalendarContract）；单独的“创建带伞提醒”任务已验证 **DONE**，见 [calendar-domain-skill-2026-10-19.md](calendar-domain-skill-2026-10-19.md)。
+- 因此当前拆分：**calendar 段已验证，Quark 天气段仍是 Chain A 的 blocker**。

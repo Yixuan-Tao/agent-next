@@ -100,6 +100,9 @@ public final class PromptSkillPolicy implements LoopPolicy {
                     setText.selector(), setText.text(), setText.risk()));
         }
         if (proposal instanceof SkillModelStep.Back back) {
+            if (!skill.permissions().allows(SkillCapability.BACK)) {
+                return Optional.empty();
+            }
             return Optional.of(new BackAction(stepId, "model back", back.risk()));
         }
         if (proposal instanceof SkillModelStep.Wait wait) {
