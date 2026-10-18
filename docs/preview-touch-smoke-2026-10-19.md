@@ -50,3 +50,35 @@ AgentNextPreview: preview mirror started; touch the video to inject user tap/swi
 - 尚未在 Android 13 手机上重复；手机 gate 仍未完成。
 - 未验证双指缩放、长按、输入法、拖动等复杂手势；当前只有 tap/swipe。
 - 未验证返回后 mirror 画面持续刷新；本次返回页恰为风控页，未做进一步判断。
+
+## 共享 AgentRuntime 版（2026-10-19 追加）
+
+`PreviewActivity` 已改为绑定 `AgentRuntime`，不再自己连接 Shizuku：
+
+- runtime 先 `pauseForUser()`；`RuntimeControl.checkpoint` 在下一步前阻塞；
+- PreviewActivity 使用 runtime 的 display/target 启动 mirror；
+- 触摸通过 runtime 的 `previewTap/previewSwipe` 注入；
+- 关闭预览调用 `resumeAfterUser()`，agent 从新的 observe 继续；
+- preview 操作使用独立 `previewWorker`，不会被正在跑模型/循环的 session worker 阻塞。
+
+真机日志：
+
+```text
+AgentNextPreview: preview mirror started; touch = user takeover
+AgentNextPreview: user tap 106,574
+AgentNextRuntime: verify s1 -> true (matched=2, missing=0)
+AgentNextRuntime: verify s2 -> true (matched=2, missing=0)
+AgentNextRuntime: verify s3 -> true (matched=2, missing=0)
+AgentNextRuntime: verify s4 -> true (matched=2, missing=0)
+state: DONE · all subgoals verified
+```
+
+该 run 中预览打开期间 agent 暂停，用户触摸后关闭预览，agent 恢复并完成 4 段 plan，**DONE**。
+
+![共享 runtime preview](assets/preview-shared.png)
+
+限制：
+
+- 预览打开期间不会自动 resume；必须关闭预览；
+- preview 与 agent 的并发仍共用同一 `BlockingDeviceApi`，目前靠 pause + 独立 worker 避免重叠；
+- 尚未实现前台服务/通知；Activity 被系统回收时 runtime 也会丢失。

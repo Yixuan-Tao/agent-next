@@ -41,6 +41,7 @@ import agent.next.device.Frame;
 import agent.next.device.Observation;
 import agent.next.device.ObservationOptions;
 import agent.next.device.TargetHandle;
+import android.view.Surface;
 import agent.next.device.UiNode;
 import agent.phone.capability.BlockingDeviceApi;
 import agent.phone.connection.ShizukuConnectionDriver;
@@ -51,7 +52,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Process-wide task runtime: device, plan review, session, stop, and UI callbacks. */
 public final class AgentRuntime {
@@ -82,6 +82,7 @@ public final class AgentRuntime {
     private final Context context;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService previewWorker = Executors.newSingleThreadExecutor();
     private final InMemoryWorkingMemory memory = new InMemoryWorkingMemory();
     private final InMemoryEpisodicMemory episodic = new InMemoryEpisodicMemory();
     private final UiHumanGateway human = new UiHumanGateway();
@@ -173,6 +174,137 @@ public final class AgentRuntime {
             current.stop();
         }
         postState(State.STOPPING, "正在停止");
+    }
+
+    @FunctionalInterface
+    public interface PreviewCallback {
+        void done(boolean ok, String message);
+    }
+
+    public void pauseForUser() {
+        RuntimeControl current = control;
+        if (current != null) {
+            current.pause("preview");
+            detail = "用户接管，agent 已暂停";
+            postState(state, detail);
+        }
+    }
+
+    public void resumeAfterUser() {
+        RuntimeControl current = control;
+        if (current != null) {
+            current.resume();
+            detail = "agent 恢复执行";
+            postState(state, detail);
+        }
+    }
+
+    public void startPreview(Surface surface, PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        DisplayHandle currentDisplay = display;
+        if (currentApi == null || currentDisplay == null || surface == null
+                || !surface.isValid()) {
+            finish(callback, false, "没有可预览的私有 display");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.startPreview(currentDisplay, surface);
+                finish(callback, true, "preview mirror started");
+            } catch (Throwable failure) {
+                finish(callback, false, "preview start failed: " + failure.getMessage());
+            }
+        });
+    }
+
+    public void stopPreview() {
+        BlockingDeviceApi currentApi = api;
+        DisplayHandle currentDisplay = display;
+        if (currentApi == null || currentDisplay == null) {
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.stopPreview(currentDisplay);
+            } catch (Throwable ignored) {
+            }
+        });
+    }
+
+    public void previewTap(int x, int y, PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        TargetHandle currentTarget = activeTarget;
+        if (currentApi == null || currentTarget == null) {
+            finish(callback, false, "没有活动 target");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.userTap(currentTarget, x, y);
+                finish(callback, true, "user tap " + x + "," + y);
+            } catch (Throwable failure) {
+                finish(callback, false, "user tap failed: " + failure.getMessage());
+            }
+        });
+    }
+
+    public void previewSwipe(int x1, int y1, int x2, int y2, int durationMs,
+            PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        TargetHandle currentTarget = activeTarget;
+        if (currentApi == null || currentTarget == null) {
+            finish(callback, false, "没有活动 target");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.userSwipe(currentTarget, x1, y1, x2, y2, durationMs);
+                finish(callback, true, "user swipe");
+            } catch (Throwable failure) {
+                finish(callback, false, "user swipe failed: " + failure.getMessage());
+            }
+        });
+    }
+
+    public void moveToMain(PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        TargetHandle currentTarget = activeTarget;
+        if (currentApi == null || currentTarget == null) {
+            finish(callback, false, "没有活动 target");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.tasks().moveToMain(currentTarget);
+                finish(callback, true, "target moved to main screen");
+            } catch (Throwable failure) {
+                finish(callback, false, "move to main failed: " + failure.getMessage());
+            }
+        });
+    }
+
+    public void moveToPrivate(PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        TargetHandle currentTarget = activeTarget;
+        DisplayHandle currentDisplay = display;
+        if (currentApi == null || currentTarget == null || currentDisplay == null) {
+            finish(callback, false, "没有活动 target/display");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.tasks().moveToPrivate(currentTarget, currentDisplay);
+                finish(callback, true, "target returned to private display");
+            } catch (Throwable failure) {
+                finish(callback, false, "return to private failed: " + failure.getMessage());
+            }
+        });
+    }
+
+    private void finish(PreviewCallback callback, boolean ok, String message) {
+        if (callback != null) {
+            main.post(() -> callback.done(ok, message));
+        }
     }
 
     public void close() {
@@ -362,17 +494,36 @@ public final class AgentRuntime {
     }
 
     private static final class RuntimeControl implements LoopControl {
-        private final AtomicBoolean stopped = new AtomicBoolean();
+        private boolean stopped;
+        private boolean paused;
 
         @Override
-        public void checkpoint() throws LoopStoppedException {
-            if (stopped.get()) {
+        public synchronized void checkpoint() throws LoopStoppedException {
+            while (paused && !stopped) {
+                try {
+                    wait();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new LoopStoppedException("agent interrupted");
+                }
+            }
+            if (stopped) {
                 throw new LoopStoppedException("user stopped the task");
             }
         }
 
-        void stop() {
-            stopped.set(true);
+        synchronized void pause(String reason) {
+            paused = true;
+        }
+
+        synchronized void resume() {
+            paused = false;
+            notifyAll();
+        }
+
+        synchronized void stop() {
+            stopped = true;
+            notifyAll();
         }
     }
 }
