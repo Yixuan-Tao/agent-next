@@ -10,6 +10,8 @@
 | `TaskSpec` / `Budget` / `SuccessCriterion` | 目标、约束、成功标准、允许 App、预算 |
 | `Subgoal` / `Condition` / `Fallback` / `TaskGraph` | 可修改的任务图：依赖、就绪、完成、失败、跳过、替换、删除；subgoal 带 targetPackage/verifierId |
 | `plan.TaskPlanner` / `PlanningRequest` / `TaskPlan` / `DeepSeekTaskPlanner` | 自然语言 → 严格 JSON 计划：1..8 subgoal、allowed/installed App、verifier、澄清问题 |
+| `session.SessionRunner` / `SubgoalRunner` / `TargetBinder` | 按 subgoal targetPackage 串行切换 target；每 subgoal 独立 verifier，主图 slow-loop |
+| `session.SubgoalVerifier` / `VerifierRegistry` | verifier allowlist；未知 verifier fail closed |
 | `Skill` / `SkillStep` | 带前置/后置条件、回退、风险和成本的语义技能（旧声明式模型） |
 | `skill.SkillPackage` / `SkillBody` | 可安装 skill：contract、workflow/prompt/hybrid、permissions、applicability、verifier、trust、provenance |
 | `skill.SkillWorkflowPolicy` | 把语义 workflow 映射成 LoopAction，经 FastLoop RiskGate 执行；不接触 DeviceApi/坐标 |
@@ -45,7 +47,7 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`；`LoopControl` 在步骤边界暂停，停止返回 `STOPPED`。
-- 14 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest` 覆盖快慢循环、重规划、workflow/prompt skill、视觉验证、计划 schema/scope/DAG 与模型 JSON 解析。
+- 15 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest`/`SessionRunnerTest` 覆盖快慢循环、重规划、skill、视觉验证、计划、target 切换与 verifier。
 
 ## Planning
 
@@ -55,6 +57,15 @@ observe → policy.complete? → policy.next → risk gate
 - 目标有实质歧义时只返回一个 `clarification`，不生成计划。
 - `TaskPlan` 在构造时复用 `TaskGraph` 校验重复 id/未知依赖/环。
 - 计划仍需 app 的计划确认；planner 不执行计划。
+
+## Session
+
+- `SessionRunner` 按 `Subgoal.targetPackage` 串行打开/释放 target；display 由 app 拥有。
+- 每个 subgoal 走 `SubgoalRunner` + 单节点 FastLoop；完成只由 `SubgoalVerifier` 决定。
+- `VerifierRegistry` 是显式 allowlist；未知 verifier fail closed。
+- 跨 subgoal 保留主 TaskGraph；`SLOW_LOOP` 在主图上执行 replace/insert/remove，再继续。
+- 全局 action/time 预算、attempt 上限、`LoopControl` 停止；target 在完成/失败/停止后释放。
+- StageData 传递、app 计划确认、UI 尚未接入。
 
 ## Slow loop
 

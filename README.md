@@ -19,7 +19,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 
 尚未包含：
 
-- `brain/` 的任意 DAG 重排、多帧/视频、社区 registry：当前有 TaskPlanner、FastLoop + SlowLoop、workflow/prompt skill（真实文本+PNG API）、视觉 verify/extract、验证/信任门；
+- `brain/` 的任意 DAG 重排、多帧/视频、社区 registry：当前有 TaskPlanner、SessionRunner、FastLoop + SlowLoop、workflow/prompt skill（真实文本+PNG API）、视觉 verify/extract、验证/信任门；
 - preview mirror + 用户触摸接管的真机链路；
 - `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
 - 新 loop 的真实设备验收；
@@ -56,7 +56,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
 - `test-device-api.sh` PASS（FakeDeviceApi 上的 display/target/observation/input/task-move 契约）；
 - `test-capability-adapter.sh` PASS（BlockingDeviceApi + FakeConnectionDriver 契约）；
-- `test-brain.sh` 全部 PASS（14 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill/fast-loop/slow-loop-runner/skill-feature/model-api/task-planner）；
+- `test-brain.sh` 全部 PASS（15 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill/fast-loop/slow-loop-runner/skill-feature/model-api/task-planner/session-runner）；
 - 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)；
 - capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；
 - FastLoop 真机 smoke PASS：京东首页 → 搜索 → setText → 提交 → 结果页，DONE actions=4；详见 [docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；
