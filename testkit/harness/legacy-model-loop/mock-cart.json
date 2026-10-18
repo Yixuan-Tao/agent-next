@@ -1,0 +1,5 @@
+{"steps":[
+ {"kind":"TapPoint","x":667,"y":948},
+ {"kind":"Wait"},
+ {"kind":"ProposeFinish","summary":"mock: 已进入购物车（测试模型）"}
+]}

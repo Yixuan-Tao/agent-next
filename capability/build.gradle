@@ -1,0 +1,25 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'agent.phone.capability'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+
+    defaultConfig {
+        minSdk 36
+    }
+
+    buildFeatures {
+        aidl true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
+}

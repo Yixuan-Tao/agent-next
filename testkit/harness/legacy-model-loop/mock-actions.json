@@ -1,0 +1,12 @@
+{"steps":[
+ {"kind":"TapText","text":"搜索京东商品/店铺"},
+ {"kind":"Wait"},
+ {"kind":"SetText","ref":"auto","text":"蓝牙音箱"},
+ {"kind":"TapText","text":"搜索"},
+ {"kind":"Wait"},
+ {"kind":"Swipe","x1":500,"y1":800,"x2":500,"y2":300,"duration":500},
+ {"kind":"Wait"},
+ {"kind":"Back"},
+ {"kind":"Wait"},
+ {"kind":"ProposeFinish","summary":"mock swipe back actions"}
+]}

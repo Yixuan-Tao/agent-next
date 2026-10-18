@@ -1,0 +1,4 @@
+{"steps":[
+ {"kind":"Wait"},
+ {"kind":"ProposeFinish","summary":"mock unverified finish"}
+]}

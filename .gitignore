@@ -1,0 +1,25 @@
+# Local configuration and build output
+local.properties
+.gradle/
+.kotlin/
+**/build/
+work/
+*.apk
+*.aab
+*.idsig
+*.class
+*.dex
+*.jks
+*.keystore
+__pycache__/
+*.py[cod]
+.DS_Store
+.idea/
+*.iml
+
+# Private data / raw evidence
+private/
+*.pem
+*.key
+.env
+.env.*

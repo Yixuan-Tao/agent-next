@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android Agent 持续隔离测试</title>
+<style>body{font:18px/1.5 sans-serif;margin:24px;color:#172033;background:#f5f7fb}h1{font-size:24px}textarea{width:100%;min-height:140px;box-sizing:border-box;font-size:22px;padding:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:white;border:1px solid #dce3ee}.block{height:320px;padding:20px;border-top:1px solid #b8c4d5}small{overflow-wrap:anywhere}</style>
+<h1>持续隔离测试 <span id="round"></span></h1>
+<small>ANDROID_AGENT_INPUT_PROBE_V1</small>
+<p><label for="probe-text">仅输入合成测试文字</label></p>
+<textarea id="probe-text" autocomplete="off" spellcheck="false" placeholder="等待测试文字"></textarea>
+<p>页面实际回显：</p><pre id="actual">（空）</pre>
+<section class="block">滚动区域 1</section><section class="block">滚动区域 2</section><section class="block">滚动区域 3</section><section class="block">滚动区域 4</section>
+<script>
+const params=new URLSearchParams(location.search), round=params.get('round'), run=params.get('run');
+document.getElementById('round').textContent=round;
+const field=document.getElementById('probe-text');
+field.addEventListener('input',()=>document.getElementById('actual').textContent=field.value||'（空）');
+function emit(event){fetch('/telemetry?'+new URLSearchParams({run,round,event,y:String(window.scrollY),path:location.pathname}),{cache:'no-store'}).catch(()=>{});}
+let timer;window.addEventListener('scroll',()=>{clearTimeout(timer);timer=setTimeout(()=>emit('scroll'),80);},{passive:true});
+emit('ready');
+</script></html>

@@ -1,0 +1,4 @@
+{"steps":[
+ {"kind":"TapPoint","x":667,"y":948,"delayMillis":15000},
+ {"kind":"ProposeFinish","summary":"mock delay finish"}
+]}

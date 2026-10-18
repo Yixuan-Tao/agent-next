@@ -1,0 +1,37 @@
+{
+  "rotation": 1,
+  "imeBottom": 43,
+  "keyboard": "com.tencent.wetype/.plugin.hld.WxHldService",
+  "calibration_image": "../android-foreground-keyboard-baseline.png",
+  "keys": {
+    "a": [
+      1443,
+      1122
+    ],
+    "s": [
+      1521,
+      1122
+    ],
+    "d": [
+      1598,
+      1122
+    ],
+    "f": [
+      1675,
+      1122
+    ],
+    "backspace": [
+      2084,
+      1238
+    ],
+    "enter": [
+      2057,
+      1347
+    ],
+    "language": [
+      1932,
+      1347
+    ]
+  },
+  "resetLanguageOnReopen": true
+}

@@ -1,0 +1,64 @@
+{
+ "steps": [
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  },
+  {
+   "kind": "TapPoint",
+   "x": 20,
+   "y": 20
+  }
+ ]
+}

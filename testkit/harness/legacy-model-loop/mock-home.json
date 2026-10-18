@@ -1,0 +1,5 @@
+{"steps":[
+ {"kind":"TapPoint","x":100,"y":948},
+ {"kind":"Wait"},
+ {"kind":"ProposeFinish","summary":"mock home finish"}
+]}

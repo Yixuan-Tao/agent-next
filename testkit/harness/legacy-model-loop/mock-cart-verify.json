@@ -1,0 +1,5 @@
+{"steps":[
+ {"kind":"TapText","text":"购物车"},
+ {"kind":"Wait"},
+ {"kind":"ProposeFinish","summary":"mock cart verify"}
+]}

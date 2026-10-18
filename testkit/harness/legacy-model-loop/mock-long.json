@@ -1,0 +1,7 @@
+{"steps":[
+ {"kind":"Wait","delayMillis":15000},
+ {"kind":"Wait","delayMillis":15000},
+ {"kind":"Wait","delayMillis":15000},
+ {"kind":"Wait","delayMillis":15000},
+ {"kind":"ProposeFinish","summary":"long stop test"}
+]}

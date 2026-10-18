@@ -1,0 +1,8 @@
+{"steps":[
+ {"kind":"TapText","text":"搜索京东商品/店铺"},
+ {"kind":"Wait"},
+ {"kind":"SetText","ref":"auto","text":"影视飓风短袖 蓝牙耳机"},
+ {"kind":"TapText","text":"搜索"},
+ {"kind":"Wait"},
+ {"kind":"ProposeFinish","summary":"mock set text search"}
+]}
