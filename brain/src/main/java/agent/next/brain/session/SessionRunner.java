@@ -146,7 +146,7 @@ public final class SessionRunner {
 
                 switch (last.status()) {
                     case DONE:
-                        captureStage(task, current, last);
+                        captureStage(task, current, target, last);
                         graph.complete(current.id());
                         continue;
                     case SLOW_LOOP:
@@ -200,12 +200,13 @@ public final class SessionRunner {
         }
     }
 
-    private void captureStage(TaskSpec task, Subgoal subgoal, LoopResult last) {
+    private void captureStage(TaskSpec task, Subgoal subgoal, TargetHandle target,
+            LoopResult last) {
         if (stageExtractor == null || last == null || last.lastObservation() == null) {
             return;
         }
         try {
-            StageData data = stageExtractor.extract(task, subgoal, last.lastObservation());
+            StageData data = stageExtractor.extract(task, subgoal, target, last.lastObservation());
             if (data == null) {
                 return;
             }

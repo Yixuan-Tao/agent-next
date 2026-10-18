@@ -51,7 +51,7 @@ public final class SessionRunnerTest {
                 subgoal("calendar", "建提醒", "com.android.calendar", "weather"));
         TaskPlan plan = new TaskPlan(task, subgoals, List.of());
         VerifierRegistry verifiers = new VerifierRegistry()
-                .register("visual", (taskSpec, subgoal, observation) ->
+                .register("visual", (taskSpec, subgoal, target, observation) ->
                         new SubgoalVerifier.Verification(true, "verified " + subgoal.id()));
         SessionPolicyFactory policies = (taskSpec, subgoal, target, attempt) ->
                 (LoopPolicy) context -> Optional.empty();
@@ -61,7 +61,7 @@ public final class SessionRunnerTest {
                 new DefaultRiskGate(), new NoHumanGateway(), LoopControl.none(),
                 memory, new InMemoryEpisodicMemory(),
                 ObservationOptions.defaults(), 3, 8,
-                (taskSpec, subgoal, observation) ->
+                (taskSpec, subgoal, target, observation) ->
                         new StageData("summary " + subgoal.id(),
                                 Map.of("entity", subgoal.id())));
         SessionResult result = runner.run();

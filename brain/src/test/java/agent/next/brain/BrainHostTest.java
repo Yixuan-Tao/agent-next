@@ -4,6 +4,7 @@ import agent.next.brain.loop.LoopTest;
 import agent.next.brain.loop.SlowLoopTest;
 import agent.next.brain.model.ModelApiTest;
 import agent.next.brain.plan.TaskPlannerTest;
+import agent.next.brain.session.SessionBridgeTest;
 import agent.next.brain.session.SessionRunnerTest;
 import agent.next.brain.skill.SkillFeatureTest;
 
@@ -29,6 +30,7 @@ public final class BrainHostTest {
         ModelApiTest.run();
         TaskPlannerTest.run();
         SessionRunnerTest.run();
-        System.out.println("BrainHostTest: PASS (15 suites)");
+        SessionBridgeTest.run();
+        System.out.println("BrainHostTest: PASS (16 suites)");
     }
 }

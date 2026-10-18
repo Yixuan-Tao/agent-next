@@ -12,6 +12,7 @@
 | `plan.TaskPlanner` / `PlanningRequest` / `TaskPlan` / `DeepSeekTaskPlanner` | 自然语言 → 严格 JSON 计划：1..8 subgoal、allowed/installed App、verifier、澄清问题 |
 | `session.SessionRunner` / `SubgoalRunner` / `TargetBinder` | 按 subgoal targetPackage 串行切换 target；每 subgoal 独立 verifier，主图 slow-loop |
 | `session.SubgoalVerifier` / `VerifierRegistry` | verifier allowlist；未知 verifier fail closed |
+| `session.PromptSessionPolicyFactory` / `VisualSubgoalVerifier` | subgoal → PromptSkillPolicy；StageData → prompt；视觉 verify 条件 |
 | `Skill` / `SkillStep` | 带前置/后置条件、回退、风险和成本的语义技能（旧声明式模型） |
 | `skill.SkillPackage` / `SkillBody` | 可安装 skill：contract、workflow/prompt/hybrid、permissions、applicability、verifier、trust、provenance |
 | `skill.SkillWorkflowPolicy` | 把语义 workflow 映射成 LoopAction，经 FastLoop RiskGate 执行；不接触 DeviceApi/坐标 |
@@ -47,7 +48,7 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`；`LoopControl` 在步骤边界暂停，停止返回 `STOPPED`。
-- 15 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest`/`SessionRunnerTest` 覆盖快慢循环、重规划、skill、视觉验证、计划、target 切换与 verifier。
+- 16 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest`/`SessionRunnerTest`/`SessionBridgeTest` 覆盖快慢循环、重规划、skill、视觉验证、计划、target 切换与 verifier。
 
 ## Planning
 
