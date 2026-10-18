@@ -1,6 +1,7 @@
 package agent.next.app;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -210,6 +211,15 @@ public final class ShellActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         compatParams.topMargin = padding / 2;
         root.addView(compat, compatParams);
+
+        Button preview = new Button(this);
+        preview.setText("Open preview / touch takeover");
+        preview.setOnClickListener(view ->
+                startActivity(new Intent(this, PreviewActivity.class)));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        previewParams.topMargin = padding / 2;
+        root.addView(preview, previewParams);
         root.setGravity(Gravity.TOP);
         return root;
     }

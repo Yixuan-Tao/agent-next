@@ -62,6 +62,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - FastLoop 真机 smoke PASS：京东首页 → 搜索 → setText → 提交 → 结果页，DONE actions=4；详见 [docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；
 - LoopRunner 真机 smoke PASS：第一轮 NO_EFFECT → SlowLoop 替换 approach → 第二轮成功，DONE attempts=2 replans=1 totalActions=6；详见 [docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；
 - 兼容性准入：Android 16 平板上 `mode=compat` PASS，shell service 报告 `PREVIEW_MIRROR`；Android 13 手机待连接；详见 [docs/android-13-compat.md](docs/android-13-compat.md)；
+- Preview mirror/touch 真机 smoke PASS：TextureView 镜像京东私有 display，userTap 映射到 720×1280 并进入 11.11 会场；主屏接管/返回私有 display 开关验证；详见 [docs/preview-touch-smoke-2026-10-19.md](docs/preview-touch-smoke-2026-10-19.md)；
 - Prompt Skill 真机 smoke PASS：真实 DeepSeek 模型输出 SetText/Tap/Wait 语义动作，经 RiskGate 执行，JD 结果页 verifier 通过，DONE actions=4；视觉 verify `verified=true matched=2 missing=0`，extract 30 字摘要/7 实体；详见 [docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)。
 
 ## 新项目边界
@@ -70,7 +71,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - 新 brain 不得直接依赖 Android `ShellService`/坐标；只能通过 capability API。
 - 旧 loop 的固定计划、预设、条件/预算数字不作为新设计基线。
 - 测试工具中的旧 model-loop 脚本只用于布景/参考，不代表新 loop 验收。
-- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；FastLoop 真机 smoke：[docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；slow-loop 真机 smoke：[docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；prompt skill 真机 smoke：[docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)。
+- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；FastLoop 真机 smoke：[docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；slow-loop 真机 smoke：[docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；prompt skill 真机 smoke：[docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)；preview/touch 真机 smoke：[docs/preview-touch-smoke-2026-10-19.md](docs/preview-touch-smoke-2026-10-19.md)。
 - capability 约束：[docs/device-capability.md](docs/device-capability.md)。
 
 ## 关于目录
