@@ -19,7 +19,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 
 尚未包含：
 
-- `brain/` 的完整动态重规划、模型调用、技能库：当前有 FastLoop + 最小 SlowLoop（continue/replace/ask/stop）与 host 场景测试；
+- `brain/` 的任意 DAG 重排、模型调用、技能库：当前有 FastLoop + SlowLoop（replace/insertBefore/remove/ask/stop）与跨 attempt 预算；
 - preview mirror + 用户触摸接管的真机链路；
 - `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
 - 新 loop 的真实设备验收；

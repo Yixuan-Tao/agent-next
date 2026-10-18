@@ -7,6 +7,7 @@ import java.util.Objects;
 /** What the slow loop decides after a fast-loop escalation. */
 public sealed interface SlowLoopDecision
         permits SlowLoopDecision.Continue, SlowLoopDecision.Replace,
+        SlowLoopDecision.InsertBefore, SlowLoopDecision.RemoveCurrent,
         SlowLoopDecision.AskUser, SlowLoopDecision.Stop {
 
     record Continue(String reason) implements SlowLoopDecision {
@@ -19,6 +20,21 @@ public sealed interface SlowLoopDecision
     record Replace(Subgoal replacement, String reason) implements SlowLoopDecision {
         public Replace {
             replacement = Objects.requireNonNull(replacement, "replacement");
+            reason = text(reason, "reason");
+        }
+    }
+
+    /** Inserts a repair/clarification node before the current subgoal. */
+    record InsertBefore(Subgoal node, String reason) implements SlowLoopDecision {
+        public InsertBefore {
+            node = Objects.requireNonNull(node, "node");
+            reason = text(reason, "reason");
+        }
+    }
+
+    /** Removes the current subgoal and rewires its dependents onto its dependencies. */
+    record RemoveCurrent(String reason) implements SlowLoopDecision {
+        public RemoveCurrent {
             reason = text(reason, "reason");
         }
     }

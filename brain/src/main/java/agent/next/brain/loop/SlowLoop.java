@@ -33,6 +33,33 @@ public final class SlowLoop {
         if (decision instanceof SlowLoopDecision.Stop stop) {
             return SlowLoopResult.stopped(stop.reason());
         }
+        if (decision instanceof SlowLoopDecision.InsertBefore insert) {
+            Subgoal current = context.current().orElse(null);
+            if (current == null) {
+                return SlowLoopResult.failed("no current subgoal to insert before");
+            }
+            try {
+                context.graph().insertBefore(current.id(), insert.node());
+            } catch (RuntimeException failure) {
+                return SlowLoopResult.failed("insert failed: " + failure.getMessage());
+            }
+            return SlowLoopResult.replanned(
+                    "inserted " + insert.node().id() + " before " + current.id()
+                            + ": " + insert.reason());
+        }
+        if (decision instanceof SlowLoopDecision.RemoveCurrent remove) {
+            Subgoal current = context.current().orElse(null);
+            if (current == null) {
+                return SlowLoopResult.failed("no current subgoal to remove");
+            }
+            try {
+                context.graph().removeAndRewire(current.id());
+            } catch (RuntimeException failure) {
+                return SlowLoopResult.failed("remove failed: " + failure.getMessage());
+            }
+            return SlowLoopResult.replanned(
+                    "removed " + current.id() + ": " + remove.reason());
+        }
         SlowLoopDecision.Replace replace = (SlowLoopDecision.Replace) decision;
         Subgoal current = context.current().orElse(null);
         if (current == null) {

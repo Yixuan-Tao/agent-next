@@ -44,10 +44,12 @@ observe → policy.complete? → policy.next → risk gate
 
 - `Continue`：保持 TaskGraph，下一次 attempt 重新跑 FastLoop。
 - `Replace`：**必须保留当前 subgoal id**，替换 intent/fallback/risk，节点回到 PENDING。
+- `InsertBefore`：在当前位置前插入修复/澄清节点；新节点继承当前依赖，当前节点改为依赖新节点并重启。
+- `RemoveCurrent`：删除当前节点，把它的依赖重接到后续节点。
 - `AskUser`：返回 `NEED_USER`。
 - `Stop`：返回停止/失败。
 
-`LoopRunner` 负责 attempt 循环：FastLoop → 若 `SLOW_LOOP` 则 SlowLoop → REPLANNED/CONTINUE 再跑，记录 `attempts`/`replans`。它不做任意节点插入、删除或预算跨 attempt 汇总；这些是后续能力。
+`LoopRunner` 负责 attempt 循环：FastLoop → 若 `SLOW_LOOP` 则 SlowLoop → REPLANNED/CONTINUE 再跑，记录 `attempts`/`replans`/`totalActions`。动作/时长预算跨 attempt 汇总（用剩余预算派生每次 FastLoop 的 TaskSpec）。
 
 ## device-api 边界
 
@@ -71,7 +73,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 ## 明确不包含
 
-- 完整动态重规划（任意节点插入/删除、跨 attempt 预算汇总）；当前只有同 id replace；
+- 任意 DAG 重排、多技能组合、条件 verifier；当前只有 replace / insertBefore / removeAndRewire；
 - 模型调用、prompt、技能库、OCR/视觉策略；
 - 更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；

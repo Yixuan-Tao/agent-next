@@ -1,5 +1,6 @@
 package agent.next.brain.loop;
 
+import agent.next.brain.Budget;
 import agent.next.brain.EpisodicMemory;
 import agent.next.brain.HumanGateway;
 import agent.next.brain.RiskGate;
@@ -10,6 +11,7 @@ import agent.next.device.DeviceApi;
 import agent.next.device.ObservationOptions;
 import agent.next.device.TargetHandle;
 
+import java.time.Duration;
 import java.util.Objects;
 
 /**
@@ -65,19 +67,29 @@ public final class LoopRunner {
 
     public LoopRunResult run() {
         SlowLoop slowLoop = new SlowLoop(slowLoopPolicy);
+        long started = System.nanoTime();
         int attempts = 0;
         int replans = 0;
+        int totalActions = 0;
         LoopResult last = null;
         while (attempts < maxAttempts) {
+            Budget remaining = remainingBudget(started, totalActions);
+            if (remaining == null) {
+                return failed("cross-attempt budget exhausted", attempts, replans,
+                        totalActions, last);
+            }
+            TaskSpec attemptTask = withBudget(task, remaining);
             attempts++;
             LoopPolicy policy = policyFactory.create(attempts, graph);
             if (policy == null) {
-                return failed("policy factory returned no policy", attempts, replans, last);
+                return failed("policy factory returned no policy", attempts, replans,
+                        totalActions, last);
             }
-            last = new FastLoop(api, target, task, graph, policy, riskGate, humanGateway,
+            last = new FastLoop(api, target, attemptTask, graph, policy, riskGate, humanGateway,
                     workingMemory, episodicMemory, observationOptions, observationRetries).run();
+            totalActions += last.actions();
             if (last.status() != LoopResult.Status.SLOW_LOOP) {
-                return new LoopRunResult(last, attempts, replans, graph);
+                return new LoopRunResult(last, attempts, replans, totalActions, graph);
             }
             SlowLoopResult slow = slowLoop.run(new SlowLoopContext(
                     task, graph, graph.current(), last, attempts, workingMemory));
@@ -89,22 +101,43 @@ public final class LoopRunner {
                     continue;
                 case NEED_USER:
                     return new LoopRunResult(LoopResult.needUser(
-                            slow.detail(), last.actions(), last.lastObservation()),
-                            attempts, replans, graph);
+                            slow.detail(), totalActions, last.lastObservation()),
+                            attempts, replans, totalActions, graph);
                 case STOPPED:
-                    return failed("slow loop stopped: " + slow.detail(), attempts, replans, last);
+                    return failed("slow loop stopped: " + slow.detail(), attempts, replans,
+                            totalActions, last);
                 case FAILED:
                 default:
-                    return failed("slow loop failed: " + slow.detail(), attempts, replans, last);
+                    return failed("slow loop failed: " + slow.detail(), attempts, replans,
+                            totalActions, last);
             }
         }
-        return failed("slow-loop attempt limit reached", attempts, replans, last);
+        return failed("slow-loop attempt limit reached", attempts, replans, totalActions, last);
     }
 
-    private LoopRunResult failed(String detail, int attempts, int replans, LoopResult last) {
-        int actions = last == null ? 0 : last.actions();
+    private Budget remainingBudget(long started, int totalActions) {
+        long remainingNanos = task.budget().maxDuration().toNanos()
+                - (System.nanoTime() - started);
+        int remainingActions = task.budget().maxActions() - totalActions;
+        if (remainingNanos <= 0 || remainingActions <= 0) {
+            return null;
+        }
+        return new Budget(remainingActions, Duration.ofNanos(remainingNanos),
+                task.budget().maxConsecutiveNoEffect(),
+                task.budget().maxConsecutiveNoProgress());
+    }
+
+    private static TaskSpec withBudget(TaskSpec source, Budget budget) {
+        return new TaskSpec(source.id(), source.goal(), source.constraints(),
+                source.successCriteria(), source.autonomy(), source.allowedApps(),
+                source.deniedActions(), budget);
+    }
+
+    private LoopRunResult failed(String detail, int attempts, int replans,
+            int totalActions, LoopResult last) {
         return new LoopRunResult(
-                LoopResult.failed(detail, actions, last == null ? null : last.lastObservation()),
-                attempts, replans, graph);
+                LoopResult.failed(detail, totalActions,
+                        last == null ? null : last.lastObservation()),
+                attempts, replans, totalActions, graph);
     }
 }

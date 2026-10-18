@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -99,6 +100,85 @@ public final class TaskGraph {
             }
         }
         nodes.remove(id);
+    }
+
+    /**
+     * Inserts a repair/clarification node immediately before the current node.
+     * The inserted node inherits the current node's dependencies; the current
+     * node becomes dependent on the inserted node and starts over as PENDING.
+     * The inserted node's own dependsOn set is ignored for this operation.
+     */
+    public void insertBefore(String currentId, Subgoal inserted) {
+        Objects.requireNonNull(inserted, "inserted");
+        Node current = requireNode(currentId);
+        if (current.status == NodeStatus.ACTIVE || current.status == NodeStatus.COMPLETED
+                || current.status == NodeStatus.SKIPPED) {
+            throw new IllegalStateException("cannot insert before " + currentId
+                    + " in status " + current.status);
+        }
+        if (inserted.id().equals(currentId) || nodes.containsKey(inserted.id())) {
+            throw new IllegalArgumentException("inserted subgoal id is already present: " + inserted.id());
+        }
+        Map<String, Node> backup = copyNodes();
+        try {
+            Subgoal insertedNode = new Subgoal(inserted.id(), inserted.intent(),
+                    current.subgoal.dependsOn(), inserted.preconditions(),
+                    inserted.postconditions(), inserted.fallback(), inserted.risk(),
+                    inserted.required());
+            Set<String> currentDependencies = new LinkedHashSet<>(current.subgoal.dependsOn());
+            currentDependencies.add(inserted.id());
+            Subgoal updatedCurrent = new Subgoal(current.subgoal.id(), current.subgoal.intent(),
+                    currentDependencies, current.subgoal.preconditions(),
+                    current.subgoal.postconditions(), current.subgoal.fallback(),
+                    current.subgoal.risk(), current.subgoal.required());
+            nodes.put(inserted.id(), new Node(insertedNode));
+            nodes.put(currentId, new Node(updatedCurrent, NodeStatus.PENDING));
+            validateGraph();
+        } catch (RuntimeException failure) {
+            restore(backup);
+            throw failure;
+        }
+    }
+
+    /**
+     * Removes a pending/failed/skipped node and rewires its dependents onto its
+     * dependencies. Active/completed nodes and active/completed dependents are
+     * rejected because their execution history cannot be rewritten.
+     */
+    public void removeAndRewire(String id) {
+        Node removed = requireNode(id);
+        if (removed.status == NodeStatus.ACTIVE || removed.status == NodeStatus.COMPLETED) {
+            throw new IllegalStateException("cannot remove " + id + " in status " + removed.status);
+        }
+        for (Node other : nodes.values()) {
+            if (other.subgoal.dependsOn().contains(id)
+                    && (other.status == NodeStatus.ACTIVE || other.status == NodeStatus.COMPLETED)) {
+                throw new IllegalStateException("cannot rewire executed dependent "
+                        + other.subgoal.id());
+            }
+        }
+        Map<String, Node> backup = copyNodes();
+        try {
+            nodes.remove(id);
+            for (Map.Entry<String, Node> entry : nodes.entrySet()) {
+                Node other = entry.getValue();
+                if (!other.subgoal.dependsOn().contains(id)) {
+                    continue;
+                }
+                Set<String> dependencies = new LinkedHashSet<>(other.subgoal.dependsOn());
+                dependencies.remove(id);
+                dependencies.addAll(removed.subgoal.dependsOn());
+                Subgoal updated = new Subgoal(other.subgoal.id(), other.subgoal.intent(),
+                        dependencies, other.subgoal.preconditions(),
+                        other.subgoal.postconditions(), other.subgoal.fallback(),
+                        other.subgoal.risk(), other.subgoal.required());
+                entry.setValue(new Node(updated, other.status));
+            }
+            validateGraph();
+        } catch (RuntimeException failure) {
+            restore(backup);
+            throw failure;
+        }
     }
 
     public Optional<Subgoal> current() {
@@ -272,6 +352,20 @@ public final class TaskGraph {
             return false;
         }
         return true;
+    }
+
+    private Map<String, Node> copyNodes() {
+        Map<String, Node> copy = new LinkedHashMap<>();
+        for (Map.Entry<String, Node> entry : nodes.entrySet()) {
+            Node node = entry.getValue();
+            copy.put(entry.getKey(), new Node(node.subgoal, node.status));
+        }
+        return copy;
+    }
+
+    private void restore(Map<String, Node> backup) {
+        nodes.clear();
+        nodes.putAll(backup);
     }
 
     private Node requireNode(String id) {

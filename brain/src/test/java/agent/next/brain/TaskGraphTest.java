@@ -16,6 +16,7 @@ final class TaskGraphTest {
         dependencyEnforcement();
         rejectsInvalidGraphs();
         replanningMutations();
+        dynamicInsertAndRemove();
         optionalAndFailure();
         System.out.println("TaskGraphTest: PASS (dependencies, completion, replanning, failure)");
     }
@@ -131,6 +132,38 @@ final class TaskGraphTest {
         graph.activate("req");
         graph.complete("req");
         check(graph.isDone(), "optional skip plus required completion is done");
+    }
+
+    private static void dynamicInsertAndRemove() {
+        TaskGraph graph = new TaskGraph(List.of(
+                goal("a", true), goal("b", true, "a"), goal("c", true, "b")));
+        graph.insertBefore("b", new Subgoal("repair", "repair the page", Set.of(),
+                List.of(), List.of(), new Fallback(Fallback.Strategy.RETRY, "retry"),
+                RiskClass.LOW, true));
+        check(graph.total() == 4, "insert adds a node");
+        check(graph.status("b") == TaskGraph.NodeStatus.PENDING, "current node restarts pending");
+        check(graph.current().orElseThrow().id().equals("a"), "first dependency is current");
+        graph.activate("a");
+        graph.complete("a");
+        check(graph.current().orElseThrow().id().equals("repair"), "repair runs before current");
+        graph.activate("repair");
+        graph.complete("repair");
+        check(graph.current().orElseThrow().id().equals("b"), "original current resumes");
+        graph.activate("b");
+        expect(IllegalStateException.class, () -> graph.insertBefore("b", goal("late", true)),
+                "cannot insert before an active node");
+
+        TaskGraph chain = new TaskGraph(List.of(
+                goal("a", true), goal("b", true, "a"), goal("c", true, "b")));
+        chain.removeAndRewire("b");
+        check(chain.total() == 2, "remove deletes the node");
+        check(chain.current().orElseThrow().id().equals("a"), "first dependency is current");
+        chain.activate("a");
+        chain.complete("a");
+        check(chain.current().orElseThrow().id().equals("c"), "dependent is rewired");
+        check(chain.current().orElseThrow().dependsOn().contains("a"), "rewired dependency");
+        expect(IllegalArgumentException.class, () -> chain.removeAndRewire("missing"),
+                "unknown node");
     }
 
     private static Subgoal goal(String id, boolean required, String... dependencies) {
