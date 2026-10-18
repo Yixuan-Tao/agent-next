@@ -11,7 +11,7 @@ import java.util.Map;
  * The model response is untrusted: parsing is bounded and trailing data is
  * rejected.
  */
-final class Json {
+public final class Json {
 
     private static final int MAX_INPUT = 1_048_576;
     private static final int MAX_DEPTH = 64;
@@ -19,7 +19,7 @@ final class Json {
     private Json() {
     }
 
-    static Object parse(String text) {
+    public static Object parse(String text) {
         if (text == null || text.length() > MAX_INPUT) {
             throw new IllegalArgumentException("invalid JSON input length");
         }
@@ -33,7 +33,7 @@ final class Json {
     }
 
     @SuppressWarnings("unchecked")
-    static Map<String, Object> object(String text) {
+    public static Map<String, Object> object(String text) {
         Object value = parse(text);
         if (!(value instanceof Map)) {
             throw new IllegalArgumentException("expected JSON object");
@@ -41,7 +41,7 @@ final class Json {
         return (Map<String, Object>) value;
     }
 
-    static String string(Map<String, Object> object, String key) {
+    public static String string(Map<String, Object> object, String key) {
         Object value = object.get(key);
         if (!(value instanceof String)) {
             throw new IllegalArgumentException("expected string field " + key);
@@ -49,7 +49,7 @@ final class Json {
         return (String) value;
     }
 
-    static String quote(String value) {
+    public static String quote(String value) {
         StringBuilder result = new StringBuilder(value.length() + 2);
         result.append('"');
         for (int index = 0; index < value.length(); index++) {

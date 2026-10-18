@@ -17,6 +17,7 @@ final class TaskGraphTest {
         rejectsInvalidGraphs();
         replanningMutations();
         dynamicInsertAndRemove();
+        scopedSubgoals();
         optionalAndFailure();
         System.out.println("TaskGraphTest: PASS (dependencies, completion, replanning, failure)");
     }
@@ -164,6 +165,39 @@ final class TaskGraphTest {
         check(chain.current().orElseThrow().dependsOn().contains("a"), "rewired dependency");
         expect(IllegalArgumentException.class, () -> chain.removeAndRewire("missing"),
                 "unknown node");
+    }
+
+    private static void scopedSubgoals() {
+        Subgoal first = new Subgoal("a", "first", Set.of(), List.of(), List.of(),
+                new Fallback(Fallback.Strategy.RETRY, "retry"), RiskClass.LOW, true,
+                "com.example.a", "visual");
+        Subgoal second = new Subgoal("b", "second", Set.of("a"), List.of(), List.of(),
+                new Fallback(Fallback.Strategy.RETRY, "retry"), RiskClass.LOW, true,
+                "com.example.b", "calendar.event");
+        TaskGraph graph = TaskGraph.of(first, second);
+        graph.insertBefore("b", new Subgoal("repair", "repair", Set.of(), List.of(),
+                List.of(), new Fallback(Fallback.Strategy.RETRY, "retry"),
+                RiskClass.LOW, true));
+        graph.activate("a");
+        graph.complete("a");
+        check(graph.current().orElseThrow().id().equals("repair"), "repair becomes current");
+        check(graph.current().orElseThrow().targetPackage().equals("com.example.b"),
+                "inserted repair inherits target scope");
+        check(graph.current().orElseThrow().verifierId().equals("calendar.event"),
+                "inserted repair inherits verifier");
+        graph.activate("repair");
+        graph.complete("repair");
+        check(graph.current().orElseThrow().targetPackage().equals("com.example.b"),
+                "original scope preserved");
+        check(graph.current().orElseThrow().verifierId().equals("calendar.event"),
+                "original verifier preserved");
+
+        TaskGraph chain = TaskGraph.of(first, second);
+        chain.removeAndRewire("a");
+        check(chain.current().orElseThrow().targetPackage().equals("com.example.b"),
+                "rewired scope preserved");
+        check(chain.current().orElseThrow().verifierId().equals("calendar.event"),
+                "rewired verifier preserved");
     }
 
     private static Subgoal goal(String id, boolean required, String... dependencies) {

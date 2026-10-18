@@ -8,7 +8,8 @@
 |---|---|
 | `AutonomyLevel` / `ActionKind` / `AutonomyGrant` / `AutonomyPolicy` | A0–A4 自主级别与动作许可；A4 在 v1 由 `TaskSpec` 拒绝 |
 | `TaskSpec` / `Budget` / `SuccessCriterion` | 目标、约束、成功标准、允许 App、预算 |
-| `Subgoal` / `Condition` / `Fallback` / `TaskGraph` | 可修改的任务图：依赖、就绪、完成、失败、跳过、替换、删除 |
+| `Subgoal` / `Condition` / `Fallback` / `TaskGraph` | 可修改的任务图：依赖、就绪、完成、失败、跳过、替换、删除；subgoal 带 targetPackage/verifierId |
+| `plan.TaskPlanner` / `PlanningRequest` / `TaskPlan` / `DeepSeekTaskPlanner` | 自然语言 → 严格 JSON 计划：1..8 subgoal、allowed/installed App、verifier、澄清问题 |
 | `Skill` / `SkillStep` | 带前置/后置条件、回退、风险和成本的语义技能（旧声明式模型） |
 | `skill.SkillPackage` / `SkillBody` | 可安装 skill：contract、workflow/prompt/hybrid、permissions、applicability、verifier、trust、provenance |
 | `skill.SkillWorkflowPolicy` | 把语义 workflow 映射成 LoopAction，经 FastLoop RiskGate 执行；不接触 DeviceApi/坐标 |
@@ -44,7 +45,16 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`；`LoopControl` 在步骤边界暂停，停止返回 `STOPPED`。
-- 13 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest` 覆盖快慢循环、重规划、workflow/prompt skill、验证/准入与模型 JSON 解析。
+- 14 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest`/`TaskPlannerTest` 覆盖快慢循环、重规划、workflow/prompt skill、视觉验证、计划 schema/scope/DAG 与模型 JSON 解析。
+
+## Planning
+
+- `DeepSeekTaskPlanner` 只用文本模型生成 `TaskPlan`，不接触设备/坐标。
+- 输出 1..8 个 subgoal；`targetPackage` 必须在已安装且允许集合，首节点必须是当前 primary App；
+  `verifierId` 只能来自允许集合；`dependsOn` 必须构成 DAG。
+- 目标有实质歧义时只返回一个 `clarification`，不生成计划。
+- `TaskPlan` 在构造时复用 `TaskGraph` 校验重复 id/未知依赖/环。
+- 计划仍需 app 的计划确认；planner 不执行计划。
 
 ## Slow loop
 

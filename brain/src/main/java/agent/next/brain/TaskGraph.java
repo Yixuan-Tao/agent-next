@@ -121,16 +121,21 @@ public final class TaskGraph {
         }
         Map<String, Node> backup = copyNodes();
         try {
+            String insertedTarget = inserted.targetPackage().isEmpty()
+                    ? current.subgoal.targetPackage() : inserted.targetPackage();
+            String insertedVerifier = inserted.verifierId().isEmpty()
+                    ? current.subgoal.verifierId() : inserted.verifierId();
             Subgoal insertedNode = new Subgoal(inserted.id(), inserted.intent(),
                     current.subgoal.dependsOn(), inserted.preconditions(),
                     inserted.postconditions(), inserted.fallback(), inserted.risk(),
-                    inserted.required());
+                    inserted.required(), insertedTarget, insertedVerifier);
             Set<String> currentDependencies = new LinkedHashSet<>(current.subgoal.dependsOn());
             currentDependencies.add(inserted.id());
             Subgoal updatedCurrent = new Subgoal(current.subgoal.id(), current.subgoal.intent(),
                     currentDependencies, current.subgoal.preconditions(),
                     current.subgoal.postconditions(), current.subgoal.fallback(),
-                    current.subgoal.risk(), current.subgoal.required());
+                    current.subgoal.risk(), current.subgoal.required(),
+                    current.subgoal.targetPackage(), current.subgoal.verifierId());
             nodes.put(inserted.id(), new Node(insertedNode));
             nodes.put(currentId, new Node(updatedCurrent, NodeStatus.PENDING));
             validateGraph();
@@ -171,7 +176,8 @@ public final class TaskGraph {
                 Subgoal updated = new Subgoal(other.subgoal.id(), other.subgoal.intent(),
                         dependencies, other.subgoal.preconditions(),
                         other.subgoal.postconditions(), other.subgoal.fallback(),
-                        other.subgoal.risk(), other.subgoal.required());
+                        other.subgoal.risk(), other.subgoal.required(),
+                        other.subgoal.targetPackage(), other.subgoal.verifierId());
                 entry.setValue(new Node(updated, other.status));
             }
             validateGraph();
