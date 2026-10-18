@@ -118,7 +118,7 @@
 
 **决策**
 
-- `agent-next` 是**单一模块化 monorepo**，目标模块包括 `capability/`、`brain/`、`app/`、`testkit/`、`docs/`（当前已有 `capability/`、`testkit/`、`docs/`）；依赖方向 `app → brain → device-api`，`capability` 实现 `device-api`，`brain` 不依赖 Android UI/shell。
+- `agent-next` 是**单一模块化 monorepo**，目标模块包括 `capability/`、`device-api/`、`brain/`、`app/`、`testkit/`、`docs/`（当前已有 `capability/`、`device-api/`、`brain/`、`testkit/`、`docs/`）；依赖方向 `app → brain → device-api`，`capability` 实现 `device-api`，`brain` 不依赖 Android UI/shell。
 - 不使用 submodule、不源码依赖旧仓库、不复制旧 `AgentLoop`/`TaskPlanner`。
 - 旧仓库 `agent-phone` 在提交 `5846095` **只读冻结**：不保留维护分支、不接新功能；capability 修复只在新仓库做。旧仓库仅作为证据/参考与设备回归基线。
 - 执行项：在旧仓库打归档 tag（如 `archive/agent-phone-5846095`）；旧仓库不再合并新提交。
@@ -194,7 +194,7 @@
 ## 后续执行项（非决策）
 
 1. 在旧仓库打归档 tag，确认只读。
-2. `brain/` 领域骨架已建（`brain/`，纯 JVM + host 测试）；下一步抽 `device-api` 边界并接快慢 loop。
+2. `device-api` 首版已定义（纯 JVM 端口 + `FakeDeviceApi` 契约测试 PASS）；下一步接 capability adapter 与快慢 loop。
 3. 定义确认卡/接管 UI 的最小字段与审计事件。
 4. 落实记忆加密、保留期任务与清除级联。
 5. 在 Chain A/B 验收中记录确认次数、接管次数、误提交/错发为 0。

@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = 'AgentNext'
 include ':capability'
+include ':device-api'
 include ':brain'

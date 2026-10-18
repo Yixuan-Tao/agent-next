@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前只实现可独立验证的领域模型与不变量；快慢循环、模型调用、技能库和 `device-api` 尚未接入。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现可独立验证的领域模型与不变量；快慢循环、模型调用、技能库尚未接入。`device-api` 已作为依赖接好，领域层尚未调用设备。
 
 ## 当前包含
 
@@ -16,6 +16,12 @@
 | `MemoryPolicy` / `WorkingMemory` / `EpisodicMemory` / `TaskEvent` | 记忆保留策略与最小内存实现 |
 | `HumanGateway` / `HandoffMode` / `HandoffRequest` | 预览触摸、主屏接管、凭据接管的人机边界 |
 | `SlowLoopSignals` / `SlowLoopReason` | 慢循环触发条件（无效果、无进展、图不一致、风险、预算…） |
+
+## device-api 边界
+
+`brain` 通过 Gradle `api project(':device-api')` 依赖纯 JVM 设备端口，不 import `agent.phone.*` 或 Android 类型。端口定义见 [device-api/README.md](../device-api/README.md)。
+
+当前领域层还没有调用设备；下一步是快慢循环执行器 + `FakeDeviceApi` 的场景测试，再接 capability adapter。
 
 ## 测试
 
@@ -33,7 +39,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 ## 明确不包含
 
-- `device-api` 接口与 Android 实现；
+- capability adapter 与真实设备调用（`device-api` 端口已定义，实现未接）；
 - 快循环/慢循环执行器、模型调用、prompt、技能库；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面；

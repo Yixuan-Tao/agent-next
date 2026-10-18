@@ -211,7 +211,8 @@
 agent-next/
   capability/        # Android module: AIDL, Shizuku, display/target, observation/frame,
                      # input, preview mirror, task move, policies
-  brain/             # pure JVM/Kotlin: TaskSpec, TaskGraph, skills, memory,
+  device-api/        # pure JVM ports: display/target/observation/frame/input/task move
+  brain/             # pure JVM: TaskSpec, TaskGraph, skills, memory,
                      # slow/fast loop, risk gate, verifier interfaces
   app/               # UI, foreground service, preview, human gateway
   testkit/
@@ -296,7 +297,7 @@ model API keys / model-config.json
 
 1. **冻结旧仓库**：记录 commit、设备/依赖版本；不再加旧 loop 功能。
 2. **复制 capability + testkit**：先跑 host 三套、合成前台 App、display/target/observation/input 设备回归。
-3. **定义 device-api**：AIDL/接口、能力清单、错误/超时/清理语义；旧实现可作为参考实现。
+3. **定义 device-api**：AIDL/接口、能力清单、错误/超时/清理语义；旧实现可作为参考实现。首版纯 JVM 端口已完成（`device-api/` + `FakeDeviceApi` 契约），capability adapter 待接。
 4. **新 brain 骨架**：TaskSpec/TaskGraph/Skill/Memory/EffectVerifier/RiskGate/HumanGateway，先写 host 测试。
 5. **新 UI 最小闭环**：自然语言 + 任务图确认 + 预览/接管 + 结果。
 6. **Chain A 非购物**：Quark 天气 → 日历；验证技能/记忆/重规划/verifier。

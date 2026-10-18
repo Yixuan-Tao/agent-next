@@ -24,3 +24,7 @@ tasks.register('hostTest', JavaExec) {
 tasks.named('check') {
     dependsOn tasks.named('hostTest')
 }
+
+dependencies {
+    api project(':device-api')
+}
