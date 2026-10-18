@@ -18,6 +18,7 @@ public record LoopResult(
         NEED_USER,
         SLOW_LOOP,
         BUDGET_EXHAUSTED,
+        STOPPED,
         FAILED
     }
 
@@ -54,6 +55,10 @@ public record LoopResult(
 
     public static LoopResult budgetExhausted(String detail, int actions, Observation observation) {
         return new LoopResult(Status.BUDGET_EXHAUSTED, detail, null, actions, observation);
+    }
+
+    public static LoopResult stopped(String detail, int actions, Observation observation) {
+        return new LoopResult(Status.STOPPED, detail, null, actions, observation);
     }
 
     public static LoopResult failed(String detail, int actions, Observation observation) {

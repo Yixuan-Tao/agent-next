@@ -61,6 +61,7 @@ public final class FastLoop {
     private final ObservationOptions observationOptions;
     private final EffectEvaluator effectEvaluator = new EffectEvaluator();
     private final int observationRetries;
+    private final LoopControl control;
 
     public FastLoop(DeviceApi api, TargetHandle target, TaskSpec task, TaskGraph graph,
             LoopPolicy policy, RiskGate riskGate, HumanGateway humanGateway,
@@ -73,6 +74,14 @@ public final class FastLoop {
             LoopPolicy policy, RiskGate riskGate, HumanGateway humanGateway,
             WorkingMemory workingMemory, EpisodicMemory episodicMemory,
             ObservationOptions observationOptions, int observationRetries) {
+        this(api, target, task, graph, policy, riskGate, humanGateway, workingMemory,
+                episodicMemory, observationOptions, observationRetries, LoopControl.none());
+    }
+
+    public FastLoop(DeviceApi api, TargetHandle target, TaskSpec task, TaskGraph graph,
+            LoopPolicy policy, RiskGate riskGate, HumanGateway humanGateway,
+            WorkingMemory workingMemory, EpisodicMemory episodicMemory,
+            ObservationOptions observationOptions, int observationRetries, LoopControl control) {
         this.api = Objects.requireNonNull(api, "api");
         this.target = Objects.requireNonNull(target, "target");
         this.task = Objects.requireNonNull(task, "task");
@@ -87,6 +96,7 @@ public final class FastLoop {
             throw new IllegalArgumentException("observationRetries must be positive");
         }
         this.observationRetries = observationRetries;
+        this.control = Objects.requireNonNull(control, "control");
     }
 
     public LoopResult run() {
@@ -101,6 +111,12 @@ public final class FastLoop {
             if (graph.isDone()) {
                 event(TaskEvent.EventType.COMPLETION, "task complete", Map.of());
                 return LoopResult.done(actions, last);
+            }
+            try {
+                control.checkpoint();
+            } catch (LoopStoppedException stopped) {
+                event(TaskEvent.EventType.STOPPED, stopped.getMessage(), Map.of());
+                return LoopResult.stopped(stopped.getMessage(), actions, last);
             }
             Optional<Subgoal> current = graph.current();
             if (current.isEmpty()) {
@@ -170,6 +186,12 @@ public final class FastLoop {
                         Map.of("action", action.id()));
             }
 
+            try {
+                control.checkpoint();
+            } catch (LoopStoppedException stopped) {
+                event(TaskEvent.EventType.STOPPED, stopped.getMessage(), Map.of());
+                return LoopResult.stopped(stopped.getMessage(), actions, last);
+            }
             StateFingerprint before = ObservationFingerprint.of(observation);
             InputReceipt receipt;
             try {

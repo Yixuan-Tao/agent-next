@@ -19,6 +19,7 @@ public record TaskEvent(
         CONFIRMATION,
         HANDOFF,
         FAILURE,
+        STOPPED,
         COMPLETION
     }
 

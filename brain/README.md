@@ -28,6 +28,7 @@
 | `loop.NodeSelector` / `ObservationFingerprint` | 选择器与稳定状态指纹（不包含 observation id/ref） |
 | `loop.SlowLoop` / `SlowLoopPolicy` / `SlowLoopDecision` | 慢循环决策：continue / 同 id replace / ask user / stop |
 | `loop.LoopRunner` / `LoopRunResult` | 多次 FastLoop 尝试 + slow-loop 重规划计数 |
+| `loop.LoopControl` / `LoopStoppedException` | 暂停检查点与用户停止；恢复后重新 observe，不复用旧动作 |
 
 ## Fast loop
 
@@ -42,7 +43,7 @@ observe → policy.complete? → policy.next → risk gate
 - 动作通过 `LoopPolicy` 选择；测试用脚本策略，后续可替换为模型决策。
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
-- `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`。
+- `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`；`LoopControl` 在步骤边界暂停，停止返回 `STOPPED`。
 - 13 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest` 覆盖快慢循环、重规划、workflow/prompt skill、验证/准入与模型 JSON 解析。
 
 ## Slow loop

@@ -33,6 +33,7 @@ public final class LoopRunner {
     private final ObservationOptions observationOptions;
     private final int observationRetries;
     private final int maxAttempts;
+    private final LoopControl control;
 
     public LoopRunner(DeviceApi api, TargetHandle target, TaskSpec task, TaskGraph graph,
             LoopPolicyFactory policyFactory, SlowLoopPolicy slowLoopPolicy,
@@ -47,6 +48,16 @@ public final class LoopRunner {
             RiskGate riskGate, HumanGateway humanGateway, WorkingMemory workingMemory,
             EpisodicMemory episodicMemory, ObservationOptions observationOptions,
             int observationRetries, int maxAttempts) {
+        this(api, target, task, graph, policyFactory, slowLoopPolicy, riskGate, humanGateway,
+                workingMemory, episodicMemory, observationOptions, observationRetries,
+                maxAttempts, LoopControl.none());
+    }
+
+    public LoopRunner(DeviceApi api, TargetHandle target, TaskSpec task, TaskGraph graph,
+            LoopPolicyFactory policyFactory, SlowLoopPolicy slowLoopPolicy,
+            RiskGate riskGate, HumanGateway humanGateway, WorkingMemory workingMemory,
+            EpisodicMemory episodicMemory, ObservationOptions observationOptions,
+            int observationRetries, int maxAttempts, LoopControl control) {
         this.api = Objects.requireNonNull(api, "api");
         this.target = Objects.requireNonNull(target, "target");
         this.task = Objects.requireNonNull(task, "task");
@@ -63,6 +74,7 @@ public final class LoopRunner {
         }
         this.observationRetries = observationRetries;
         this.maxAttempts = maxAttempts;
+        this.control = Objects.requireNonNull(control, "control");
     }
 
     public LoopRunResult run() {
@@ -86,7 +98,8 @@ public final class LoopRunner {
                         totalActions, last);
             }
             last = new FastLoop(api, target, attemptTask, graph, policy, riskGate, humanGateway,
-                    workingMemory, episodicMemory, observationOptions, observationRetries).run();
+                    workingMemory, episodicMemory, observationOptions, observationRetries,
+                    control).run();
             totalActions += last.actions();
             if (last.status() != LoopResult.Status.SLOW_LOOP) {
                 return new LoopRunResult(last, attempts, replans, totalActions, graph);

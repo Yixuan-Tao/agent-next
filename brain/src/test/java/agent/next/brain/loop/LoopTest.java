@@ -30,12 +30,14 @@ import agent.next.device.NodeFlag;
 import agent.next.device.Observation;
 import agent.next.device.TargetHandle;
 import agent.next.device.UiNode;
+import agent.next.device.ObservationOptions;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class LoopTest {
 
@@ -48,7 +50,22 @@ public final class LoopTest {
         budgetStops();
         credentialNeedsUser();
         confirmationIsRequired();
+        stopControlStopsBeforeAction();
         System.out.println("LoopTest: PASS (fast loop, effect, slow-loop signal, risk)");
+    }
+
+    private static void stopControlStopsBeforeAction() {
+        AtomicInteger checkpoints = new AtomicInteger();
+        LoopControl control = () -> {
+            if (checkpoints.incrementAndGet() >= 2) {
+                throw new LoopStoppedException("user stopped");
+            }
+        };
+        LoopResult result = loop(new LoopFakeDevice(), graph(), task(10), new SuccessPolicy(),
+                new FakeHumanGateway(), new InMemoryWorkingMemory(), new InMemoryEpisodicMemory(),
+                control);
+        check(result.status() == LoopResult.Status.STOPPED, "stop returns STOPPED");
+        check(result.actions() == 0, "stop before action performs no action");
     }
 
     private static void success() {
@@ -112,6 +129,13 @@ public final class LoopTest {
             LoopPolicy policy, HumanGateway human, WorkingMemory working, EpisodicMemory episodic) {
         return new FastLoop(api, target(), task, graph, policy, new DefaultRiskGate(), human,
                 working, episodic).run();
+    }
+
+    private static LoopResult loop(LoopFakeDevice api, TaskGraph graph, TaskSpec task,
+            LoopPolicy policy, HumanGateway human, WorkingMemory working, EpisodicMemory episodic,
+            LoopControl control) {
+        return new FastLoop(api, target(), task, graph, policy, new DefaultRiskGate(), human,
+                working, episodic, ObservationOptions.defaults(), 3, control).run();
     }
 
     static TaskSpec task(int maxActions) {
