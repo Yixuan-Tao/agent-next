@@ -36,3 +36,21 @@ state: FAILED · 规划失败: Software caused connection abort
 - target 窗口丢失；
 - 20 分钟后台/Doze；
 - Android 13。
+
+## 执行阶段断网
+
+步骤：计划已生成 → 执行 → 立即关闭 Wi-Fi 25 秒 → 恢复。
+
+结果：
+
+```text
+state: RUNNING · 执行中
+result: STOPPED · v1 stops on slow loop actions=2 attempts=1
+```
+
+- 没有进入支付/下单；
+- 没有把网络异常当成 DONE；
+- 当前 slow-loop policy 选择 STOP，任务安全结束；
+- 不是“自动恢复成功”，需要重新发起任务。
+
+后续可增加模型 429/超时退避与重试预算，但不能在未知副作用后自动重放动作。
