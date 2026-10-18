@@ -14,6 +14,33 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import agent.next.brain.AutonomyGrant;
+import agent.next.brain.AutonomyLevel;
+import agent.next.brain.Budget;
+import agent.next.brain.ConfirmationRequest;
+import agent.next.brain.ConfirmationToken;
+import agent.next.brain.DefaultRiskGate;
+import agent.next.brain.Fallback;
+import agent.next.brain.HandoffRequest;
+import agent.next.brain.HandoffSession;
+import agent.next.brain.HumanGateway;
+import agent.next.brain.HumanUnavailableException;
+import agent.next.brain.InMemoryEpisodicMemory;
+import agent.next.brain.InMemoryWorkingMemory;
+import agent.next.brain.RiskClass;
+import agent.next.brain.Subgoal;
+import agent.next.brain.SuccessCriterion;
+import agent.next.brain.TaskGraph;
+import agent.next.brain.TaskSpec;
+import agent.next.brain.loop.FastLoop;
+import agent.next.brain.loop.LoopAction;
+import agent.next.brain.loop.LoopContext;
+import agent.next.brain.loop.LoopPolicy;
+import agent.next.brain.loop.LoopResult;
+import agent.next.brain.loop.NodeSelector;
+import agent.next.brain.loop.SetTextAction;
+import agent.next.brain.loop.TapAction;
+import agent.next.device.DeviceApi;
 import agent.next.device.DeviceCapabilities;
 import agent.next.device.DeviceException;
 import agent.next.device.DisplayHandle;
@@ -35,6 +62,11 @@ import agent.phone.connection.ShizukuConnectionDriver;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,7 +90,9 @@ public final class ShellActivity extends Activity {
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         setContentView(buildUi());
-        if (getIntent().getBooleanExtra("autorun", true)) {
+        if ("loop".equals(getIntent().getStringExtra("mode"))) {
+            startFastLoop();
+        } else if (getIntent().getBooleanExtra("autorun", true)) {
             startSmoke();
         }
     }
@@ -83,7 +117,7 @@ public final class ShellActivity extends Activity {
         root.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("Connect Shizuku, create a 720x1280 private display, launch JD, observe, capture, release.");
+        hint.setText("Smoke: connect Shizuku, create display, launch JD, observe, input, task move. Fast loop: let FastLoop drive a JD search.");
         hint.setTextSize(13);
         hint.setTextColor(Color.rgb(80, 80, 80));
         hint.setPadding(0, padding / 2, 0, padding / 2);
@@ -107,6 +141,14 @@ public final class ShellActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         buttonParams.topMargin = padding;
         root.addView(run, buttonParams);
+
+        Button fastLoop = new Button(this);
+        fastLoop.setText("Run fast loop (JD search)");
+        fastLoop.setOnClickListener(view -> startFastLoop());
+        LinearLayout.LayoutParams fastLoopParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        fastLoopParams.topMargin = padding / 2;
+        root.addView(fastLoop, fastLoopParams);
         root.setGravity(Gravity.TOP);
         return root;
     }
@@ -118,6 +160,93 @@ public final class ShellActivity extends Activity {
         running = true;
         append("--- smoke start ---");
         worker.execute(this::runSmoke);
+    }
+
+    private void startFastLoop() {
+        if (running) {
+            return;
+        }
+        running = true;
+        append("--- fast loop start ---");
+        worker.execute(this::runFastLoop);
+    }
+
+    private void runFastLoop() {
+        BlockingDeviceApi api = null;
+        DisplayHandle display = null;
+        TargetHandle target = null;
+        try {
+            api = new BlockingDeviceApi(
+                    listener -> new ShizukuConnectionDriver(getApplicationContext(), listener),
+                    60_000L);
+            append("fast-loop: connect");
+            api.connect();
+            display = api.displays().create(DisplaySpec.standard());
+            append("fast-loop: display " + display.token());
+            target = api.targets().open(display,
+                    TargetSpec.single("fast-loop-task", TARGET_PACKAGE));
+            append("fast-loop: target " + target.token());
+
+            TaskSpec task = new TaskSpec(
+                    "fast-loop-task",
+                    "search JD for a shirt",
+                    List.of(),
+                    List.of(new SuccessCriterion("results", "results visible", true)),
+                    AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT),
+                    Set.of(TARGET_PACKAGE),
+                    Set.of(),
+                    new Budget(40, Duration.ofMinutes(2), 10, 10));
+            TaskGraph graph = TaskGraph.of(new Subgoal(
+                    "search", "search and see results", Set.of(), List.of(), List.of(),
+                    new Fallback(Fallback.Strategy.ASK_USER, "ask the user"),
+                    RiskClass.LOW, true));
+            FastLoop loop = new FastLoop(api, target, task, graph, new JdSearchPolicy(),
+                    new DefaultRiskGate(), new UnavailableHumanGateway(),
+                    new InMemoryWorkingMemory(), new InMemoryEpisodicMemory(),
+                    ObservationOptions.defaults(), 20);
+            LoopResult result = loop.run();
+            append("fast-loop result: " + result.status()
+                    + " actions=" + result.actions()
+                    + " detail=" + result.detail());
+            if (result.lastObservation() != null) {
+                append("fast-loop last: " + summarize(result.lastObservation()));
+                try {
+                    saveFrame(api.observations().captureFrame(target));
+                } catch (Throwable failure) {
+                    append("fast-loop frame: " + failure);
+                }
+            }
+            if (result.status() == LoopResult.Status.DONE) {
+                append("FAST LOOP PASS");
+            } else {
+                append("FAST LOOP STOP: " + result.status());
+            }
+        } catch (Throwable failure) {
+            Log.e(TAG, "fast loop failed", failure);
+            append("FAST LOOP FAIL: " + failure);
+        } finally {
+            if (target != null) {
+                try {
+                    api.targets().release(target);
+                    append("fast-loop target released");
+                } catch (Throwable failure) {
+                    append("fast-loop release target: " + failure);
+                }
+            }
+            if (display != null) {
+                try {
+                    api.displays().release(display);
+                    append("fast-loop display released");
+                } catch (Throwable failure) {
+                    append("fast-loop release display: " + failure);
+                }
+            }
+            if (api != null) {
+                api.close();
+            }
+            running = false;
+            append("--- fast loop end ---");
+        }
     }
 
     private void runSmoke() {
@@ -337,6 +466,211 @@ public final class ShellActivity extends Activity {
         } catch (Throwable failure) {
             append("frame save failed: " + failure);
         }
+    }
+
+    private static final class JdSearchPolicy implements LoopPolicy {
+
+        @Override
+        public boolean complete(LoopContext context) {
+            StringBuilder text = new StringBuilder();
+            for (UiNode node : context.observation().nodes()) {
+                if (!node.text().isEmpty()) {
+                    text.append(node.text()).append('|');
+                }
+                String value = node.text();
+                if (value.contains("¥") || value.contains("综合推荐")
+                        || value.contains("销量") || value.contains("筛选")
+                        || value.contains("今日上新") || value.contains("奥莱")
+                        || value.contains("明日达")) {
+                    Log.i(TAG, "policy complete: " + summarize(context.observation()));
+                    return true;
+                }
+            }
+            Log.i(TAG, "policy not complete: " + text);
+            return false;
+        }
+
+        @Override
+        public Optional<LoopAction> next(LoopContext context) {
+            UiNode editable = null;
+            for (UiNode node : context.observation().nodes()) {
+                if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
+                    editable = node;
+                    break;
+                }
+            }
+            if (editable == null) {
+                if (hasQuery(context.observation())) {
+                    Log.i(TAG, "policy next: wait for results; " + summarize(context.observation()));
+                    return Optional.of(new WaitAction("wait-results", "wait for JD results"));
+                }
+                // JD 16.1's home search bar is not exposed as an accessible node.
+                Log.i(TAG, "policy next: home, tap search bar; " + summarize(context.observation()));
+                return Optional.of(new TapPointAction("open-search", "tap JD search bar",
+                        new Point(360, 180)));
+            }
+            if (editable.text().isEmpty()) {
+                Log.i(TAG, "policy next: type query; " + summarize(context.observation()));
+                return Optional.of(new SetTextAction("type", "type JD query",
+                        NodeSelector.editable(), "短袖T恤 男款 XL",
+                        RiskClass.REVERSIBLE_SIDE_EFFECT));
+            }
+            for (UiNode node : context.observation().nodes()) {
+                if (node.hasFlag(NodeFlag.CLICKABLE) && node.text().contains("搜索")) {
+                    Log.i(TAG, "policy next: submit; " + summarize(context.observation()));
+                    return Optional.of(new TapAction("submit", "submit JD search",
+                            NodeSelector.clickableTextContains("搜索"), RiskClass.LOW));
+                }
+            }
+            Log.i(TAG, "policy next: point submit; " + summarize(context.observation()));
+            return Optional.of(new TapPointAction("submit-point", "tap JD search button",
+                    new Point(660, 85)));
+        }
+
+        private static boolean hasQuery(Observation observation) {
+            for (UiNode node : observation.nodes()) {
+                if (node.text().contains("短袖T恤")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static final class WaitAction implements LoopAction {
+
+        private final String id;
+        private final String description;
+
+        private WaitAction(String id, String description) {
+            this.id = id;
+            this.description = description;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public String description() {
+            return description;
+        }
+
+        @Override
+        public agent.next.brain.ActionKind kind() {
+            return agent.next.brain.ActionKind.NAVIGATE;
+        }
+
+        @Override
+        public RiskClass risk() {
+            return RiskClass.LOW;
+        }
+
+        @Override
+        public String payloadHash() {
+            return Integer.toHexString((id + "|" + description).hashCode());
+        }
+
+        @Override
+        public InputReceipt execute(DeviceApi api, TargetHandle target, Observation observation)
+                throws DeviceException {
+            try {
+                Thread.sleep(700L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new DeviceException(DeviceException.Code.INTERNAL,
+                        "wait interrupted", interrupted);
+            }
+            return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+        }
+    }
+
+    private static final class TapPointAction implements LoopAction {
+
+        private final String id;
+        private final String description;
+        private final Point point;
+
+        private TapPointAction(String id, String description, Point point) {
+            this.id = id;
+            this.description = description;
+            this.point = point;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public String description() {
+            return description;
+        }
+
+        @Override
+        public agent.next.brain.ActionKind kind() {
+            return agent.next.brain.ActionKind.NAVIGATE;
+        }
+
+        @Override
+        public RiskClass risk() {
+            return RiskClass.LOW;
+        }
+
+        @Override
+        public String payloadHash() {
+            return Integer.toHexString((id + "|" + description + "|" + point).hashCode());
+        }
+
+        @Override
+        public InputReceipt execute(DeviceApi api, TargetHandle target, Observation observation)
+                throws DeviceException {
+            return api.input().tap(target, observation, point);
+        }
+    }
+
+    private static final class UnavailableHumanGateway implements HumanGateway {
+
+        @Override
+        public ConfirmationToken confirm(ConfirmationRequest request)
+                throws HumanUnavailableException {
+            throw new HumanUnavailableException("shell has no human gateway");
+        }
+
+        @Override
+        public HandoffSession handoff(HandoffRequest request) throws HumanUnavailableException {
+            throw new HumanUnavailableException("shell has no human gateway");
+        }
+
+        @Override
+        public void endHandoff(HandoffSession session) {
+        }
+
+        @Override
+        public void pause(String reason) {
+        }
+
+        @Override
+        public void resume() {
+        }
+
+        @Override
+        public void stop(String reason) {
+        }
+    }
+
+    private static String summarize(Observation observation) {
+        StringBuilder result = new StringBuilder();
+        result.append(observation.status()).append(" nodes=").append(observation.nodes().size())
+                .append(" texts=");
+        int count = 0;
+        for (UiNode node : observation.nodes()) {
+            if (!node.text().isEmpty() && count++ < 20) {
+                result.append(node.text()).append('|');
+            }
+        }
+        return result.toString();
     }
 
     private void append(String line) {

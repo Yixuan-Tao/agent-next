@@ -194,7 +194,7 @@
 ## 后续执行项（非决策）
 
 1. 在旧仓库打归档 tag，确认只读。
-2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架与 10 个 host suite 已完成；下一步慢循环重规划与真机 loop。
+2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、10 个 host suite 与真机京东搜索 smoke 已完成；下一步慢循环重规划。
 3. 定义确认卡/接管 UI 的最小字段与审计事件。
 4. 落实记忆加密、保留期任务与清除级联。
 5. 在 Chain A/B 验收中记录确认次数、接管次数、误提交/错发为 0。

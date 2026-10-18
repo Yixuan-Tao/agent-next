@@ -11,7 +11,7 @@ capability/   Android library：AIDL、Shizuku 连接、display/target、
               observation/frame、定向输入、preview mirror、主屏 task move、安全策略
 device-api/   纯 JVM 设备边界：display/target/observation/frame/input/task-move 端口与契约
 brain/        纯 JVM 骨架：TaskSpec/TaskGraph/FastLoop/Skill/Memory/Effect/RiskGate/HumanGateway
-app/          最小 shell：连接 Shizuku、创建 display、启动京东、observe/frame smoke
+app/          最小 shell：device-api smoke + FastLoop 真机京东搜索
 testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
 tools/        capability/device-api/brain 的 host 回归脚本
 docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 + 设备回归
@@ -58,7 +58,8 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - `test-capability-adapter.sh` PASS（BlockingDeviceApi + FakeConnectionDriver 契约）；
 - `test-brain.sh` 全部 PASS（10 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill/fast-loop）；
 - 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)；
-- capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)。
+- capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；
+- FastLoop 真机 smoke PASS：京东首页 → 搜索 → setText → 提交 → 结果页，DONE actions=4；详见 [docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)。
 
 ## 新项目边界
 
@@ -66,7 +67,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - 新 brain 不得直接依赖 Android `ShellService`/坐标；只能通过 capability API。
 - 旧 loop 的固定计划、预设、条件/预算数字不作为新设计基线。
 - 测试工具中的旧 model-loop 脚本只用于布景/参考，不代表新 loop 验收。
-- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)。
+- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；FastLoop 真机 smoke：[docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)。
 - capability 约束：[docs/device-capability.md](docs/device-capability.md)。
 
 ## 关于目录

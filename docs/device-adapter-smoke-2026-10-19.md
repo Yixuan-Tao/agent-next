@@ -96,3 +96,5 @@ SMOKE PASS
 - 安装/权限过程截图与 UI dump
 
 这些文件不提交，避免把 App 页面内容和设备状态带进仓库。
+
+相关：[FastLoop 真机 smoke](device-fast-loop-smoke-2026-10-19.md)

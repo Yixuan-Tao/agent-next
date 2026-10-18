@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、确定性快循环骨架和 host 场景测试；慢循环重规划、模型调用、技能库尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、确定性快循环骨架、host 场景测试和真机京东搜索 smoke；慢循环重规划、模型调用、技能库尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -40,7 +40,7 @@ observe → policy.complete? → policy.next → risk gate
 
 `brain` 通过 Gradle `api project(':device-api')` 依赖纯 JVM 设备端口，不 import `agent.phone.*` 或 Android 类型。端口定义见 [device-api/README.md](../device-api/README.md)。
 
-`FastLoop` 已使用 `DeviceApi` 的 observe/input 端口；下一步是把同一 loop 接到 capability adapter 的真机目标，再接慢循环重规划。
+`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；下一步是慢循环重规划与更多 App/异常场景。
 
 ## 测试
 
@@ -60,7 +60,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 - 慢循环重规划、完整 TaskGraph 动态插入/替换执行器；
 - 模型调用、prompt、技能库、OCR/视觉策略；
-- capability adapter 上的真机 loop 验收（adapter 真机 smoke 已有 observe/input/task move）；
+- 慢循环重规划与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。
 

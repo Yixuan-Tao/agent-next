@@ -194,10 +194,11 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 checkDeadline(deadline);
                 return new TargetObservation(target,id,sequence,started,SystemClock.elapsedRealtimeNanos(),
                         TargetObservation.Status.READY,initial.id,initial.bounds,budget.lookups(),budget.truncated,nodes);
-            } catch (IllegalStateException transientWindowChange) {
+            } catch (IllegalStateException | IllegalArgumentException transientWindowChange) {
                 // Window transitions can momentarily expose two focused windows, a display
-                // mismatch, or a root that changes under traversal. That is not a broken
-                // target: return a non-actionable observation so the caller can re-observe.
+                // mismatch, a root that changes under traversal, or window bounds outside the
+                // logical display. That is not a broken target: return a non-actionable
+                // observation so the caller can re-observe.
                 return refusal(id,sequence,started,TargetObservation.Status.WINDOW_CHANGED,budget);
             } finally { if (initial != null) recycle(initial.root); recycleWindows(windows); }
         }
