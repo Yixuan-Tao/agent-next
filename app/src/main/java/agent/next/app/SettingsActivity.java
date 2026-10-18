@@ -1,7 +1,9 @@
 package agent.next.app;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -9,6 +11,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import agent.next.app.security.EncryptedModelConfigStore;
+import agent.next.brain.model.ModelConfig;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 /** Minimal privacy/settings surface: encrypted-config status and memory deletion. */
 public final class SettingsActivity extends Activity {
@@ -41,6 +49,16 @@ public final class SettingsActivity extends Activity {
         status.setPadding(0, padding, 0, padding);
         root.addView(status, matchWrap());
 
+        Button importConfig = new Button(this);
+        importConfig.setText("导入 model config JSON");
+        importConfig.setOnClickListener(view -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("application/json");
+            startActivityForResult(pick, 100);
+        });
+        root.addView(importConfig, matchWrap());
+
         Button clear = new Button(this);
         clear.setText("清除 episodic memory");
         clear.setOnClickListener(view -> {
@@ -59,6 +77,43 @@ public final class SettingsActivity extends Activity {
         privacy.setPadding(0, padding, 0, 0);
         root.addView(privacy, matchWrap());
         return root;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != 100 || resultCode != RESULT_OK || data == null
+                || data.getData() == null) {
+            return;
+        }
+        Uri uri = data.getData();
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            if (input == null) {
+                status.setText("导入失败：无法读取文件");
+                return;
+            }
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                if (output.size() + read > 65_536) {
+                    status.setText("导入失败：config 过大");
+                    return;
+                }
+                output.write(buffer, 0, read);
+            }
+            String json = output.toString(StandardCharsets.UTF_8);
+            Optional<ModelConfig> config = ModelConfig.fromJson(json);
+            if (config.isEmpty()) {
+                status.setText("导入失败：config 格式无效");
+                return;
+            }
+            EncryptedModelConfigStore.save(this, json);
+            refresh();
+            status.setText(status.getText() + "\n导入并加密成功");
+        } catch (Exception failure) {
+            status.setText("导入失败：" + failure.getClass().getSimpleName());
+        }
     }
 
     private static LinearLayout.LayoutParams matchWrap() {
