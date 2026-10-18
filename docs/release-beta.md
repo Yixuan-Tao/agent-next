@@ -57,3 +57,27 @@ adb install app/build/outputs/apk/release/app-release.apk
 - 尚未在 Android 13 手机安装/验收。
 - 尚未生成正式 release notes、隐私政策、校验和/签名指纹分发页。
 - debug 与 release 使用不同签名；内部 Beta 统一使用 release keystore。
+
+## 2026-10-19 安装尝试（阻塞）
+
+为验证 release，先卸载 debug，再 `adb install` release；MIUI 返回：
+
+```text
+INSTALL_FAILED_USER_RESTRICTED: Install canceled by user
+```
+
+已确认：
+
+- 开发者选项中的“USB 安装”开关为开启；
+- `settings put global verifier_verify_adb_installs 0` 等无效；
+- `pm install`/Package Installer intent 同样被 MIUI 安全中心拦截；
+- 随后重启平板，adb 设备暂时从本机消失（USB 调试授权/连接待恢复）。
+
+当前状态：**app 已被卸载，平板 adb 暂不可用**。需要人工：
+
+1. 重新连接/授权 USB 调试；
+2. 在 MIUI 安装确认弹窗中允许安装；
+3. 安装 `dist/agent-next-beta-0.1.apk`；
+4. 打开 Settings → 导入 `model-config.json`（新增的 document picker）。
+
+在此之前，Android 13/release 安装验收无法继续。
