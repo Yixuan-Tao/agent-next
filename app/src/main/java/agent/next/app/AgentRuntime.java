@@ -380,8 +380,15 @@ public final class AgentRuntime {
             TargetFrameSource frames = target -> api.observations().captureFrame(target);
             SkillModel loggingModel = request -> {
                 SkillModelStep step = skillModel.next(request);
+                String extra = "";
+                if (step instanceof SkillModelStep.SetText setText) {
+                    extra = " text=" + setText.text() + " selector="
+                            + setText.selector().description();
+                } else if (step instanceof SkillModelStep.Tap tap) {
+                    extra = " selector=" + tap.selector().description();
+                }
                 Log.i(TAG, "skill step=" + request.step() + " -> "
-                        + (step == null ? "null" : step.getClass().getSimpleName()));
+                        + (step == null ? "null" : step.getClass().getSimpleName()) + extra);
                 return step;
             };
             SessionPolicyFactory policies = new PromptSessionPolicyFactory(

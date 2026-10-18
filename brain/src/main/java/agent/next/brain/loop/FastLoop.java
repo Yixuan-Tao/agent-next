@@ -105,6 +105,7 @@ public final class FastLoop {
         int actions = 0;
         int noEffect = 0;
         int noProgress = 0;
+        int rejectedActions = 0;
         Observation last = null;
 
         while (true) {
@@ -197,14 +198,23 @@ public final class FastLoop {
             try {
                 receipt = action.execute(api, target, observation);
             } catch (DeviceException failure) {
-                event(TaskEvent.EventType.FAILURE, "action failed: " + failure.code(),
+                event(TaskEvent.EventType.FAILURE,
+                        "action failed: " + failure.code() + " " + failure.getMessage(),
                         Map.of("action", action.id()));
-                return LoopResult.failed("action failed: " + failure.code(), actions, last);
+                if (failure.code() == DeviceException.Code.REJECTED
+                        && rejectedActions++ < 3) {
+                    continue;
+                }
+                return LoopResult.failed("action failed: " + failure.code() + " "
+                        + failure.getMessage(), actions, last);
             }
             if (!receipt.accepted()) {
-                event(TaskEvent.EventType.FAILURE, "input rejected",
+                event(TaskEvent.EventType.FAILURE, "input rejected: " + receipt.status(),
                         Map.of("action", action.id()));
-                return LoopResult.failed("input rejected", actions, last);
+                if (rejectedActions++ < 3) {
+                    continue;
+                }
+                return LoopResult.failed("input rejected: " + receipt.status(), actions, last);
             }
             actions++;
             workingMemory.put("last.action", action.id());

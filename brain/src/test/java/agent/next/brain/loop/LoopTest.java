@@ -51,6 +51,7 @@ public final class LoopTest {
         credentialNeedsUser();
         confirmationIsRequired();
         stopControlStopsBeforeAction();
+        rejectedActionRetries();
         System.out.println("LoopTest: PASS (fast loop, effect, slow-loop signal, risk)");
     }
 
@@ -123,6 +124,51 @@ public final class LoopTest {
         check(result.status() == LoopResult.Status.SLOW_LOOP, "then slow loop because policy is exhausted");
         check(result.reason().orElseThrow() == SlowLoopReason.GRAPH_INCONSISTENT,
                 "empty policy is a graph inconsistency");
+    }
+
+    private static void rejectedActionRetries() {
+        java.util.concurrent.atomic.AtomicInteger step = new java.util.concurrent.atomic.AtomicInteger();
+        LoopPolicy policy = new LoopPolicy() {
+            @Override
+            public boolean complete(LoopContext context) {
+                for (UiNode node : context.observation().nodes()) {
+                    if (node.text().contains("Item added")) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public Optional<LoopAction> next(LoopContext context) {
+                int current = step.getAndIncrement();
+                if (current == 0) {
+                    return Optional.of(new SetTextAction("bad", "bad target",
+                            NodeSelector.textEquals("missing"), "x",
+                            RiskClass.REVERSIBLE_SIDE_EFFECT));
+                }
+                for (UiNode node : context.observation().nodes()) {
+                    if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)
+                            && node.text().isEmpty()) {
+                        return Optional.of(new SetTextAction("type", "type query",
+                                NodeSelector.editable(), "短袖T恤",
+                                RiskClass.REVERSIBLE_SIDE_EFFECT));
+                    }
+                }
+                for (UiNode node : context.observation().nodes()) {
+                    if (node.hasFlag(NodeFlag.CLICKABLE) && "Search".equals(node.text())) {
+                        return Optional.of(new TapAction("submit", "submit",
+                                NodeSelector.textEquals("Search"), RiskClass.LOW));
+                    }
+                }
+                return Optional.empty();
+            }
+        };
+        LoopResult result = loop(new LoopFakeDevice(), graph(), task(10), policy,
+                new FakeHumanGateway(), new InMemoryWorkingMemory(),
+                new InMemoryEpisodicMemory());
+        check(result.status() == LoopResult.Status.DONE, "retry after rejected action succeeds");
+        check(result.actions() == 2, "rejected action not counted");
     }
 
     private static LoopResult loop(LoopFakeDevice api, TaskGraph graph, TaskSpec task,

@@ -54,6 +54,17 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         setContentView(buildUi());
+        String initialGoal = getIntent().getStringExtra("goal");
+        if (initialGoal != null && !initialGoal.isBlank()) {
+            goal.setText(initialGoal);
+        }
+        String initialPrimary = getIntent().getStringExtra("primary");
+        if (initialPrimary != null) {
+            int index = packages.indexOf(initialPrimary);
+            if (index >= 0) {
+                primary.setSelection(index);
+            }
+        }
         runtime = AgentRuntime.get(this);
         runtime.setListener(this);
         runtime.setConfirmationPresenter(this::askConfirmation);
