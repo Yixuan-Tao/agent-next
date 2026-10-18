@@ -1,8 +1,8 @@
 import os
 import argparse,base64,datetime,json,pathlib,re,shlex,subprocess,time
 parser=argparse.ArgumentParser();parser.add_argument('phase',choices=['A','B']);phase=parser.parse_args().phase
-base=pathlib.Path('work/clipboard-20261016')
-adb='/Users/tommy/Documents/Codex/2026-10-15/xia/work/tools/platform-tools/adb'
+base=pathlib.Path(os.environ.get('CLIPBOARD_WORK','work/clipboard-20261016'))
+adb=os.environ.get('ADB','adb')
 serial=os.environ.get('ADB_SERIAL','');display=os.environ.get('DISPLAY_ID','');identity=os.environ.get('DISPLAY_IDENTITY','')
 def record(kind,**data):
     row={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'phase':phase,'kind':kind,**data}

@@ -11,9 +11,9 @@ import sys
 import time
 import uuid
 
-ROOT = pathlib.Path('/Users/tommy/Documents/Codex/2026-10-15/xia')
-WORK = pathlib.Path('/Users/tommy/Documents/ChatGPT/agent-phone/work/focus-20261016')
-PYTHON = '/Users/tommy/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3'
+ROOT = pathlib.Path(os.environ.get('AGENT_OLD_ROOT', ''))
+WORK = pathlib.Path(os.environ.get('FOCUS_WORK', 'work/focus-20261016'))
+PYTHON = os.environ.get('PYTHON', 'python3')
 ADB = str(ROOT / 'work/tools/platform-tools/adb')
 SERIAL = os.environ.get('ADB_SERIAL', '')
 REMOTE_JAR = '/data/local/tmp/codex-accessibility-tree-diagnostic.jar'

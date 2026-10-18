@@ -12,8 +12,8 @@ import sys
 import time
 import uuid
 
-ROOT = pathlib.Path('/Users/tommy/Documents/Codex/2026-10-15/xia')
-WORK = pathlib.Path('/Users/tommy/Documents/ChatGPT/agent-phone/work/focus-20261016')
+ROOT = pathlib.Path(os.environ.get('AGENT_OLD_ROOT', ''))
+WORK = pathlib.Path(os.environ.get('FOCUS_WORK', 'work/focus-20261016'))
 sys.path.insert(0, str(WORK))
 sys.path.insert(0, str(ROOT / 'outputs/android-foreground-test'))
 from experiment import ADB, SERIAL, KEYS, shell, save_system, wait_for_main_window
@@ -21,11 +21,11 @@ from parallel_driver import Runner
 from calibrate import calibrate
 
 PACKAGE = 'agent.foreground.test'
-PROBE_JAR = ROOT / 'outputs/android-input-probe/android-input-probe.jar'
+PROBE_JAR = pathlib.Path(os.environ.get('PROBE_JAR', 'android-input-probe.jar'))
 REMOTE_JAR = '/data/local/tmp/codex-android-input-probe.jar'
-HELPER_JAR = WORK / 'build-focus-vd/focus-vd.jar'
+HELPER_JAR = pathlib.Path(os.environ.get('HELPER_JAR', 'focus-vd.jar'))
 REMOTE_HELPER = '/data/local/tmp/codex-focus-vd.jar'
-PYTHON = '/Users/tommy/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3'
+PYTHON = os.environ.get('PYTHON', 'python3')
 
 
 def free_port():

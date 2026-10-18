@@ -16,15 +16,15 @@ import sys
 import time
 import uuid
 
-ROOT = pathlib.Path('/Users/tommy/Documents/Codex/2026-10-15/xia')
+ROOT = pathlib.Path(os.environ.get('AGENT_OLD_ROOT', ''))
 sys.path.insert(0, str(ROOT / 'outputs/android-foreground-test'))
 from driver import Runner, guard_state
 from calibrate import calibrate
 
-ADB = str(ROOT / 'work/tools/platform-tools/adb')
-SCRCPY = str(ROOT / 'work/tools/scrcpy-macos-aarch64-v5.0.1/scrcpy')
+ADB = os.environ.get('ADB', 'adb')
+SCRCPY = os.environ.get('SCRCPY', 'scrcpy')
 SERIAL = os.environ.get('ADB_SERIAL', '')
-KEYS = str(ROOT / 'outputs/android-foreground-test/keyboard.redmi-pad-pro.json')
+KEYS = os.environ.get('KEYS', 'keyboard.redmi-pad-pro.json')
 
 
 def shell(args, check=True):
