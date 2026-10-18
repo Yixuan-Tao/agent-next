@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、旧模型 chat-completions API 移植、host 场景测试和真机京东搜索 smoke；app 内模型接线、社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、旧模型 chat-completions API 移植、host 场景测试、真机京东搜索 smoke 和真实模型 prompt skill smoke；视觉 verify/extract、社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -65,7 +65,7 @@ Skill 是**可选加速层**；没有匹配 skill 时，FastLoop/通用规划仍
 - `SkillWorkflowPolicy`：把语义 `Tap`/`SetText`/`Back` 映射成 `LoopAction`，交给 FastLoop 的 `RiskGate`；不拿到 `DeviceApi`/`Point`。
 - `SkillSelector`：封闭的语义选择器集合（viewId/text/clickable/editable），**没有坐标**。
 - `SkillRegistry`：`OFFICIAL`/`VERIFIED` 可直接安装；`COMMUNITY`/`SELF_GENERATED` 必须通过 `SkillValidator`。`SkillCandidate` 只能 propose，不能自行上线；支持撤销。
-- `prompt` body 由 `PromptSkillPolicy` + `SkillModel` 执行；模型只收到 observation/prompt/参数/capability 名，只能返回语义选择器。DeepSeek chat-completions API 已移植，app 内接线尚未完成，host 测试用 fake transport。
+- `prompt` body 由 `PromptSkillPolicy` + `SkillModel` 执行；模型只收到 observation/prompt/参数/capability 名，只能返回语义选择器。DeepSeek chat-completions API 已移植并接入 app prompt 模式；host 测试仍用 fake transport。
 - `PromptSkillPolicy` 只接受 `LOW`/`REVERSIBLE_SIDE_EFFECT` 模型步骤；高风险/未知步骤不执行，仍受 RiskGate/validation 约束。
 
 ## Model API
@@ -82,7 +82,7 @@ Skill 是**可选加速层**；没有匹配 skill 时，FastLoop/通用规划仍
 
 `brain` 通过 Gradle `api project(':device-api')` 依赖纯 JVM 设备端口，不 import `agent.phone.*` 或 Android 类型。端口定义见 [device-api/README.md](../device-api/README.md)。
 
-`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；`LoopRunner` 真机 smoke 也已完成（第一轮 NO_EFFECT → replace → 第二轮成功，DONE attempts=2 replans=1 totalActions=6）。
+`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；`LoopRunner` 真机 smoke 也已完成；prompt skill 用真实 DeepSeek 模型完成搜索（DONE actions=4，结果页 verifier）。
 
 ## 测试
 
@@ -101,7 +101,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ## 明确不包含
 
 - 任意 DAG 重排、多技能组合、条件 verifier；当前只有 replace / insertBefore / removeAndRewire；
-- app 内模型接线、视觉 verify/extract、社区 registry 的签名/扫描；当前只有文本模型客户端/内存 registry；
+- 视觉 verify/extract、社区 registry 的签名/扫描；当前只有文本+单帧 PNG 客户端/内存 registry；
 - OCR/视觉策略与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。

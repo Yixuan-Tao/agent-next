@@ -33,7 +33,7 @@ PromptSkillPolicy policy = new PromptSkillPolicy(skill, Map.of("query", "短袖T
 ## 当前限制
 
 - 已移植文本和**单帧 PNG**输入；旧 `VisionModel` 的 `verify`、`extract` 尚未移植，也没有多帧/视频。
-- 没有 app 内模型配置读取/网络调用接线；app 还没有 `INTERNET` 权限。
+- app 已接线：从 `files/model-config.json` 读取配置，manifest 已声明 `INTERNET`，prompt 模式可跑真实模型。
 - host 测试使用 fake transport，**没有发起真实 API 调用**。
 - `DeepSeekSkillModel` 拒绝坐标字段/Point selector，但模型仍可能把高风险按钮声称为 `LOW`；trust/validation/独立风险分类仍需要。
 - 观察节点会进入 prompt；还没有敏感字段脱敏/裁剪策略。
@@ -43,3 +43,5 @@ PromptSkillPolicy policy = new PromptSkillPolicy(skill, Map.of("query", "短袖T
 `test-brain.sh` 的 `ModelApiTest` 覆盖：配置加载与 key 脱敏、文本/PNG 请求形状、finish_reason、语义 SetText 解析、坐标字段拒绝。
 
 真实密钥只在忽略的 `private/model-config.json` 中；不要把它写入日志、提交或示例。
+
+真机模型接线结果见 [Prompt Skill 真机 smoke](device-prompt-skill-smoke-2026-10-19.md)。

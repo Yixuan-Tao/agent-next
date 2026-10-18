@@ -9,6 +9,7 @@ import agent.next.device.Frame;
 import agent.next.device.UiNode;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -64,6 +65,14 @@ public final class DeepSeekSkillModel implements SkillModel {
             case "Back" -> {
                 requireKeys(root, Set.of("kind", "risk"));
                 yield new SkillModelStep.Back(risk(root));
+            }
+            case "Wait" -> {
+                requireKeys(root, Set.of("kind", "millis"));
+                Object raw = root.get("millis");
+                if (!(raw instanceof BigDecimal number)) {
+                    throw new IllegalArgumentException("invalid wait duration");
+                }
+                yield new SkillModelStep.Wait(number.longValueExact());
             }
             case "Done" -> {
                 requireKeys(root, Set.of("kind", "reason"));
@@ -156,6 +165,7 @@ public final class DeepSeekSkillModel implements SkillModel {
                 .append("{\"kind\":\"SetText\",\"selector\":{...},\"text\":\"...\",")
                 .append("\"risk\":\"REVERSIBLE_SIDE_EFFECT\"}\n")
                 .append("{\"kind\":\"Back\",\"risk\":\"LOW\"}\n")
+                .append("{\"kind\":\"Wait\",\"millis\":700}\n")
                 .append("{\"kind\":\"Done\",\"reason\":\"...\"}\n")
                 .append("risk 只能是 LOW 或 REVERSIBLE_SIDE_EFFECT；")
                 .append("不要点击支付、下单、发送、删除、登录或凭据控件。\n")

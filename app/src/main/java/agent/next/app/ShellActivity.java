@@ -45,6 +45,22 @@ import agent.next.brain.loop.SetTextAction;
 import agent.next.brain.loop.SlowLoopDecision;
 import agent.next.brain.loop.SlowLoopPolicy;
 import agent.next.brain.loop.TapAction;
+import agent.next.brain.model.ChatCompletionClient;
+import agent.next.brain.model.DeepSeekSkillModel;
+import agent.next.brain.model.ModelConfig;
+import agent.next.brain.skill.PromptSkillPolicy;
+import agent.next.brain.skill.SkillApplicability;
+import agent.next.brain.skill.SkillBody;
+import agent.next.brain.skill.SkillCapability;
+import agent.next.brain.skill.SkillFrameSource;
+import agent.next.brain.skill.SkillModel;
+import agent.next.brain.skill.SkillModelRequest;
+import agent.next.brain.skill.SkillModelStep;
+import agent.next.brain.skill.SkillPackage;
+import agent.next.brain.skill.SkillPermissions;
+import agent.next.brain.skill.SkillProvenance;
+import agent.next.brain.skill.SkillTrust;
+import agent.next.brain.skill.SkillVerifier;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceCapabilities;
 import agent.next.device.DeviceException;
@@ -69,6 +85,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -99,6 +116,8 @@ public final class ShellActivity extends Activity {
             startFastLoop();
         } else if ("runner".equals(getIntent().getStringExtra("mode"))) {
             startLoopRunner();
+        } else if ("prompt".equals(getIntent().getStringExtra("mode"))) {
+            startPromptSkill();
         } else if (getIntent().getBooleanExtra("autorun", true)) {
             startSmoke();
         }
@@ -164,6 +183,14 @@ public final class ShellActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         runnerParams.topMargin = padding / 2;
         root.addView(runner, runnerParams);
+
+        Button prompt = new Button(this);
+        prompt.setText("Run prompt model (JD search)");
+        prompt.setOnClickListener(view -> startPromptSkill());
+        LinearLayout.LayoutParams promptParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        promptParams.topMargin = padding / 2;
+        root.addView(prompt, promptParams);
         root.setGravity(Gravity.TOP);
         return root;
     }
@@ -193,6 +220,169 @@ public final class ShellActivity extends Activity {
         running = true;
         append("--- loop runner start ---");
         worker.execute(this::runLoopRunner);
+    }
+
+    private void startPromptSkill() {
+        if (running) {
+            return;
+        }
+        running = true;
+        append("--- prompt skill start ---");
+        worker.execute(this::runPromptSkill);
+    }
+
+    private void runPromptSkill() {
+        BlockingDeviceApi api = null;
+        DisplayHandle display = null;
+        TargetHandle target = null;
+        try {
+            File configFile = new File(getFilesDir(), "model-config.json");
+            Optional<ModelConfig> config = ModelConfig.load(configFile.toPath());
+            if (!config.isPresent()) {
+                append("prompt: missing " + configFile + " (copy model-config.json into app files)");
+                return;
+            }
+            append("prompt: model=" + config.get().model()
+                    + " base=" + config.get().baseUrl());
+            ChatCompletionClient client = new ChatCompletionClient(config.get());
+            final DeepSeekSkillModel deepSeek = new DeepSeekSkillModel(client);
+            SkillModel model = new SkillModel() {
+                @Override
+                public SkillModelStep next(SkillModelRequest request) {
+                    SkillModelStep step = deepSeek.next(request);
+                    append("prompt model step=" + request.step() + " -> " + describe(step));
+                    return step;
+                }
+            };
+
+            api = new BlockingDeviceApi(
+                    listener -> new ShizukuConnectionDriver(getApplicationContext(), listener),
+                    60_000L);
+            append("prompt: connect");
+            api.connect();
+            display = api.displays().create(DisplaySpec.standard());
+            append("prompt: display " + display.token());
+            target = api.targets().open(display,
+                    TargetSpec.single("fast-loop-task", TARGET_PACKAGE));
+            append("prompt: target " + target.token());
+
+            Observation home = observeReady(api, target, "prompt-home");
+            UiNode entry = findSearchEntry(home);
+            Point point = entry == null ? new Point(360, 180) : center(entry);
+            append("prompt: open search entry=" + (entry == null ? "fixed" : entry.index()));
+            api.input().tap(target, home, point);
+            Thread.sleep(700L);
+            Observation search = observeReady(api, target, "prompt-search");
+            append("prompt: search page nodes=" + search.nodes().size()
+                    + " editable=" + (findEditable(search) != null));
+
+            final BlockingDeviceApi deviceApi = api;
+            final TargetHandle boundTarget = target;
+            SkillFrameSource frames = new SkillFrameSource() {
+                @Override
+                public Frame capture() throws DeviceException {
+                    return deviceApi.observations().captureFrame(boundTarget);
+                }
+            };
+            PromptSkillPolicy policy = new PromptSkillPolicy(
+                    promptSearchSkill(), Collections.singletonMap("query", "短袖T恤 男款 XL"),
+                    model, frames, 8);
+            FastLoop loop = new FastLoop(api, target, loopTask(3), loopGraph(), policy,
+                    new DefaultRiskGate(), new UnavailableHumanGateway(),
+                    new InMemoryWorkingMemory(), new InMemoryEpisodicMemory(),
+                    ObservationOptions.defaults(), 20);
+            LoopResult result = loop.run();
+            append("prompt result: " + result.status()
+                    + " actions=" + result.actions()
+                    + " detail=" + result.detail());
+            if (result.lastObservation() != null) {
+                append("prompt last: " + summarize(result.lastObservation()));
+                try {
+                    saveFrame(api.observations().captureFrame(target));
+                } catch (Throwable failure) {
+                    append("prompt frame: " + failure);
+                }
+            }
+            if (result.status() == LoopResult.Status.DONE) {
+                append("PROMPT SKILL PASS");
+            } else {
+                append("PROMPT SKILL STOP: " + result.status());
+            }
+        } catch (Throwable failure) {
+            Log.e(TAG, "prompt skill failed", failure);
+            append("PROMPT SKILL FAIL: " + failure);
+        } finally {
+            if (target != null) {
+                try {
+                    api.targets().release(target);
+                    append("prompt target released");
+                } catch (Throwable failure) {
+                    append("prompt release target: " + failure);
+                }
+            }
+            if (display != null) {
+                try {
+                    api.displays().release(display);
+                    append("prompt display released");
+                } catch (Throwable failure) {
+                    append("prompt release display: " + failure);
+                }
+            }
+            if (api != null) {
+                api.close();
+            }
+            running = false;
+            append("--- prompt skill end ---");
+        }
+    }
+
+    private static SkillPackage promptSearchSkill() {
+        SkillBody body = new SkillBody.Prompt(
+                "当前是京东搜索输入页。先用 SetText 在 editable 节点输入 ${query}，"
+                        + "再 Tap clickable text '搜索'。点击后若结果页还没出现筛选项，输出 Wait 700；"
+                        + "看到 全部/新品/今日上新/奥莱/明日达 或 综合推荐/销量 后输出 Done。"
+                        + "不要点击商品、购物车、结算或支付。");
+        return new SkillPackage(
+                "jd.search.prompt", "1.0.0", "search JD from the search page",
+                body,
+                new SkillPermissions(Set.of(SkillCapability.TAP, SkillCapability.SET_TEXT),
+                        Set.of(TARGET_PACKAGE)),
+                (observation, targetPackage, parameters) ->
+                        new SkillApplicability.Result(TARGET_PACKAGE.equals(targetPackage),
+                                "JD target"),
+                (observation, parameters) -> {
+                    for (UiNode node : observation.nodes()) {
+                        String text = node.text();
+                        if (text.contains("全部") || text.contains("新品")
+                                || text.contains("今日上新") || text.contains("奥莱")
+                                || text.contains("明日达") || text.contains("综合推荐")
+                                || text.contains("销量")) {
+                            return new SkillVerifier.Result(true, "JD results visible");
+                        }
+                    }
+                    return new SkillVerifier.Result(false, "JD results not visible");
+                },
+                SkillTrust.VERIFIED,
+                new SkillProvenance("app", "agent-next-app", "local-prompt", Instant.now()));
+    }
+
+    private static String describe(SkillModelStep step) {
+        if (step instanceof SkillModelStep.Tap) {
+            SkillModelStep.Tap tap = (SkillModelStep.Tap) step;
+            return "Tap " + tap.selector().description() + " risk=" + tap.risk();
+        }
+        if (step instanceof SkillModelStep.SetText) {
+            SkillModelStep.SetText setText = (SkillModelStep.SetText) step;
+            return "SetText " + setText.selector().description()
+                    + " text=" + setText.text() + " risk=" + setText.risk();
+        }
+        if (step instanceof SkillModelStep.Back) {
+            return "Back risk=" + ((SkillModelStep.Back) step).risk();
+        }
+        if (step instanceof SkillModelStep.Wait) {
+            return "Wait " + ((SkillModelStep.Wait) step).millis() + "ms";
+        }
+        return "Done";
     }
 
     private void runFastLoop() {

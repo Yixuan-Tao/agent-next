@@ -34,11 +34,12 @@ public final class ModelConfig {
             return Optional.empty();
         }
         try {
-            if (Files.size(file) > MAX_CONFIG_BYTES) {
+            byte[] bytes = Files.readAllBytes(file);
+            if (bytes.length > MAX_CONFIG_BYTES) {
                 return Optional.empty();
             }
             Map<String, Object> value = Json.object(
-                    Files.readString(file, StandardCharsets.UTF_8));
+                    new String(bytes, StandardCharsets.UTF_8));
             String base = Json.string(value, "base_url").trim();
             String model = Json.string(value, "model").trim();
             String key = Json.string(value, "api_key").trim();

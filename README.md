@@ -11,7 +11,7 @@ capability/   Android library：AIDL、Shizuku 连接、display/target、
               observation/frame、定向输入、preview mirror、主屏 task move、安全策略
 device-api/   纯 JVM 设备边界：display/target/observation/frame/input/task-move 端口与契约
 brain/        纯 JVM 骨架：TaskSpec/TaskGraph/FastLoop/SlowLoop/SkillPackage/Memory/Effect/RiskGate/HumanGateway
-app/          最小 shell：device-api smoke + FastLoop + LoopRunner 真机京东
+app/          最小 shell：device-api smoke + FastLoop + LoopRunner + 真实模型 prompt skill
 testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
 tools/        capability/device-api/brain 的 host 回归脚本
 docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 + 设备回归
@@ -19,7 +19,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 
 尚未包含：
 
-- `brain/` 的任意 DAG 重排、app 内模型接线、社区 registry：当前有 FastLoop + SlowLoop、workflow/prompt skill（模型端口/文本+PNG API）、验证/信任门；
+- `brain/` 的任意 DAG 重排、视觉 verify/extract、社区 registry：当前有 FastLoop + SlowLoop、workflow/prompt skill（真实文本+PNG API）、验证/信任门；
 - preview mirror + 用户触摸接管的真机链路；
 - `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
 - 新 loop 的真实设备验收；
@@ -60,7 +60,8 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)；
 - capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；
 - FastLoop 真机 smoke PASS：京东首页 → 搜索 → setText → 提交 → 结果页，DONE actions=4；详见 [docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；
-- LoopRunner 真机 smoke PASS：第一轮 NO_EFFECT → SlowLoop 替换 approach → 第二轮成功，DONE attempts=2 replans=1 totalActions=6；详见 [docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)。
+- LoopRunner 真机 smoke PASS：第一轮 NO_EFFECT → SlowLoop 替换 approach → 第二轮成功，DONE attempts=2 replans=1 totalActions=6；详见 [docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；
+- Prompt Skill 真机 smoke PASS：真实 DeepSeek 模型输出 SetText/Tap/Wait 语义动作，经 RiskGate 执行，JD 结果页 verifier 通过，DONE actions=4；详见 [docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)。
 
 ## 新项目边界
 
@@ -68,7 +69,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - 新 brain 不得直接依赖 Android `ShellService`/坐标；只能通过 capability API。
 - 旧 loop 的固定计划、预设、条件/预算数字不作为新设计基线。
 - 测试工具中的旧 model-loop 脚本只用于布景/参考，不代表新 loop 验收。
-- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；FastLoop 真机 smoke：[docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；slow-loop 真机 smoke：[docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)。
+- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；FastLoop 真机 smoke：[docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；slow-loop 真机 smoke：[docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；prompt skill 真机 smoke：[docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)。
 - capability 约束：[docs/device-capability.md](docs/device-capability.md)。
 
 ## 关于目录

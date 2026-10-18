@@ -7,7 +7,7 @@ import java.util.Objects;
 /** Semantic step proposed by a model for a prompt skill. No step can carry a screen point. */
 public sealed interface SkillModelStep
         permits SkillModelStep.Tap, SkillModelStep.SetText, SkillModelStep.Back,
-        SkillModelStep.Done {
+        SkillModelStep.Wait, SkillModelStep.Done {
 
     record Tap(SkillSelector selector, RiskClass risk) implements SkillModelStep {
         public Tap {
@@ -28,6 +28,14 @@ public sealed interface SkillModelStep
     record Back(RiskClass risk) implements SkillModelStep {
         public Back {
             risk = Objects.requireNonNull(risk, "risk");
+        }
+    }
+
+    record Wait(long millis) implements SkillModelStep {
+        public Wait {
+            if (millis < 100 || millis > 5000) {
+                throw new IllegalArgumentException("wait must be 100..5000ms");
+            }
         }
     }
 
