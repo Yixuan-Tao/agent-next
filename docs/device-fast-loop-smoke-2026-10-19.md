@@ -61,3 +61,5 @@ fast-loop display released
 
 - `fast-loop-pass.log` / `fast-loop-pass.png`
 - `fast-loop-results.png`（最后一帧）
+
+相关：[LoopRunner slow-loop 真机 smoke](device-slow-loop-smoke-2026-10-19.md)

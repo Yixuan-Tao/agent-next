@@ -55,7 +55,7 @@ observe → policy.complete? → policy.next → risk gate
 
 `brain` 通过 Gradle `api project(':device-api')` 依赖纯 JVM 设备端口，不 import `agent.phone.*` 或 Android 类型。端口定义见 [device-api/README.md](../device-api/README.md)。
 
-`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；`SlowLoop`/`LoopRunner` 已能把 `SLOW_LOOP` 决策应用到 TaskGraph 并重试。
+`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；`LoopRunner` 真机 smoke 也已完成（第一轮 NO_EFFECT → replace → 第二轮成功，DONE attempts=2 replans=1 totalActions=6）。
 
 ## 测试
 

@@ -36,9 +36,14 @@ import agent.next.brain.loop.FastLoop;
 import agent.next.brain.loop.LoopAction;
 import agent.next.brain.loop.LoopContext;
 import agent.next.brain.loop.LoopPolicy;
+import agent.next.brain.loop.LoopPolicyFactory;
+import agent.next.brain.loop.LoopRunResult;
+import agent.next.brain.loop.LoopRunner;
 import agent.next.brain.loop.LoopResult;
 import agent.next.brain.loop.NodeSelector;
 import agent.next.brain.loop.SetTextAction;
+import agent.next.brain.loop.SlowLoopDecision;
+import agent.next.brain.loop.SlowLoopPolicy;
 import agent.next.brain.loop.TapAction;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceCapabilities;
@@ -92,6 +97,8 @@ public final class ShellActivity extends Activity {
         setContentView(buildUi());
         if ("loop".equals(getIntent().getStringExtra("mode"))) {
             startFastLoop();
+        } else if ("runner".equals(getIntent().getStringExtra("mode"))) {
+            startLoopRunner();
         } else if (getIntent().getBooleanExtra("autorun", true)) {
             startSmoke();
         }
@@ -117,7 +124,7 @@ public final class ShellActivity extends Activity {
         root.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("Smoke: connect Shizuku, create display, launch JD, observe, input, task move. Fast loop: let FastLoop drive a JD search.");
+        hint.setText("Smoke: device-api steps. Fast loop: FastLoop drives a JD search. LoopRunner: first attempt fails, slow loop replans, second attempt succeeds.");
         hint.setTextSize(13);
         hint.setTextColor(Color.rgb(80, 80, 80));
         hint.setPadding(0, padding / 2, 0, padding / 2);
@@ -149,6 +156,14 @@ public final class ShellActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         fastLoopParams.topMargin = padding / 2;
         root.addView(fastLoop, fastLoopParams);
+
+        Button runner = new Button(this);
+        runner.setText("Run LoopRunner (replan)");
+        runner.setOnClickListener(view -> startLoopRunner());
+        LinearLayout.LayoutParams runnerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        runnerParams.topMargin = padding / 2;
+        root.addView(runner, runnerParams);
         root.setGravity(Gravity.TOP);
         return root;
     }
@@ -171,6 +186,15 @@ public final class ShellActivity extends Activity {
         worker.execute(this::runFastLoop);
     }
 
+    private void startLoopRunner() {
+        if (running) {
+            return;
+        }
+        running = true;
+        append("--- loop runner start ---");
+        worker.execute(this::runLoopRunner);
+    }
+
     private void runFastLoop() {
         BlockingDeviceApi api = null;
         DisplayHandle display = null;
@@ -187,19 +211,8 @@ public final class ShellActivity extends Activity {
                     TargetSpec.single("fast-loop-task", TARGET_PACKAGE));
             append("fast-loop: target " + target.token());
 
-            TaskSpec task = new TaskSpec(
-                    "fast-loop-task",
-                    "search JD for a shirt",
-                    List.of(),
-                    List.of(new SuccessCriterion("results", "results visible", true)),
-                    AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT),
-                    Set.of(TARGET_PACKAGE),
-                    Set.of(),
-                    new Budget(40, Duration.ofMinutes(2), 10, 10));
-            TaskGraph graph = TaskGraph.of(new Subgoal(
-                    "search", "search and see results", Set.of(), List.of(), List.of(),
-                    new Fallback(Fallback.Strategy.ASK_USER, "ask the user"),
-                    RiskClass.LOW, true));
+            TaskSpec task = loopTask(10);
+            TaskGraph graph = loopGraph();
             FastLoop loop = new FastLoop(api, target, task, graph, new JdSearchPolicy(),
                     new DefaultRiskGate(), new UnavailableHumanGateway(),
                     new InMemoryWorkingMemory(), new InMemoryEpisodicMemory(),
@@ -247,6 +260,108 @@ public final class ShellActivity extends Activity {
             running = false;
             append("--- fast loop end ---");
         }
+    }
+
+    private void runLoopRunner() {
+        BlockingDeviceApi api = null;
+        DisplayHandle display = null;
+        TargetHandle target = null;
+        try {
+            api = new BlockingDeviceApi(
+                    listener -> new ShizukuConnectionDriver(getApplicationContext(), listener),
+                    60_000L);
+            append("runner: connect");
+            api.connect();
+            display = api.displays().create(DisplaySpec.standard());
+            append("runner: display " + display.token());
+            target = api.targets().open(display,
+                    TargetSpec.single("fast-loop-task", TARGET_PACKAGE));
+            append("runner: target " + target.token());
+
+            TaskSpec task = loopTask(2);
+            TaskGraph graph = loopGraph();
+            LoopPolicyFactory policies = (attempt, currentGraph) -> {
+                String current = currentGraph.current().map(Subgoal::id).orElse("-");
+                append("runner: attempt " + attempt + " policy="
+                        + (attempt == 1 ? "no-op" : "JD search") + " current=" + current);
+                return attempt == 1 ? new NoOpPolicy() : new JdSearchPolicy();
+            };
+            SlowLoopPolicy slow = context -> {
+                append("runner: slow reason=" + context.fastResult().reason().orElse(null)
+                        + " actions=" + context.fastResult().actions());
+                return new SlowLoopDecision.Replace(new Subgoal(
+                        "search", "search after replan", Set.of(), List.of(), List.of(),
+                        new Fallback(Fallback.Strategy.RETRY, "retry after no progress"),
+                        RiskClass.LOW, true), "first attempt made no progress");
+            };
+            LoopRunner runner = new LoopRunner(api, target, task, graph, policies, slow,
+                    new DefaultRiskGate(), new UnavailableHumanGateway(),
+                    new InMemoryWorkingMemory(), new InMemoryEpisodicMemory(),
+                    ObservationOptions.defaults(), 20, 3);
+            LoopRunResult run = runner.run();
+            append("runner result: " + run.result().status()
+                    + " attempts=" + run.attempts()
+                    + " replans=" + run.replans()
+                    + " totalActions=" + run.totalActions()
+                    + " detail=" + run.result().detail());
+            if (run.result().lastObservation() != null) {
+                append("runner last: " + summarize(run.result().lastObservation()));
+                try {
+                    saveFrame(api.observations().captureFrame(target));
+                } catch (Throwable failure) {
+                    append("runner frame: " + failure);
+                }
+            }
+            if (run.result().status() == LoopResult.Status.DONE) {
+                append("LOOP RUNNER PASS");
+            } else {
+                append("LOOP RUNNER STOP: " + run.result().status());
+            }
+        } catch (Throwable failure) {
+            Log.e(TAG, "loop runner failed", failure);
+            append("LOOP RUNNER FAIL: " + failure);
+        } finally {
+            if (target != null) {
+                try {
+                    api.targets().release(target);
+                    append("runner target released");
+                } catch (Throwable failure) {
+                    append("runner release target: " + failure);
+                }
+            }
+            if (display != null) {
+                try {
+                    api.displays().release(display);
+                    append("runner display released");
+                } catch (Throwable failure) {
+                    append("runner release display: " + failure);
+                }
+            }
+            if (api != null) {
+                api.close();
+            }
+            running = false;
+            append("--- loop runner end ---");
+        }
+    }
+
+    private static TaskSpec loopTask(int maxConsecutiveNoEffect) {
+        return new TaskSpec(
+                "fast-loop-task",
+                "search JD for a shirt",
+                List.of(),
+                List.of(new SuccessCriterion("results", "results visible", true)),
+                AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT),
+                Set.of(TARGET_PACKAGE),
+                Set.of(),
+                new Budget(40, Duration.ofMinutes(2), maxConsecutiveNoEffect, 10));
+    }
+
+    private static TaskGraph loopGraph() {
+        return TaskGraph.of(new Subgoal(
+                "search", "search and see results", Set.of(), List.of(), List.of(),
+                new Fallback(Fallback.Strategy.ASK_USER, "ask the user"),
+                RiskClass.LOW, true));
     }
 
     private void runSmoke() {
@@ -465,6 +580,55 @@ public final class ShellActivity extends Activity {
             append("frame saved: " + file.getAbsolutePath());
         } catch (Throwable failure) {
             append("frame save failed: " + failure);
+        }
+    }
+
+    private static final class NoOpPolicy implements LoopPolicy {
+
+        @Override
+        public Optional<LoopAction> next(LoopContext context) {
+            return Optional.of(new NoOpAction());
+        }
+    }
+
+    private static final class NoOpAction implements LoopAction {
+
+        @Override
+        public String id() {
+            return "no-op";
+        }
+
+        @Override
+        public String description() {
+            return "deliberate no-op for slow-loop smoke";
+        }
+
+        @Override
+        public agent.next.brain.ActionKind kind() {
+            return agent.next.brain.ActionKind.NAVIGATE;
+        }
+
+        @Override
+        public RiskClass risk() {
+            return RiskClass.LOW;
+        }
+
+        @Override
+        public String payloadHash() {
+            return "no-op";
+        }
+
+        @Override
+        public InputReceipt execute(DeviceApi api, TargetHandle target, Observation observation)
+                throws DeviceException {
+            try {
+                Thread.sleep(250L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new DeviceException(DeviceException.Code.INTERNAL,
+                        "no-op interrupted", interrupted);
+            }
+            return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
         }
     }
 
