@@ -7,6 +7,7 @@ import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
 import agent.next.app.calendar.CalendarPolicy;
+import agent.next.app.skill.QuarkWeatherPolicy;
 import agent.next.app.calendar.CalendarStore;
 import agent.next.app.calendar.CalendarSubgoalVerifier;
 import agent.next.app.security.EncryptedEpisodicMemory;
@@ -404,6 +405,10 @@ public final class AgentRuntime {
             SessionPolicyFactory policies = (task, subgoal, target, attempt) -> {
                 if ("com.android.calendar".equals(target.packageName())) {
                     return new CalendarPolicy(calendarStore, task, subgoal);
+                }
+                if ("com.quark.browser".equals(target.packageName())
+                        && task.goal().contains("天气")) {
+                    return new QuarkWeatherPolicy(task, subgoal);
                 }
                 return promptPolicies.create(task, subgoal, target, attempt);
             };

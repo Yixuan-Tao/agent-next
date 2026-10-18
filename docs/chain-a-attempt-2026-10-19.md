@@ -49,3 +49,22 @@ result: STOPPED actions=3 attempts=1
 - 增加了 Quark 搜索入口 prelude，s1 曾通过（matched=2/2），但不同 run 仍会 flail（Back/重复 SetText），Chain A 不稳定。
 - 增加了 calendar domain skill（CalendarContract）；单独的“创建带伞提醒”任务已验证 **DONE**，见 [calendar-domain-skill-2026-10-19.md](calendar-domain-skill-2026-10-19.md)。
 - 因此当前拆分：**calendar 段已验证，Quark 天气段仍是 Chain A 的 blocker**。
+
+## Quark deterministic path（未完成）
+
+新增 `QuarkWeatherPolicy`：固定“搜索入口 → SetText → 选择天气建议 → wait”，
+不再让模型在 Quark 首页随机 flail。一次真机运行中：
+
+```text
+Quark search entry opened
+verify s1 -> false (matched=0, missing=2) ... 首页
+verify s1 -> false ... 输入法
+verify s1 -> false ... 搜索建议
+verify s1 -> false (matched=1, missing=1) ... 结果页
+state: STOPPED · v1 stops on slow loop
+result: STOPPED actions=3 attempts=1
+```
+
+结果页出现了“上海明天天气预报 / 全部 / AI搜索”，但天气卡片主体没有进入
+无障碍文本；视觉 verifier 只匹配 1/2，仍未创建日历事件。
+这是 **Quark 天气段仍未完成**，不能把 calendar domain skill 的单测当成 Chain A 完成。

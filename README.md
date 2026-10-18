@@ -64,6 +64,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - LoopRunner 真机 smoke PASS：第一轮 NO_EFFECT → SlowLoop 替换 approach → 第二轮成功，DONE attempts=2 replans=1 totalActions=6；详见 [docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；
 - 兼容性准入：Android 16 平板上 `mode=compat` PASS，shell service 报告 `PREVIEW_MIRROR`；Android 13 手机待连接；详见 [docs/android-13-compat.md](docs/android-13-compat.md)；
 - Product UI/plan review smoke：真实模型四段计划、确认按钮、SessionRunner 接线 PASS；s2 加入 bounded scroll fallback 后 verifier 2/2 通过，DONE actions=1 attempts=2；详见 [docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；
+- Quark weather deterministic path：能进入结果页，但天气卡片仍未形成 2/2 verifier 证据，Chain A 未完成；
 - Calendar domain skill PASS：CalendarContract 创建“带伞”明天 09:00 提醒，4 个 calendar 子目标 verifier 通过 DONE；详见 [docs/calendar-domain-skill-2026-10-19.md](docs/calendar-domain-skill-2026-10-19.md)；
 - Foreground service smoke PASS：dataSync|specialUse、通知 Stop action、RUNNING 启动/DONE 停止；详见 [docs/foreground-service-smoke-2026-10-19.md](docs/foreground-service-smoke-2026-10-19.md)；
 - Shared runtime preview/touch pause PASS：预览打开暂停 agent、触摸注入、关闭后 resume，4 段 plan DONE；
