@@ -10,7 +10,7 @@
 capability/   Android library：AIDL、Shizuku 连接、display/target、
               observation/frame、定向输入、preview mirror、主屏 task move、安全策略
 device-api/   纯 JVM 设备边界：display/target/observation/frame/input/task-move 端口与契约
-brain/        纯 JVM 领域骨架：TaskSpec/TaskGraph/Skill/Memory/Effect/RiskGate/HumanGateway
+brain/        纯 JVM 骨架：TaskSpec/TaskGraph/FastLoop/Skill/Memory/Effect/RiskGate/HumanGateway
 app/          最小 shell：连接 Shizuku、创建 display、启动京东、observe/frame smoke
 testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
 tools/        capability/device-api/brain 的 host 回归脚本
@@ -19,7 +19,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 
 尚未包含：
 
-- `brain/` 的完整实现：当前只有领域骨架和 host 测试，快慢循环、模型调用、技能库未接入；
+- `brain/` 的慢循环重规划、模型调用、技能库：当前只有确定性 FastLoop 骨架和 host 场景测试；
 - preview mirror + 用户触摸接管的真机链路；
 - `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
 - 新 loop 的真实设备验收；
@@ -56,7 +56,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
 - `test-device-api.sh` PASS（FakeDeviceApi 上的 display/target/observation/input/task-move 契约）；
 - `test-capability-adapter.sh` PASS（BlockingDeviceApi + FakeConnectionDriver 契约）；
-- `test-brain.sh` 全部 PASS（9 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill）；
+- `test-brain.sh` 全部 PASS（10 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill/fast-loop）；
 - 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)；
 - capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)。
 
