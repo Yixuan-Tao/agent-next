@@ -26,7 +26,7 @@ import java.util.Set;
 public final class PromptSessionPolicyFactory implements SessionPolicyFactory {
 
     private static final Set<SkillCapability> CAPABILITIES =
-            Set.of(SkillCapability.TAP, SkillCapability.SET_TEXT, SkillCapability.BACK);
+            Set.of(SkillCapability.TAP, SkillCapability.SET_TEXT);
 
     private final SkillModel model;
     private final TargetFrameSource frames;

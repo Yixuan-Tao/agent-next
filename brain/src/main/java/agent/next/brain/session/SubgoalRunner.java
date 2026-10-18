@@ -69,7 +69,8 @@ public final class SubgoalRunner {
                 subgoal.risk(), subgoal.required(), subgoal.targetPackage(),
                 subgoal.verifierId());
         TaskGraph graph = TaskGraph.of(standalone);
-        LoopPolicy policy = new VerifiedLoopPolicy(base, verifier, task, standalone, target);
+        LoopPolicy policy = new ScrollFallbackPolicy(
+                new VerifiedLoopPolicy(base, verifier, task, standalone, target), 2);
         LoopResult result = new FastLoop(api, target, task, graph, policy, riskGate,
                 humanGateway, workingMemory, episodicMemory, observationOptions,
                 observationRetries, control).run();

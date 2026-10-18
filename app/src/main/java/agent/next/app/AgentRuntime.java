@@ -255,10 +255,10 @@ public final class AgentRuntime {
             SessionPolicyFactory policies = new PromptSessionPolicyFactory(
                     loggingModel, frames, memory);
             VerifierRegistry verifiers = new VerifierRegistry();
+            SubgoalVerifier visualDelegate = new VisualSubgoalVerifier(visualModel, frames);
             SubgoalVerifier visual = (task, subgoal, target, observation) -> {
                 SubgoalVerifier.Verification verification =
-                        new VisualSubgoalVerifier(visualModel, frames)
-                                .verify(task, subgoal, target, observation);
+                        visualDelegate.verify(task, subgoal, target, observation);
                 Log.i(TAG, "verify " + subgoal.id() + " -> " + verification.satisfied()
                         + " (" + verification.evidence() + ")");
                 return verification;

@@ -12,7 +12,9 @@ import agent.next.brain.SuccessCriterion;
 import agent.next.brain.TaskSpec;
 import agent.next.brain.loop.LoopContext;
 import agent.next.brain.loop.LoopFakeDevice;
+import agent.next.brain.loop.LoopAction;
 import agent.next.brain.loop.LoopPolicy;
+import agent.next.brain.loop.ScrollAction;
 import agent.next.brain.model.VisualVerification;
 import agent.next.brain.model.VisualVerificationRequest;
 import agent.next.brain.model.VisualVerifier;
@@ -40,6 +42,11 @@ public final class SessionBridgeTest {
     public static void run() {
         promptFactoryCarriesStageData();
         visualVerifierUsesConditions();
+        try {
+            scrollFallbackIsBounded();
+        } catch (Exception failure) {
+            throw new AssertionError("scroll fallback failed", failure);
+        }
         System.out.println("SessionBridgeTest: PASS (prompt factory, visual verifier)");
     }
 
@@ -88,6 +95,22 @@ public final class SessionBridgeTest {
         } catch (Exception failure) {
             throw new AssertionError("visual verifier test failed", failure);
         }
+    }
+
+    private static void scrollFallbackIsBounded() throws Exception {
+        LoopFakeDevice api = new LoopFakeDevice();
+        TargetHandle target = new TargetHandle("scroll-target", 1, "scroll-task",
+                "com.example.shop");
+        Observation observation = observe(api, target);
+        LoopContext context = new LoopContext(task(), subgoal(), observation, 0, 0, 0,
+                new InMemoryWorkingMemory());
+        ScrollFallbackPolicy policy = new ScrollFallbackPolicy(
+                (LoopPolicy) ctx -> java.util.Optional.empty(), 2);
+        LoopAction first = policy.next(context).orElseThrow();
+        check(first instanceof ScrollAction, "first fallback is scroll");
+        check(policy.next(context).orElseThrow() instanceof ScrollAction, "second scroll");
+        check(policy.next(context).isEmpty(), "fallback capped");
+        first.execute(api, target, observation);
     }
 
     private static Observation observe(LoopFakeDevice api, TargetHandle target) {
