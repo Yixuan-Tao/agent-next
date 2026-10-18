@@ -186,7 +186,56 @@ public final class AgentRuntime {
         worker.execute(() -> doRun(current));
     }
 
+    private volatile java.util.concurrent.CountDownLatch handoffLatch;
+    private volatile boolean handoffApproved;
+
+    /** Moves the target to the main screen and waits for the user to finish verification. */
+    public boolean handoffToUser(String reason) {
+        BlockingDeviceApi currentApi = api;
+        TargetHandle target = activeTarget;
+        DisplayHandle currentDisplay = display;
+        if (currentApi == null || target == null || currentDisplay == null) {
+            return false;
+        }
+        try {
+            java.util.concurrent.CountDownLatch latch =
+                    new java.util.concurrent.CountDownLatch(1);
+            handoffLatch = latch;
+            handoffApproved = false;
+            AgentTaskService.start(context);
+            AgentTaskService.handoff(context, reason);
+            currentApi.tasks().moveToMain(target);
+            if (!latch.await(15, java.util.concurrent.TimeUnit.MINUTES)) {
+                return false;
+            }
+            if (!handoffApproved) {
+                return false;
+            }
+            currentApi.tasks().moveToPrivate(target, currentDisplay);
+            currentApi.observations().observe(target, ObservationOptions.defaults());
+            return true;
+        } catch (Throwable failure) {
+            Log.w(TAG, "handoff failed: " + failure);
+            return false;
+        } finally {
+            handoffLatch = null;
+        }
+    }
+
+    public void resumeHandoff() {
+        handoffApproved = true;
+        java.util.concurrent.CountDownLatch latch = handoffLatch;
+        if (latch != null) {
+            latch.countDown();
+        }
+    }
+
     public void stop() {
+        java.util.concurrent.CountDownLatch latch = handoffLatch;
+        if (latch != null) {
+            handoffApproved = false;
+            latch.countDown();
+        }
         RuntimeControl current = control;
         if (current != null) {
             current.stop();
@@ -419,18 +468,18 @@ public final class AgentRuntime {
                     loggingModel, frames, memory);
             SessionPolicyFactory policies = (task, subgoal, target, attempt) -> {
                 if ("com.android.calendar".equals(target.packageName())) {
-                    return new RiskGuardPolicy(new CalendarPolicy(calendarStore, task, subgoal));
+                    return new RiskGuardPolicy(new CalendarPolicy(calendarStore, task, subgoal), this::handoffToUser);
                 }
                 if ("com.quark.browser".equals(target.packageName())
                         && task.goal().contains("天气")) {
-                    return new RiskGuardPolicy(new QuarkWeatherPolicy(task, subgoal));
+                    return new RiskGuardPolicy(new QuarkWeatherPolicy(task, subgoal), this::handoffToUser);
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && (subgoal.intent().contains("输入")
                         || subgoal.intent().contains("提交"))) {
                     prepareJdSearchEntry(target);
                 }
-                return new RiskGuardPolicy(promptPolicies.create(task, subgoal, target, attempt));
+                return new RiskGuardPolicy(promptPolicies.create(task, subgoal, target, attempt), this::handoffToUser);
             };
             VerifierRegistry verifiers = new VerifierRegistry();
             SubgoalVerifier visualDelegate = new VisualSubgoalVerifier(visualModel, frames);

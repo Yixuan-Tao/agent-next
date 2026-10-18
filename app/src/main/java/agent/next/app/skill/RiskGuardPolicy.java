@@ -9,8 +9,13 @@ import agent.next.device.UiNode;
 import java.util.Locale;
 import java.util.Optional;
 
-/** Stops before verification/CAPTCHA/risk pages; no bypass attempts. */
+/** Stops before verification/CAPTCHA/risk pages; optional human handoff. */
 public final class RiskGuardPolicy implements LoopPolicy {
+
+    @FunctionalInterface
+    public interface Handoff {
+        boolean handoff(String reason);
+    }
 
     private static final String[] SIGNALS = {
             "京东验证", "安全验证", "人机验证", "验证码", "滑块验证", "captcha",
@@ -18,9 +23,11 @@ public final class RiskGuardPolicy implements LoopPolicy {
     };
 
     private final LoopPolicy delegate;
+    private final Handoff handoff;
 
-    public RiskGuardPolicy(LoopPolicy delegate) {
+    public RiskGuardPolicy(LoopPolicy delegate, Handoff handoff) {
         this.delegate = delegate;
+        this.handoff = handoff;
     }
 
     @Override
@@ -30,8 +37,11 @@ public final class RiskGuardPolicy implements LoopPolicy {
                     .toLowerCase(Locale.ROOT);
             for (String signal : SIGNALS) {
                 if (text.contains(signal.toLowerCase(Locale.ROOT))) {
-                    throw new HumanHandoffRequiredException(
-                            "human verification required: " + signal);
+                    String reason = "human verification required: " + signal;
+                    if (handoff != null && handoff.handoff(reason)) {
+                        return Optional.of(new WaitAction(1000));
+                    }
+                    throw new HumanHandoffRequiredException(reason);
                 }
             }
         }
