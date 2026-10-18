@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、确定性快循环骨架、host 场景测试和真机京东搜索 smoke；慢循环重规划、模型调用、技能库尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、host 场景测试和真机京东搜索 smoke；模型调用、技能库、完整动态重规划尚未接入。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -19,6 +19,8 @@
 | `loop.FastLoop` / `LoopPolicy` / `LoopContext` / `LoopResult` | 确定性快循环：感知→完成检查→策略→风险门→执行→效果→记忆→慢循环升级 |
 | `loop.LoopAction` / `TapAction` / `SetTextAction` / `BackAction` | 语义动作，按当前 observation 解析目标 |
 | `loop.NodeSelector` / `ObservationFingerprint` | 选择器与稳定状态指纹（不包含 observation id/ref） |
+| `loop.SlowLoop` / `SlowLoopPolicy` / `SlowLoopDecision` | 慢循环决策：continue / 同 id replace / ask user / stop |
+| `loop.LoopRunner` / `LoopRunResult` | 多次 FastLoop 尝试 + slow-loop 重规划计数 |
 
 ## Fast loop
 
@@ -34,13 +36,24 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`。
-- 10 个 host suite 中的 `LoopTest` 覆盖成功、无效果升级、预算、凭据 handoff、承诺确认。
+- 11 个 host suite 中的 `LoopTest`/`SlowLoopTest` 覆盖成功、无效果升级、预算、凭据 handoff、承诺确认、replace/ask/stop/continue 与 runner 重规划。
+
+## Slow loop
+
+`SlowLoop` 消费 FastLoop 的 `SLOW_LOOP` 结果，由 `SlowLoopPolicy` 做最小决策：
+
+- `Continue`：保持 TaskGraph，下一次 attempt 重新跑 FastLoop。
+- `Replace`：**必须保留当前 subgoal id**，替换 intent/fallback/risk，节点回到 PENDING。
+- `AskUser`：返回 `NEED_USER`。
+- `Stop`：返回停止/失败。
+
+`LoopRunner` 负责 attempt 循环：FastLoop → 若 `SLOW_LOOP` 则 SlowLoop → REPLANNED/CONTINUE 再跑，记录 `attempts`/`replans`。它不做任意节点插入、删除或预算跨 attempt 汇总；这些是后续能力。
 
 ## device-api 边界
 
 `brain` 通过 Gradle `api project(':device-api')` 依赖纯 JVM 设备端口，不 import `agent.phone.*` 或 Android 类型。端口定义见 [device-api/README.md](../device-api/README.md)。
 
-`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；下一步是慢循环重规划与更多 App/异常场景。
+`FastLoop` 已通过 app shell 接到 capability adapter 的真机京东目标（首页→搜索→setText→提交→结果页，DONE actions=4）；`SlowLoop`/`LoopRunner` 已能把 `SLOW_LOOP` 决策应用到 TaskGraph 并重试。
 
 ## 测试
 
@@ -58,9 +71,9 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 ## 明确不包含
 
-- 慢循环重规划、完整 TaskGraph 动态插入/替换执行器；
+- 完整动态重规划（任意节点插入/删除、跨 attempt 预算汇总）；当前只有同 id replace；
 - 模型调用、prompt、技能库、OCR/视觉策略；
-- 慢循环重规划与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
+- 更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。
 

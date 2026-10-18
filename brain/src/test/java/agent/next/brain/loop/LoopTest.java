@@ -114,7 +114,7 @@ public final class LoopTest {
                 working, episodic).run();
     }
 
-    private static TaskSpec task(int maxActions) {
+    static TaskSpec task(int maxActions) {
         return new TaskSpec(
                 "loop-task",
                 "find an item",
@@ -126,12 +126,12 @@ public final class LoopTest {
                 new Budget(maxActions, Duration.ofMinutes(1), 2, 3));
     }
 
-    private static TaskGraph graph() {
+    static TaskGraph graph() {
         return TaskGraph.of(new Subgoal("find", "find an item", Set.of(), List.of(), List.of(),
                 new Fallback(Fallback.Strategy.ASK_USER, "ask"), RiskClass.LOW, true));
     }
 
-    private static TargetHandle target() {
+    static TargetHandle target() {
         return new TargetHandle("target-1", 1, "loop-task", "com.example.shop");
     }
 
@@ -141,7 +141,7 @@ public final class LoopTest {
         }
     }
 
-    private static final class SuccessPolicy implements LoopPolicy {
+    static final class SuccessPolicy implements LoopPolicy {
 
         @Override
         public boolean complete(LoopContext context) {
@@ -172,7 +172,7 @@ public final class LoopTest {
         }
     }
 
-    private static final class NoEffectPolicy implements LoopPolicy {
+    static final class NoEffectPolicy implements LoopPolicy {
 
         @Override
         public Optional<LoopAction> next(LoopContext context) {
@@ -260,7 +260,7 @@ public final class LoopTest {
         }
     }
 
-    private static final class FakeHumanGateway implements HumanGateway {
+    static final class FakeHumanGateway implements HumanGateway {
 
         private int confirmations;
 
