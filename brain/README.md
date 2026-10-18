@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、旧模型 chat-completions API 移植、host 场景测试、真机京东搜索 smoke 和真实模型 prompt skill smoke；视觉 verify/extract、社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、旧模型 chat-completions API 移植、host 场景测试、真机京东搜索 smoke、真实模型 prompt skill smoke 和视觉 verify/extract；社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -15,6 +15,7 @@
 | `skill.PromptSkillPolicy` / `SkillModel` | prompt skill 的模型端口：只返回语义 Tap/SetText/Back/Done，拒绝 high-risk 步骤；不接触 DeviceApi/坐标 |
 | `model.ModelConfig` / `ChatCompletionClient` | 旧 `model-config.json` + chat-completions 形状；支持文本/单帧 PNG、key 脱敏、finish_reason 校验 |
 | `model.DeepSeekSkillModel` | 把模型 JSON 解析成语义 `SkillModelStep`；支持单帧 PNG；拒绝坐标字段/Point selector |
+| `model.DeepSeekVisualModel` / `VisualVerification` / `StageData` | 独立视觉 verify/extract；只拿 PNG，不控制设备 |
 | `skill.SkillRegistry` / `SkillValidator` / `SkillCandidate` | 信任分级与准入；社区/自生成必须验证，支持撤销 |
 | `Effect` / `StateFingerprint` / `EffectEvaluator` | 动作前后状态比较：Changed/NoChange/Loading/Error/Navigated |
 | `RiskClass` / `ActionDescriptor` / `RiskDecision` / `DefaultRiskGate` | 风险分类与 Allow/Confirm/Handoff/Deny |
@@ -75,7 +76,8 @@ Skill 是**可选加速层**；没有匹配 skill 时，FastLoop/通用规划仍
 - `ModelConfig.load(Path)`：读取旧格式配置，`toString` 隐藏 key；配置只放在被忽略的 `private/`。
 - `ChatCompletionClient`：`{base_url}/chat/completions`、30s 超时、1 MiB 上限、`finish_reason=stop` 校验。
 - `DeepSeekSkillModel`：把模型 JSON 解析成语义 `SkillModelStep`；坐标字段/Point selector 直接拒绝。
-- 当前支持文本和单帧 PNG；旧 `VisionModel` 的 `verify`、`extract` 尚未移植。
+- `DeepSeekVisualModel`：独立 `verify`/`extract`，只接收单帧 PNG，不控制设备动作。
+- 当前支持文本、单帧 PNG、`verify`、`extract`；没有多帧/视频。
 - 测试用 fake transport，不发起真实 API 调用；不要提交或打印密钥。
 
 ## device-api 边界
@@ -101,7 +103,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ## 明确不包含
 
 - 任意 DAG 重排、多技能组合、条件 verifier；当前只有 replace / insertBefore / removeAndRewire；
-- 视觉 verify/extract、社区 registry 的签名/扫描；当前只有文本+单帧 PNG 客户端/内存 registry；
+- 多帧/视频、社区 registry 的签名/扫描；当前只有单帧视觉/内存 registry；
 - OCR/视觉策略与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。

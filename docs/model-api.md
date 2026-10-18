@@ -18,6 +18,9 @@
 | `model.HttpChatCompletionTransport` | 真实 HTTP 调用 |
 | `model.ChatCompletionClient` | 请求体、finish_reason、content 校验 |
 | `model.DeepSeekSkillModel` | 把模型 JSON 解析成 `SkillModelStep`（语义 selector，无坐标） |
+| `model.DeepSeekVisualModel` | 独立视觉 `verify` / `extract`；只拿 PNG，不控制设备 |
+| `model.VisualVerificationRequest` / `VisualVerification` | 任务+完成条件+PNG → verified/matched/missing |
+| `model.StageExtractRequest` / `StageData` | 任务+PNG+可见文字 → summary/entities（≤8） |
 | `model.Json` | 无依赖的受限 JSON parser/string writer |
 
 ## 使用
@@ -30,17 +33,28 @@ PromptSkillPolicy policy = new PromptSkillPolicy(skill, Map.of("query", "短袖T
 
 `PromptSkillPolicy` 可通过 `SkillFrameSource` 附带当前 PNG；仍只接受 `LOW`/`REVERSIBLE_SIDE_EFFECT` 模型步骤，并经过 FastLoop 的 RiskGate。
 
+视觉核验/抽取独立于动作：
+
+```java
+DeepSeekVisualModel visual = new DeepSeekVisualModel(new ChatCompletionClient(config));
+VisualVerification verification = visual.verify(
+        new VisualVerificationRequest(task, conditions, frame));
+StageData stage = visual.extract(
+        new StageExtractRequest(task, frame, visibleText));
+```
+
 ## 当前限制
 
-- 已移植文本和**单帧 PNG**输入；旧 `VisionModel` 的 `verify`、`extract` 尚未移植，也没有多帧/视频。
+- 已移植文本、单帧 PNG、`verify`、`extract`；没有多帧/视频。
 - app 已接线：从 `files/model-config.json` 读取配置，manifest 已声明 `INTERNET`，prompt 模式可跑真实模型。
 - host 测试使用 fake transport，**没有发起真实 API 调用**。
 - `DeepSeekSkillModel` 拒绝坐标字段/Point selector，但模型仍可能把高风险按钮声称为 `LOW`；trust/validation/独立风险分类仍需要。
 - 观察节点会进入 prompt；还没有敏感字段脱敏/裁剪策略。
+- extract 的 entities 是自由键值，没有业务 schema/校验；可能含误提取或个人信息。
 
 ## 测试
 
-`test-brain.sh` 的 `ModelApiTest` 覆盖：配置加载与 key 脱敏、文本/PNG 请求形状、finish_reason、语义 SetText 解析、坐标字段拒绝。
+`test-brain.sh` 的 `ModelApiTest` 覆盖：配置加载与 key 脱敏、文本/PNG 请求形状、finish_reason、语义 SetText 解析、坐标字段拒绝、视觉 verify 覆盖检查、extract summary/entities 解析。
 
 真实密钥只在忽略的 `private/model-config.json` 中；不要把它写入日志、提交或示例。
 

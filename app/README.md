@@ -5,7 +5,7 @@
 - 默认 smoke：连接 Shizuku、创建 720×1280 private display、启动京东、观察、抓帧、点搜索栏、`setText`、提交搜索、主屏 task move 往返、释放。
 - fast-loop 模式：用 `FastLoop` + 京东脚本策略完成一次搜索并到达结果页。
 - runner 模式：先跑一个受控空动作触发 `NO_EFFECT`，由 `SlowLoop` 替换 current subgoal，再由第二轮 `FastLoop` 完成搜索。
-- prompt 模式：读取 app 私有 `files/model-config.json`，用真实 DeepSeek chat-completions + `PromptSkillPolicy` 完成一次京东搜索页操作；模型只输出语义动作。
+- prompt 模式：读取 app 私有 `files/model-config.json`，用真实 DeepSeek chat-completions + `PromptSkillPolicy` 完成一次京东搜索页操作；模型只输出语义动作，完成后用单帧 PNG 做独立视觉 verify/extract。
 
 ## 构建与安装
 
@@ -53,14 +53,14 @@ adb shell am start -n agent.next.app/.ShellActivity --es mode prompt
 adb logcat -s AgentNextSmoke:I
 ```
 
-- smoke 结果包含 `SMOKE PASS`/`SMOKE FAIL`；FastLoop 结果包含 `FAST LOOP PASS`/`FAST LOOP STOP`；LoopRunner 结果包含 `LOOP RUNNER PASS`/`LOOP RUNNER STOP`；prompt 模式包含 `PROMPT SKILL PASS`/`PROMPT SKILL STOP`。
+- smoke 结果包含 `SMOKE PASS`/`SMOKE FAIL`；FastLoop 结果包含 `FAST LOOP PASS`/`FAST LOOP STOP`；LoopRunner 结果包含 `LOOP RUNNER PASS`/`LOOP RUNNER STOP`；prompt 模式包含 `PROMPT SKILL PASS` / `PROMPT SKILL VERIFY FAIL` / `PROMPT SKILL EXTRACT FAIL` / `PROMPT SKILL STOP`。
 - 也可点页面底部 “Run smoke again” / “Run fast loop (JD search)” / “Run LoopRunner (replan)” / “Run prompt model (JD search)”。
 - 抓到的帧写到 app 外部私有目录 `files/smoke-frame.png`，可用 `adb pull` 取出。
 
 ## 限制
 
 - 京东首页搜索栏不在 accessibility 树里，当前用固定坐标 `(360,180)` 点击；这是 smoke 探针的妥协，不是新 brain 的 UI 策略。prompt 模式的固定入口也是 app trusted prelude，模型只在搜索页开始动作。
-- FastLoop 的 `JdSearchPolicy` 是脚本策略：用结果页筛选项文本（全部/新品/今日上新/奥莱/明日达）作为完成证据；prompt 模式同样用本地 verifier 判定，不让模型自评完成。
+- FastLoop 的 `JdSearchPolicy` 是脚本策略：用结果页筛选项文本作为完成证据；prompt 模式用本地 verifier 判定动作完成，再要求视觉 verify 通过才报 `PROMPT SKILL PASS`，不让模型自评完成。
 - prompt 模式真实模型曾连续输出两次 SetText；第二次冗余但幂等。模型仍可能把高风险按钮声明为 `LOW`，需要独立分类/验证。
 - 结果页骨架屏期间用 `WaitAction` 空等；这是 smoke 专用动作，不是通用技能。
 - LoopRunner 模式第一轮是脚本故意空动作，用来稳定触发 `NO_EFFECT`；不代表真实故障恢复。

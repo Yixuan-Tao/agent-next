@@ -77,7 +77,8 @@ public final class ChatCompletionClient {
             throw new IOException("model response has no choice");
         }
         if (!"stop".equals(choice.get("finish_reason"))) {
-            throw new IOException("model did not finish normally");
+            throw new IOException("model did not finish normally: "
+                    + choice.get("finish_reason"));
         }
         if (!(choice.get("message") instanceof Map<?, ?> message)
                 || !(message.get("content") instanceof String content)

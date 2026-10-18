@@ -47,7 +47,12 @@ import agent.next.brain.loop.SlowLoopPolicy;
 import agent.next.brain.loop.TapAction;
 import agent.next.brain.model.ChatCompletionClient;
 import agent.next.brain.model.DeepSeekSkillModel;
+import agent.next.brain.model.DeepSeekVisualModel;
 import agent.next.brain.model.ModelConfig;
+import agent.next.brain.model.StageData;
+import agent.next.brain.model.StageExtractRequest;
+import agent.next.brain.model.VisualVerification;
+import agent.next.brain.model.VisualVerificationRequest;
 import agent.next.brain.skill.PromptSkillPolicy;
 import agent.next.brain.skill.SkillApplicability;
 import agent.next.brain.skill.SkillBody;
@@ -85,6 +90,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -295,16 +301,56 @@ public final class ShellActivity extends Activity {
             append("prompt result: " + result.status()
                     + " actions=" + result.actions()
                     + " detail=" + result.detail());
+            Frame finalFrame = null;
             if (result.lastObservation() != null) {
                 append("prompt last: " + summarize(result.lastObservation()));
                 try {
-                    saveFrame(api.observations().captureFrame(target));
+                    finalFrame = api.observations().captureFrame(target);
+                    saveFrame(finalFrame);
                 } catch (Throwable failure) {
                     append("prompt frame: " + failure);
                 }
             }
-            if (result.status() == LoopResult.Status.DONE) {
+            boolean visualOk = false;
+            boolean visualExtractOk = false;
+            DeepSeekVisualModel visual = null;
+            if (result.status() == LoopResult.Status.DONE && finalFrame != null) {
+                try {
+                    visual = new DeepSeekVisualModel(client);
+                    VisualVerification verification = visual.verify(
+                            new VisualVerificationRequest(
+                                    "在京东搜索页搜索 短袖T恤 男款 XL 并看到结果页",
+                                    List.of("京东搜索结果页", "搜索词 短袖T恤 男款 XL"),
+                                    finalFrame));
+                    visualOk = verification.verified();
+                    append("prompt visual verify: verified=" + verification.verified()
+                            + " matched=" + verification.matched().size()
+                            + " missing=" + verification.missing().size());
+                } catch (Throwable failure) {
+                    append("prompt visual verify failed: " + failure);
+                }
+                if (visual != null && result.lastObservation() != null) {
+                    try {
+                        StageData stage = visual.extract(new StageExtractRequest(
+                                "京东搜索 短袖T恤 男款 XL 的结果页", finalFrame,
+                                visibleTexts(result.lastObservation())));
+                        visualExtractOk = true;
+                        append("prompt visual extract: summaryChars="
+                                + stage.summary().length() + " entities="
+                                + stage.entities().size());
+                    } catch (Throwable failure) {
+                        append("prompt visual extract failed: " + failure);
+                    }
+                }
+            } else if (result.status() == LoopResult.Status.DONE) {
+                append("prompt visual verify: no final frame");
+            }
+            if (result.status() == LoopResult.Status.DONE && visualOk && visualExtractOk) {
                 append("PROMPT SKILL PASS");
+            } else if (result.status() == LoopResult.Status.DONE && visualOk) {
+                append("PROMPT SKILL EXTRACT FAIL");
+            } else if (result.status() == LoopResult.Status.DONE) {
+                append("PROMPT SKILL VERIFY FAIL");
             } else {
                 append("PROMPT SKILL STOP: " + result.status());
             }
@@ -1012,6 +1058,16 @@ public final class ShellActivity extends Activity {
         @Override
         public void stop(String reason) {
         }
+    }
+
+    private static List<String> visibleTexts(Observation observation) {
+        List<String> result = new ArrayList<>();
+        for (UiNode node : observation.nodes()) {
+            if (!node.text().isEmpty() && result.size() < 30) {
+                result.add(node.text());
+            }
+        }
+        return result;
     }
 
     private static String summarize(Observation observation) {

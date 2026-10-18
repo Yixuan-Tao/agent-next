@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -35,7 +36,9 @@ public final class ModelApiTest {
         skillModelParsesSemanticStep();
         skillModelUsesFrame();
         skillModelRejectsCoordinates();
-        System.out.println("ModelApiTest: PASS (config, transport, semantic JSON)");
+        visualVerify();
+        stageExtract();
+        System.out.println("ModelApiTest: PASS (config, transport, semantic JSON, visual verify/extract)");
     }
 
     private static void configLoad() {
@@ -159,6 +162,60 @@ public final class ModelApiTest {
                         + "\"risk\":\"LOW\",\"x\":1}");
         expect(IllegalArgumentException.class, () -> extra.next(request()),
                 "coordinate field rejected");
+    }
+
+    private static void visualVerify() {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        ChatCompletionTransport transport = (url, auth, body) -> {
+            requestBody.set(body);
+            return completion("{\"verified\":true,\"matched\":[\"京东搜索结果页\","
+                    + "\"搜索词 短袖T恤 男款 XL\"],\"missing\":[]}");
+        };
+        DeepSeekVisualModel model = new DeepSeekVisualModel(new ChatCompletionClient(
+                new ModelConfig("https://example.test", "deepseek-flash", "test-key"),
+                transport));
+        try {
+            VisualVerification result = model.verify(new VisualVerificationRequest(
+                    "search JD", List.of("京东搜索结果页", "搜索词 短袖T恤 男款 XL"), frame()));
+            check(result.verified(), "visual verifier passes");
+            check(requestBody.get().contains("\"type\":\"image_url\""),
+                    "visual verifier sends frame");
+        } catch (IOException failure) {
+            throw new AssertionError("visual verify I/O", failure);
+        }
+
+        ChatCompletionTransport incomplete = (url, auth, body) -> completion(
+                "{\"verified\":true,\"matched\":[\"京东搜索结果页\"],\"missing\":[]}");
+        DeepSeekVisualModel strict = new DeepSeekVisualModel(new ChatCompletionClient(
+                new ModelConfig("https://example.test", "deepseek-flash", "test-key"),
+                incomplete));
+        try {
+            VisualVerification result = strict.verify(new VisualVerificationRequest(
+                    "search JD", List.of("京东搜索结果页", "搜索词 短袖T恤 男款 XL"), frame()));
+            check(!result.verified(), "visual verifier requires every condition");
+        } catch (IOException failure) {
+            throw new AssertionError("visual coverage I/O", failure);
+        }
+    }
+
+    private static void stageExtract() {
+        ChatCompletionTransport transport = (url, auth, body) -> completion(
+                "{\"summary\":\"京东搜索页已打开\",\"entities\":{\"query\":\"短袖T恤\"}}");
+        DeepSeekVisualModel model = new DeepSeekVisualModel(new ChatCompletionClient(
+                new ModelConfig("https://example.test", "deepseek-flash", "test-key"),
+                transport));
+        try {
+            StageData data = model.extract(new StageExtractRequest(
+                    "search JD", frame(), List.of("短袖T恤")));
+            check(data.summary().contains("京东"), "stage summary parsed");
+            check(data.entities().get("query").equals("短袖T恤"), "stage entity parsed");
+        } catch (IOException failure) {
+            throw new AssertionError("stage extract I/O", failure);
+        }
+    }
+
+    private static Frame frame() {
+        return new Frame(720, 1280, new byte[] {1, 2, 3}, Instant.now(), 1);
     }
 
     private static DeepSeekSkillModel modelReturning(String content) {
