@@ -77,3 +77,25 @@ result: FAILED · post-action observe failed actions=1 attempts=1
 - private display 被系统回收；
 - 20 分钟后台/Doze；
 - Android 13。
+
+## 执行中 Shizuku user service 被杀
+
+步骤：执行 JD 首页任务 → `pidof agent.next.app:agent_next_shell` → `kill -9`。
+
+结果：
+
+```text
+shell service pid=23650
+result: FAILED · post-action observe failed actions=1 attempts=1
+```
+
+- 与 target 丢失一样 fail closed；
+- 没有重试、没有 DONE、没有支付；
+- Shizuku server 仍在，但 app 的 user service 进程已死，后续操作需要重新建立连接；
+- 不应在连接状态未知时继续执行动作。
+
+## 待补
+
+- private display 被系统回收；
+- 20 分钟后台/Doze；
+- Android 13。
