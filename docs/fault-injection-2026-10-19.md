@@ -54,3 +54,26 @@ result: STOPPED · v1 stops on slow loop actions=2 attempts=1
 - 不是“自动恢复成功”，需要重新发起任务。
 
 后续可增加模型 429/超时退避与重试预算，但不能在未知副作用后自动重放动作。
+
+## 执行中 target 被关闭
+
+步骤：执行 JD 首页任务 → 第一个动作后 `am force-stop com.jingdong.app.mall`。
+
+结果：
+
+```text
+state: RUNNING · 执行中
+result: FAILED · post-action observe failed actions=1 attempts=1
+```
+
+- 不重试、不伪造 DONE；
+- 没有支付/下单动作；
+- 已执行的动作保留在事件记录中，后续需要重新观察/重新规划；
+- target/display 由 SessionRunner cleanup 释放。
+
+## 待补
+
+- Shizuku user service 被杀；
+- private display 被系统回收；
+- 20 分钟后台/Doze；
+- Android 13。
