@@ -6,7 +6,8 @@ import android.os.Looper;
 import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
-import agent.next.brain.InMemoryEpisodicMemory;
+import agent.next.app.security.EncryptedEpisodicMemory;
+import agent.next.app.security.EncryptedModelConfigStore;
 import agent.next.brain.InMemoryWorkingMemory;
 import agent.next.brain.loop.LoopStoppedException;
 import agent.next.brain.Subgoal;
@@ -46,7 +47,6 @@ import agent.next.device.UiNode;
 import agent.phone.capability.BlockingDeviceApi;
 import agent.phone.connection.ShizukuConnectionDriver;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -84,7 +84,7 @@ public final class AgentRuntime {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService previewWorker = Executors.newSingleThreadExecutor();
     private final InMemoryWorkingMemory memory = new InMemoryWorkingMemory();
-    private final InMemoryEpisodicMemory episodic = new InMemoryEpisodicMemory();
+    private final EncryptedEpisodicMemory episodic;
     private final UiHumanGateway human = new UiHumanGateway();
     private volatile Listener listener;
     private volatile State state = State.IDLE;
@@ -100,6 +100,7 @@ public final class AgentRuntime {
 
     private AgentRuntime(Context context) {
         this.context = context.getApplicationContext();
+        this.episodic = new EncryptedEpisodicMemory(this.context);
     }
 
     public static AgentRuntime get(Context context) {
@@ -318,10 +319,9 @@ public final class AgentRuntime {
     private void doPlan(PlanningRequest request) {
         try {
             ensureDevice();
-            Optional<ModelConfig> config = ModelConfig.load(
-                    new File(context.getFilesDir(), "model-config.json").toPath());
+            Optional<ModelConfig> config = EncryptedModelConfigStore.load(context);
             if (config.isEmpty()) {
-                fail("缺少 files/model-config.json");
+                fail("缺少加密 model config（请导入 model-config.json 以迁移）");
                 return;
             }
             client = new ChatCompletionClient(config.get());

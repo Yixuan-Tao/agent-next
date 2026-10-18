@@ -38,8 +38,19 @@ public final class ModelConfig {
             if (bytes.length > MAX_CONFIG_BYTES) {
                 return Optional.empty();
             }
-            Map<String, Object> value = Json.object(
-                    new String(bytes, StandardCharsets.UTF_8));
+            return fromJson(new String(bytes, StandardCharsets.UTF_8));
+        } catch (IOException | RuntimeException failure) {
+            return Optional.empty();
+        }
+    }
+
+    /** Parse an already-decrypted config without writing the secret to disk. */
+    public static Optional<ModelConfig> fromJson(String json) {
+        if (json == null || json.length() > MAX_CONFIG_BYTES) {
+            return Optional.empty();
+        }
+        try {
+            Map<String, Object> value = Json.object(json);
             String base = Json.string(value, "base_url").trim();
             String model = Json.string(value, "model").trim();
             String key = Json.string(value, "api_key").trim();
@@ -47,7 +58,7 @@ public final class ModelConfig {
                 return Optional.empty();
             }
             return Optional.of(new ModelConfig(base, model, key));
-        } catch (IOException | RuntimeException failure) {
+        } catch (RuntimeException failure) {
             return Optional.empty();
         }
     }
