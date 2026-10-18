@@ -265,8 +265,8 @@ public final class ShizukuBackendTest {
         Bundle add = UserServiceProtocol.add();
         assertAddPacket(add);
         rikka.shizuku.Shizuku.UserServiceArgs reference = new rikka.shizuku.Shizuku.UserServiceArgs(
-                new ComponentName("agent.phone", "agent.phone.executor.ShellService"))
-                .tag("agent.phone.connection.v9").version(11).processNameSuffix("agent_shell")
+                new ComponentName("agent.next.app", "agent.phone.executor.ShellService"))
+                .tag("agent.next.connection.v12").version(12).processNameSuffix("agent_next_shell")
                 .debuggable(false).daemon(false);
         java.lang.reflect.Method forAdd = reference.getClass().getDeclaredMethod("forAdd");
         forAdd.setAccessible(true);
@@ -277,7 +277,7 @@ public final class ShizukuBackendTest {
             samePacket((Bundle) forRemove.invoke(reference, remove), UserServiceProtocol.remove(remove));
         }
         add.putString("shizuku:user-service-arg-tag", "forged");
-        check("agent.phone.connection.v9".equals(UserServiceProtocol.add().get("shizuku:user-service-arg-tag")),
+        check("agent.next.connection.v12".equals(UserServiceProtocol.add().get("shizuku:user-service-arg-tag")),
                 "packets are fresh and cannot mutate subsequent requests");
         for (boolean remove : new boolean[] {true, false}) assertRemovePacket(UserServiceProtocol.remove(remove), remove);
     }
@@ -305,14 +305,14 @@ public final class ShizukuBackendTest {
                 "shizuku:user-service-arg-process-name", "shizuku:user-service-arg-tag"));
         check(add.keySet().equals(expected), "add packet must contain exactly the seven SDK 13.1.5 fields");
         ComponentName component = (ComponentName) add.get("shizuku:user-service-arg-component");
-        check("agent.phone".equals(component.getPackageName())
+        check("agent.next.app".equals(component.getPackageName())
                 && "agent.phone.executor.ShellService".equals(component.getClassName()), "fixed service component");
         check(Boolean.FALSE.equals(add.get("shizuku:user-service-arg-debuggable")), "debug false is a Boolean");
-        check(Integer.valueOf(11).equals(add.get("shizuku:user-service-arg-version-code")), "version is Integer 11");
+        check(Integer.valueOf(12).equals(add.get("shizuku:user-service-arg-version-code")), "version is Integer 12");
         check(Boolean.FALSE.equals(add.get("shizuku:user-service-arg-daemon")), "daemon false is explicit");
         check(Boolean.FALSE.equals(add.get("shizuku:user-service-arg-use-32-bit-app-process")), "32-bit flag false");
-        check("agent_shell".equals(add.get("shizuku:user-service-arg-process-name")), "fixed process suffix");
-        check("agent.phone.connection.v9".equals(add.get("shizuku:user-service-arg-tag")), "stable tag");
+        check("agent_next_shell".equals(add.get("shizuku:user-service-arg-process-name")), "fixed process suffix");
+        check("agent.next.connection.v12".equals(add.get("shizuku:user-service-arg-tag")), "stable tag");
     }
 
     private static void assertRemovePacket(Bundle packet, boolean remove) {

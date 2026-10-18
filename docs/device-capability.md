@@ -63,7 +63,8 @@ GRADLE_USER_HOME=<cache> QUAL_JAVA_HOME=<jdk21> sh tools/test-shizuku-adapter.sh
 - service/display/target/observation/frame/packet host tests PASS；
 - Shizuku 13.1.5 adapter PASS；
 - 纯 JVM `device-api` 首版已定义（`FakeDeviceApi` 契约 PASS）；
-- capability adapter（`BlockingDeviceApi` + `ShizukuConnectionDriver`）host 契约 PASS；真实 app/Shizuku 端到端尚未跑；
+- capability adapter（`BlockingDeviceApi` + `ShizukuConnectionDriver`）host 契约 PASS；
+- adapter 真机 smoke PASS（`agent.next.app` → Shizuku → private display → 京东 observe/frame → release）；真机 input/task move 尚未覆盖，详见 [device-adapter-smoke-2026-10-19.md](device-adapter-smoke-2026-10-19.md)；
 - 设备首轮回归（2026-10-19，Redmi Pad Pro / API 36）：testkit shell 诊断的 display/observe/frame/input/touch/task-move/frame-memory PASS；真实 mirror/touch takeover 与 1200s 并发未覆盖。详见 [device-regression-2026-10-19.md](device-regression-2026-10-19.md)。
 
 ## 不在 capability 内

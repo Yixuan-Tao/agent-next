@@ -109,6 +109,17 @@ public final class BlockingDeviceApi implements DeviceApi, ConnectionDriver.List
         if (current != null && current.status == ConnectionState.Status.CONNECTED) {
             return;
         }
+        if (current != null && failure(current, true)) {
+            throw mapState(current, "connect");
+        }
+        if (current != null && !current.canConnect) {
+            current = await(stateSequence(),
+                    next -> next.canConnect || next.status == ConnectionState.Status.CONNECTED,
+                    true, "connect-ready");
+            if (current.status == ConnectionState.Status.CONNECTED) {
+                return;
+            }
+        }
         long sequence = stateSequence();
         driver.connect();
         await(sequence, next -> next.status == ConnectionState.Status.CONNECTED, true, "connect");

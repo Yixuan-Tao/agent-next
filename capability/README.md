@@ -30,4 +30,16 @@ api.close();
 JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 ```
 
-脚本用 `FakeConnectionDriver` 在 host 上跑 `DeviceApiContract`，不依赖 Android runtime、Shizuku 或设备。真实 app/Shizuku 端到端仍需单独验证。
+脚本用 `FakeConnectionDriver` 在 host 上跑 `DeviceApiContract`，不依赖 Android runtime、Shizuku 或设备。
+
+## 真机 smoke
+
+`agent.next.app` 最小 shell 已在 Redmi Pad Pro / Android 16 上跑通：connect → create display → 启动京东 → observe（96 节点）→ frame（720×1280 PNG）→ release。详见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
+
+为支持新 app package：
+
+- `ShizukuBackend(Context)` 用当前 app package 作为 Shizuku user-service component；`UserServiceProtocol` 不再硬编码 `agent.phone`。
+- user-service version/tag/process 为 `12` / `agent.next.connection.v12` / `agent_next_shell`。
+- `ShellService(Context)` 用 Context 的 package 解析 owner app UID；无参构造回退到 `agent.next.app`。
+
+真机 input/task move 尚未通过 adapter 验证。

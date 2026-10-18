@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 
 public final class ShellService extends IAgentShell.Stub {
     private final android.content.Context context;
+    private final String ownerPackage;
     private final PreviewMirror mirror = new PreviewMirror();
     private final int installedAppUid;
     private volatile boolean destroyed;
@@ -42,7 +43,10 @@ public final class ShellService extends IAgentShell.Stub {
 
     public ShellService(android.content.Context context) {
         this.context = context;
-        installedAppUid = InstalledAppIdentity.resolveUid();
+        ownerPackage = context == null
+                ? InstalledAppIdentity.defaultPackageName()
+                : context.getPackageName();
+        installedAppUid = InstalledAppIdentity.resolveUid(ownerPackage);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             synchronized (ShellService.this) {
                 try { mirror.stop(); frames.close(); targets.close(); displays.close(); } catch (Exception unconfirmed) { }
@@ -59,7 +63,7 @@ public final class ShellService extends IAgentShell.Stub {
         ProtocolPolicy.requireProtocol(clientProtocolVersion);
         long identity = Binder.clearCallingIdentity();
         try {
-            if (destroyed || InstalledAppIdentity.resolveUid() != installedAppUid) {
+            if (destroyed || InstalledAppIdentity.resolveUid(ownerPackage) != installedAppUid) {
                 throw new SecurityException("Service identity is no longer valid");
             }
             Bundle capabilities = new Bundle();
@@ -84,7 +88,7 @@ public final class ShellService extends IAgentShell.Stub {
         ClientPolicy.requireAppCaller(Binder.getCallingUid(), installedAppUid);
         long identity = Binder.clearCallingIdentity();
         try {
-            if (destroyed || InstalledAppIdentity.resolveUid() != installedAppUid
+            if (destroyed || InstalledAppIdentity.resolveUid(ownerPackage) != installedAppUid
                     || !ProtocolPolicy.isSupported(Build.VERSION.SDK_INT, Process.myUid())) {
                 throw new SecurityException("Display service identity or environment is no longer valid");
             }
@@ -109,7 +113,7 @@ public final class ShellService extends IAgentShell.Stub {
     }
 
     private void requireEnvironment() {
-        if (destroyed || InstalledAppIdentity.resolveUid() != installedAppUid
+        if (destroyed || InstalledAppIdentity.resolveUid(ownerPackage) != installedAppUid
                 || !ProtocolPolicy.isSupported(Build.VERSION.SDK_INT, Process.myUid())) {
             throw new SecurityException("Service identity or environment is no longer valid");
         }
@@ -321,7 +325,7 @@ public final class ShellService extends IAgentShell.Stub {
     public void destroy() {
         int caller = Binder.getCallingUid();
         synchronized (this) {
-            int currentAppUid = (caller == 2000 || caller == 0) ? -1 : InstalledAppIdentity.resolveUid();
+            int currentAppUid = (caller == 2000 || caller == 0) ? -1 : InstalledAppIdentity.resolveUid(ownerPackage);
             ClientPolicy.requireCloseCaller(caller,currentAppUid);
             long identity = Binder.clearCallingIdentity();
             try {

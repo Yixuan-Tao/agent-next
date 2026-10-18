@@ -21,13 +21,24 @@ import static agent.phone.connection.ConnectionState.Reason;
 final class ShizukuBackend implements ConnectionCoordinator.Backend {
     interface ManagerSource { IShizukuService get(); }
     private final ManagerSource source;
+    private final String ownerPackage;
     private final Map<ConnectionCoordinator.Binding, Registration> registrations = new ConcurrentHashMap<>();
 
-    ShizukuBackend(Context ignored) {
-        this(() -> IShizukuService.Stub.asInterface(Shizuku.getBinder()));
+    ShizukuBackend(Context context) {
+        this(() -> IShizukuService.Stub.asInterface(Shizuku.getBinder()), context.getPackageName());
     }
 
-    ShizukuBackend(ManagerSource source) { this.source = source; }
+    ShizukuBackend(ManagerSource source) {
+        this(source, UserServiceProtocol.DEFAULT_PACKAGE);
+    }
+
+    private ShizukuBackend(ManagerSource source, String ownerPackage) {
+        this.source = source;
+        if (ownerPackage == null || ownerPackage.trim().isEmpty()) {
+            throw new IllegalArgumentException("Owner package is required");
+        }
+        this.ownerPackage = ownerPackage;
+    }
     @Override public ConnectionState inspect() { return ConnectionChecks.inspect(); }
     @Override public void requestPermission(int code) { Shizuku.requestPermission(code); }
 
@@ -43,7 +54,7 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
         if (!manager.checkSelfPermission()) throw new SecurityException("Shizuku permission is not granted");
         Registration registration = registrations.computeIfAbsent(binding, Registration::new);
         synchronized (registration) { if (registration.cancelled) return; }
-        int result = manager.addUserService(registration, UserServiceProtocol.add());
+        int result = manager.addUserService(registration, UserServiceProtocol.add(ownerPackage));
         if (result != 0) throw new IllegalStateException("Unexpected addUserService result");
     }
 
@@ -53,7 +64,7 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
         Exception closeFailure = null;
         try { if (remove && remote != null) remote.destroy(); }
         catch (RemoteException | RuntimeException failure) { closeFailure = failure; }
-        int result = manager().removeUserService(remove ? null : registration, UserServiceProtocol.remove(remove));
+        int result = manager().removeUserService(remove ? null : registration, UserServiceProtocol.remove(remove, ownerPackage));
         // 0 means removed/detached; 1 means the fixed service record was already absent.
         if (result != 0 && result != 1) throw new IllegalStateException("Unexpected removeUserService result");
         if (closeFailure instanceof RemoteException) throw (RemoteException) closeFailure;

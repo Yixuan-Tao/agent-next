@@ -21,7 +21,7 @@
 
 `brain` 通过 Gradle `api project(':device-api')` 依赖纯 JVM 设备端口，不 import `agent.phone.*` 或 Android 类型。端口定义见 [device-api/README.md](../device-api/README.md)。
 
-当前领域层还没有调用设备；下一步是快慢循环执行器 + `FakeDeviceApi` 的场景测试，再接 capability adapter。
+当前领域层还没有调用设备；下一步是快慢循环执行器 + `FakeDeviceApi` 的场景测试，再接已通过真机 observe/frame smoke 的 capability adapter。
 
 ## 测试
 
@@ -39,7 +39,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 ## 明确不包含
 
-- capability adapter 的真实设备调用：adapter host 契约已有，brain loop 尚未调用；真机 app/Shizuku 端到端待验；
+- capability adapter 的真实设备调用：adapter host 契约与 app shell observe/frame 真机 smoke 已有；brain loop 尚未调用；真机 input/task move 待验；
 - 快循环/慢循环执行器、模型调用、prompt、技能库；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面；

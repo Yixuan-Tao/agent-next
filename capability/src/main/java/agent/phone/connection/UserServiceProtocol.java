@@ -12,11 +12,22 @@ import static rikka.shizuku.ShizukuApiConstants.USER_SERVICE_ARG_USE_32_BIT_APP_
 import static rikka.shizuku.ShizukuApiConstants.USER_SERVICE_ARG_REMOVE;
 
 final class UserServiceProtocol {
+    static final String DEFAULT_PACKAGE = "agent.next.app";
+    private static final String SERVICE_CLASS = "agent.phone.executor.ShellService";
+    private static final String TAG = "agent.next.connection.v12";
+    private static final int VERSION = 12;
+    private static final String PROCESS_SUFFIX = "agent_next_shell";
+
     private UserServiceProtocol() { }
+
     static Bundle add() {
-        Bundle packet = base();
-        packet.putInt(USER_SERVICE_ARG_VERSION_CODE, 11);
-        packet.putString(USER_SERVICE_ARG_PROCESS_NAME, "agent_shell");
+        return add(DEFAULT_PACKAGE);
+    }
+
+    static Bundle add(String ownerPackage) {
+        Bundle packet = base(ownerPackage);
+        packet.putInt(USER_SERVICE_ARG_VERSION_CODE, VERSION);
+        packet.putString(USER_SERVICE_ARG_PROCESS_NAME, PROCESS_SUFFIX);
         packet.putBoolean(USER_SERVICE_ARG_DEBUGGABLE, false);
         packet.putBoolean(USER_SERVICE_ARG_DAEMON, false);
         packet.putBoolean(USER_SERVICE_ARG_USE_32_BIT_APP_PROCESS, false);
@@ -24,16 +35,23 @@ final class UserServiceProtocol {
     }
 
     static Bundle remove(boolean remove) {
-        Bundle packet = base();
+        return remove(remove, DEFAULT_PACKAGE);
+    }
+
+    static Bundle remove(boolean remove, String ownerPackage) {
+        Bundle packet = base(ownerPackage);
         packet.putBoolean(USER_SERVICE_ARG_REMOVE, remove);
         return packet;
     }
 
-    private static Bundle base() {
+    private static Bundle base(String ownerPackage) {
+        if (ownerPackage == null || ownerPackage.trim().isEmpty()) {
+            throw new IllegalArgumentException("Owner package is required");
+        }
         Bundle packet = new Bundle();
         packet.putParcelable(USER_SERVICE_ARG_COMPONENT,
-                new ComponentName("agent.phone", "agent.phone.executor.ShellService"));
-        packet.putString(USER_SERVICE_ARG_TAG, "agent.phone.connection.v9");
+                new ComponentName(ownerPackage, SERVICE_CLASS));
+        packet.putString(USER_SERVICE_ARG_TAG, TAG);
         return packet;
     }
 }
