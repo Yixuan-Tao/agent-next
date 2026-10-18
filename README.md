@@ -12,7 +12,7 @@ capability/   Android library：AIDL、Shizuku 连接、display/target、
 brain/        纯 JVM 领域骨架：TaskSpec/TaskGraph/Skill/Memory/Effect/RiskGate/HumanGateway
 testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
 tools/        capability/brain 的 host 回归脚本
-docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录
+docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 + 设备回归
 ```
 
 尚未包含：
@@ -35,7 +35,7 @@ GRADLE_USER_HOME=/path/to/gradle-cache \
 
 `capability` 是 Android library；不会产出可启动 APK。新项目的 `app` 模块后续接入。
 
-## host 回归
+## host / 设备回归
 
 ```sh
 QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-service.sh
@@ -49,7 +49,8 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - `:capability:assembleDebug` BUILD SUCCESSFUL；
 - `test-service.sh` 全部 PASS（服务/display/target/observation/frame/packet）；
 - `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
-- `test-brain.sh` 全部 PASS（9 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill）。
+- `test-brain.sh` 全部 PASS（9 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill）；
+- 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)。
 
 ## 新项目边界
 

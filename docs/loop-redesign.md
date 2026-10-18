@@ -379,6 +379,8 @@ while active:
 
 指标：任务成功/合理停止/人工介入分别报告；不以模型自评代替证据。
 
+状态（2026-10-19）：host 回归与首轮设备回归已过；preview mirror/touch takeover、1200s 并发尚未覆盖，见 [设备回归记录](device-regression-2026-10-19.md)。
+
 ## 11. 明确不做
 
 - 不承诺任意 App 100% 成功；

@@ -61,7 +61,8 @@ GRADLE_USER_HOME=<cache> QUAL_JAVA_HOME=<jdk21> sh tools/test-shizuku-adapter.sh
 
 - library build PASS；
 - service/display/target/observation/frame/packet host tests PASS；
-- Shizuku 13.1.5 adapter PASS。
+- Shizuku 13.1.5 adapter PASS；
+- 设备首轮回归（2026-10-19，Redmi Pad Pro / API 36）：testkit shell 诊断的 display/observe/frame/input/touch/task-move/frame-memory PASS；真实 mirror/touch takeover 与 1200s 并发未覆盖。详见 [device-regression-2026-10-19.md](device-regression-2026-10-19.md)。
 
 ## 不在 capability 内
 
