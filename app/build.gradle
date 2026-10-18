@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def releaseProps = new Properties()
+def releasePropsFile = rootProject.file('private/release-signing.properties')
+if (releasePropsFile.exists()) {
+    releasePropsFile.withInputStream { releaseProps.load(it) }
+}
+
 android {
     namespace 'agent.next.app'
     compileSdk 36
@@ -24,11 +30,25 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (releasePropsFile.exists()) {
+            release {
+                storeFile rootProject.file(releaseProps['storeFile'])
+                storePassword releaseProps['storePassword']
+                keyAlias releaseProps['keyAlias']
+                keyPassword releaseProps['keyPassword']
+            }
+        }
     }
 
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+        }
+        release {
+            if (releasePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
         }
     }
 
