@@ -26,3 +26,11 @@ calls=2, sleeps=[100]
 - 429 持续时的 UI 提示/暂停恢复；
 - 图像调用独立预算；
 - 真实 429/网络抖动注入。
+
+## 模型调用预算
+
+- `ModelCallBudget`：每个任务一个，重试也计数；
+- app 当前上限 **80 次/任务**；
+- 规划、prompt skill、视觉 verify/extract 共用同一个 client/budget；
+- 超出后抛 `ModelBudgetExceededException`（非网络错误，不重试）；
+- host test：max=1，第二次调用被拒绝，used=2。

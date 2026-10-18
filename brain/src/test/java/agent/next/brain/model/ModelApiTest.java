@@ -37,6 +37,7 @@ public final class ModelApiTest {
         clientParsesImageCompletion();
         clientRejectsNonStop();
         clientRetries429();
+        clientBudgetStops();
         skillModelParsesSemanticStep();
         skillModelUsesFrame();
         skillModelRejectsCoordinates();
@@ -111,6 +112,26 @@ public final class ModelApiTest {
             check(sleeps.size() == 1 && sleeps.get(0) == 100L, "retry-after honored");
         } catch (IOException failure) {
             throw new AssertionError("retry test I/O", failure);
+        }
+    }
+
+    private static void clientBudgetStops() {
+        ChatCompletionTransport transport = (url, auth, body) -> completion("{\"ok\":true}");
+        ModelConfig config = new ModelConfig("https://example.test", "deepseek-flash",
+                "test-key");
+        ModelCallBudget budget = new ModelCallBudget(1);
+        try {
+            ChatCompletionClient client = new ChatCompletionClient(config, transport,
+                    millis -> { }, 0, budget);
+            client.complete("one", 128);
+            try {
+                client.complete("two", 128);
+                throw new AssertionError("budget must stop the second call");
+            } catch (ModelBudgetExceededException expected) {
+                check(budget.used() == 2, "attempted calls counted");
+            }
+        } catch (IOException failure) {
+            throw new AssertionError("budget test I/O", failure);
         }
     }
 

@@ -26,17 +26,29 @@ public final class ChatCompletionClient {
     private final ChatCompletionTransport transport;
     private final Sleeper sleeper;
     private final int maxRetries;
+    private final ModelCallBudget budget;
 
     public ChatCompletionClient(ModelConfig config) {
         this(config, new HttpChatCompletionTransport());
     }
 
+    public ChatCompletionClient(ModelConfig config, ModelCallBudget budget) {
+        this(config, new HttpChatCompletionTransport(), millis -> Thread.sleep(millis), 2,
+                budget);
+    }
+
     public ChatCompletionClient(ModelConfig config, ChatCompletionTransport transport) {
-        this(config, transport, millis -> Thread.sleep(millis), 2);
+        this(config, transport, millis -> Thread.sleep(millis), 2,
+                ModelCallBudget.unlimited());
     }
 
     public ChatCompletionClient(ModelConfig config, ChatCompletionTransport transport,
             Sleeper sleeper, int maxRetries) {
+        this(config, transport, sleeper, maxRetries, ModelCallBudget.unlimited());
+    }
+
+    public ChatCompletionClient(ModelConfig config, ChatCompletionTransport transport,
+            Sleeper sleeper, int maxRetries, ModelCallBudget budget) {
         this.config = Objects.requireNonNull(config, "config");
         this.transport = Objects.requireNonNull(transport, "transport");
         this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
@@ -44,6 +56,7 @@ public final class ChatCompletionClient {
             throw new IllegalArgumentException("maxRetries must be 0..3");
         }
         this.maxRetries = maxRetries;
+        this.budget = Objects.requireNonNull(budget, "budget");
     }
 
     public String complete(String prompt, int maxTokens) throws IOException {
@@ -109,6 +122,7 @@ public final class ChatCompletionClient {
         IOException last = null;
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
+                budget.acquire();
                 return transport.post(config.endpoint(), "Bearer " + config.apiKey(), body);
             } catch (ModelHttpException failure) {
                 last = failure;

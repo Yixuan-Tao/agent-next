@@ -22,6 +22,7 @@ import agent.next.brain.loop.SlowLoopDecision;
 import agent.next.brain.model.ChatCompletionClient;
 import agent.next.brain.model.DeepSeekSkillModel;
 import agent.next.brain.model.DeepSeekVisualModel;
+import agent.next.brain.model.ModelCallBudget;
 import agent.next.brain.model.ModelConfig;
 import agent.next.brain.skill.SkillModel;
 import agent.next.brain.skill.SkillModelRequest;
@@ -390,7 +391,7 @@ public final class AgentRuntime {
                 fail("缺少加密 model config（请导入 model-config.json 以迁移）");
                 return;
             }
-            client = new ChatCompletionClient(config.get());
+            client = new ChatCompletionClient(config.get(), new ModelCallBudget(80));
             skillModel = new DeepSeekSkillModel(client);
             visualModel = new DeepSeekVisualModel(client);
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
