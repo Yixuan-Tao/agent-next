@@ -20,6 +20,10 @@ public final class EncryptedModelConfigStore {
     private EncryptedModelConfigStore() {
     }
 
+    public static boolean hasConfig(Context context) {
+        return new File(context.getFilesDir(), ENCRYPTED).isFile();
+    }
+
     public static Optional<ModelConfig> load(Context context) {
         File encrypted = new File(context.getFilesDir(), ENCRYPTED);
         if (encrypted.isFile()) {

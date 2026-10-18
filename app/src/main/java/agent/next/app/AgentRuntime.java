@@ -125,6 +125,14 @@ public final class AgentRuntime {
         return existing;
     }
 
+    public void clearMemory() {
+        episodic.clear();
+    }
+
+    public int memoryEventCount() {
+        return episodic.size();
+    }
+
     public void setListener(Listener listener) {
         this.listener = listener;
     }

@@ -54,6 +54,10 @@ public final class EncryptedEpisodicMemory implements EpisodicMemory {
         persist();
     }
 
+    public synchronized int size() {
+        return events.size();
+    }
+
     public synchronized void clear() {
         events.clear();
         persist();

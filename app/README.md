@@ -24,6 +24,8 @@ debug 签名使用被忽略的 `work/signing/debug.keystore`，不是产品密�
 
 ## 运行
 
+- 设置与隐私：`MainActivity` → “设置与隐私”；见 [settings-privacy.md](../docs/settings-privacy.md)。
+
 - launcher 为 `MainActivity`：自然语言目标、计划审阅、确认执行、停止、高风险动作弹窗；真实模型 smoke 见 [product-ui-plan-smoke-2026-10-19.md](../docs/product-ui-plan-smoke-2026-10-19.md)。
 
 - 真机 preview/touch smoke（debug only）：`adb shell am start -n agent.next.app/.PreviewActivity`；详见 [preview-touch-smoke-2026-10-19.md](../docs/preview-touch-smoke-2026-10-19.md)。

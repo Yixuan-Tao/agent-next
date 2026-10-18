@@ -173,6 +173,12 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
                 new android.content.Intent(this, PreviewActivity.class)));
         root.addView(preview, matchWrap());
 
+        Button settings = new Button(this);
+        settings.setText("设置与隐私");
+        settings.setOnClickListener(view ->
+                startActivity(new android.content.Intent(this, SettingsActivity.class)));
+        root.addView(settings, matchWrap());
+
         root.setGravity(Gravity.TOP);
         return scroll;
     }
