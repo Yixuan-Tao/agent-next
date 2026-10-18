@@ -24,6 +24,8 @@ debug 签名使用被忽略的 `work/signing/debug.keystore`，不是产品密�
 
 ## 运行
 
+- launcher 为 `MainActivity`：自然语言目标、计划审阅、确认执行、停止、高风险动作弹窗；真实模型 smoke 见 [product-ui-plan-smoke-2026-10-19.md](../docs/product-ui-plan-smoke-2026-10-19.md)。
+
 - 真机 preview/touch smoke（debug only）：`adb shell am start -n agent.next.app/.PreviewActivity`；详见 [preview-touch-smoke-2026-10-19.md](../docs/preview-touch-smoke-2026-10-19.md)。
 
 - 兼容性准入（不做输入）：`adb shell am start -n agent.next.app/.ShellActivity --es mode compat --es package com.jingdong.app.mall`，结果看 `COMPAT PASS`；详见 [android-13-compat.md](../docs/android-13-compat.md)。

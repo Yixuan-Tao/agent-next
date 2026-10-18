@@ -81,7 +81,7 @@ public final class SessionIntegrationTest {
     private static TaskPlan plan() {
         String content = "{\"task\":{\"successCriteria\":[\"Item added\"]},"
                 + "\"subgoals\":[{\"id\":\"shop\",\"intent\":\"search the shop\","
-                + "\"dependsOn\":[],\"targetPackage\":\"com.example.shop\","
+                + "\"dependsOn\":[],\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.example.shop\","
                 + "\"verifierId\":\"visual\",\"required\":true}],"
                 + "\"assumptions\":[]}";
         ChatCompletionTransport transport = (url, auth, body) -> completion(content);

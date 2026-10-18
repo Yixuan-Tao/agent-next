@@ -1,7 +1,6 @@
 package agent.next.brain.session;
 
 import agent.next.brain.Condition;
-import agent.next.brain.SuccessCriterion;
 import agent.next.brain.Subgoal;
 import agent.next.brain.TaskSpec;
 import agent.next.brain.model.VisualVerification;
@@ -40,9 +39,9 @@ public final class VisualSubgoalVerifier implements SubgoalVerifier {
             conditions.add(condition.description());
         }
         if (conditions.isEmpty()) {
-            for (SuccessCriterion criterion : task.successCriteria()) {
-                conditions.add(criterion.description());
-            }
+            // Subgoal intent is the only stage-local evidence; task-wide criteria
+            // often describe the final report and would fail every intermediate stage.
+            conditions.add(subgoal.intent());
         }
         if (conditions.isEmpty() || conditions.size() > 8) {
             return new Verification(false, "no bounded verification conditions");

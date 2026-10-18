@@ -31,9 +31,9 @@ public final class TaskPlannerTest {
         String content = "{\"task\":{\"successCriteria\":[\"天气显示\",\"日历提醒存在\"]},"
                 + "\"subgoals\":["
                 + "{\"id\":\"s1\",\"intent\":\"查天气\",\"dependsOn\":[],"
-                + "\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\",\"required\":true},"
+                + "\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\",\"required\":true},"
                 + "{\"id\":\"s2\",\"intent\":\"建提醒\",\"dependsOn\":[\"s1\"],"
-                + "\"targetPackage\":\"com.android.calendar\",\"verifierId\":\"calendar.event\",\"required\":true}],"
+                + "\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.android.calendar\",\"verifierId\":\"calendar.event\",\"required\":true}],"
                 + "\"assumptions\":[]}";
         PlanningResult result = plan(content);
         check(!result.needsClarification(), "valid plan is not clarification");
@@ -69,9 +69,9 @@ public final class TaskPlannerTest {
         String content = "{\"task\":{\"successCriteria\":[\"done\"]},"
                 + "\"subgoals\":["
                 + "{\"id\":\"s1\",\"intent\":\"one\",\"dependsOn\":[\"s2\"],"
-                + "\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\",\"required\":true},"
+                + "\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\",\"required\":true},"
                 + "{\"id\":\"s2\",\"intent\":\"two\",\"dependsOn\":[\"s1\"],"
-                + "\"targetPackage\":\"com.jingdong.app.mall\",\"verifierId\":\"visual\",\"required\":true}],"
+                + "\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.jingdong.app.mall\",\"verifierId\":\"visual\",\"required\":true}],"
                 + "\"assumptions\":[]}";
         expect(IllegalArgumentException.class,
                 () -> plan(content), "cycle rejected");
@@ -80,7 +80,7 @@ public final class TaskPlannerTest {
     private static void rejectsUnknownFields() {
         String content = "{\"task\":{\"successCriteria\":[\"done\"]},"
                 + "\"subgoals\":[{\"id\":\"s1\",\"intent\":\"one\",\"dependsOn\":[],"
-                + "\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\","
+                + "\"postconditions\":[\"evidence\"],\"targetPackage\":\"com.quark.browser\",\"verifierId\":\"visual\","
                 + "\"required\":true,\"x\":1}],\"assumptions\":[]}";
         expect(IllegalArgumentException.class,
                 () -> plan(content), "unknown fields rejected");
@@ -89,7 +89,7 @@ public final class TaskPlannerTest {
     private static String planWithFirstTarget(String target, String id, String dependsOn) {
         return "{\"task\":{\"successCriteria\":[\"done\"]},"
                 + "\"subgoals\":[{\"id\":\"" + id + "\",\"intent\":\"one\",\"dependsOn\":"
-                + dependsOn + ",\"targetPackage\":\"" + target
+                + dependsOn + ",\"postconditions\":[\"evidence\"],\"targetPackage\":\"" + target
                 + "\",\"verifierId\":\"visual\",\"required\":true}],"
                 + "\"assumptions\":[]}";
     }

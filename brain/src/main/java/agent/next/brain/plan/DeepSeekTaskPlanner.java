@@ -1,6 +1,7 @@
 package agent.next.brain.plan;
 
 import agent.next.brain.Budget;
+import agent.next.brain.Condition;
 import agent.next.brain.Fallback;
 import agent.next.brain.RiskClass;
 import agent.next.brain.Subgoal;
@@ -61,8 +62,8 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
         List<Subgoal> subgoals = new ArrayList<>();
         for (Object raw : rawSubgoals) {
             Map<String, Object> value = map(raw, "subgoal");
-            requireKeys(value, Set.of("id", "intent", "dependsOn", "targetPackage",
-                    "verifierId", "required"));
+            requireKeys(value, Set.of("id", "intent", "dependsOn", "postconditions",
+                    "targetPackage", "verifierId", "required"));
             String id = Json.string(value, "id").trim();
             if (!id.matches("[a-z][a-z0-9_-]{0,63}")) {
                 throw new IllegalArgumentException("invalid subgoal id");
@@ -83,8 +84,14 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
             for (String dependency : strings(value.get("dependsOn"), "dependsOn", 0, 8)) {
                 dependsOn.add(dependency);
             }
+            List<String> conditionTexts = strings(value.get("postconditions"),
+                    "postconditions", 1, 3);
+            List<Condition> postconditions = new ArrayList<>();
+            for (int index = 0; index < conditionTexts.size(); index++) {
+                postconditions.add(new Condition("c" + (index + 1), conditionTexts.get(index), true));
+            }
             boolean required = value.get("required") instanceof Boolean flag ? flag : true;
-            subgoals.add(new Subgoal(id, intent, dependsOn, List.of(), List.of(),
+            subgoals.add(new Subgoal(id, intent, dependsOn, List.of(), postconditions,
                     new Fallback(Fallback.Strategy.RETRY, "retry"), RiskClass.LOW,
                     required, target, verifier));
         }
@@ -111,6 +118,7 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
                 .append(request.primaryPackage()).append("。\n")
                 .append("可使用 verifierId：").append(request.allowedVerifiers()).append("。\n")
                 .append("生成 1..8 个顺序/依赖 subgoal；dependsOn 只能引用本计划中的 id。\n")
+                .append("每个 subgoal 必须给出 1..3 个 postconditions，描述该阶段完成时屏幕上应出现的可见证据；不要用最终汇报条件。\n")
                 .append("successCriteria 1..8 条，必须是页面上可观察/可验证的短文本；不要要求用户手填。\n")
                 .append("不要计划支付、下单、发送、删除、登录、验证码或权限授予；遇到时停在需要人确认的边界。\n")
                 .append("严禁输出坐标、像素、x/y、固定点击序列或原始设备操作。\n")
@@ -118,7 +126,7 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
                 .append("否则只输出：\n")
                 .append("{\"task\":{\"successCriteria\":[\"...\"]},")
                 .append("\"subgoals\":[{\"id\":\"s1\",\"intent\":\"...\",\"dependsOn\":[],")
-                .append("\"targetPackage\":\"...\",\"verifierId\":\"visual\",\"required\":true}],")
+                .append("\"postconditions\":[\"页面证据\"],\"targetPackage\":\"...\",\"verifierId\":\"visual\",\"required\":true}],")
                 .append("\"assumptions\":[\"...\"]}\n")
                 .append("用户目标：").append(request.goal()).append('\n');
         if (!request.constraints().isEmpty()) {
