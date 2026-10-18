@@ -1,6 +1,6 @@
 # brain（纯 JVM 领域骨架）
 
-新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、host 场景测试和真机京东搜索 smoke；外部模型接入、社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
+新任务大脑的第一层骨架，**不依赖 Android**。当前实现了领域模型、FastLoop/SlowLoop 骨架、可选 skill 层（workflow + prompt 模型端口）、旧模型 chat-completions API 移植、host 场景测试和真机京东搜索 smoke；app 内模型接线、社区 registry、完整动态重规划尚未完成。`device-api` 已作为依赖并被 `FastLoop` 使用。
 
 ## 当前包含
 
@@ -13,6 +13,8 @@
 | `skill.SkillPackage` / `SkillBody` | 可安装 skill：contract、workflow/prompt/hybrid、permissions、applicability、verifier、trust、provenance |
 | `skill.SkillWorkflowPolicy` | 把语义 workflow 映射成 LoopAction，经 FastLoop RiskGate 执行；不接触 DeviceApi/坐标 |
 | `skill.PromptSkillPolicy` / `SkillModel` | prompt skill 的模型端口：只返回语义 Tap/SetText/Back/Done，拒绝 high-risk 步骤；不接触 DeviceApi/坐标 |
+| `model.ModelConfig` / `ChatCompletionClient` | 旧 `model-config.json` + chat-completions 形状；支持文本/单帧 PNG、key 脱敏、finish_reason 校验 |
+| `model.DeepSeekSkillModel` | 把模型 JSON 解析成语义 `SkillModelStep`；支持单帧 PNG；拒绝坐标字段/Point selector |
 | `skill.SkillRegistry` / `SkillValidator` / `SkillCandidate` | 信任分级与准入；社区/自生成必须验证，支持撤销 |
 | `Effect` / `StateFingerprint` / `EffectEvaluator` | 动作前后状态比较：Changed/NoChange/Loading/Error/Navigated |
 | `RiskClass` / `ActionDescriptor` / `RiskDecision` / `DefaultRiskGate` | 风险分类与 Allow/Confirm/Handoff/Deny |
@@ -40,7 +42,7 @@ observe → policy.complete? → policy.next → risk gate
 - 成功由 `LoopPolicy.complete` 的证据检查推进 TaskGraph，模型自评不算完成。
 - `NO_EFFECT`/`NO_PROGRESS`/预算触发 `LoopResult.SLOW_LOOP`；重规划留给慢循环组件。
 - `RISK_GATE` 的 Confirm 走 `HumanGateway`，Handoff 返回 `NEED_USER`。
-- 12 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest` 覆盖快慢循环、预算、重规划、workflow skill、verifier、permissions 与 registry 准入。
+- 13 个 host suite 中的 `LoopTest`/`SlowLoopTest`/`SkillFeatureTest`/`ModelApiTest` 覆盖快慢循环、重规划、workflow/prompt skill、验证/准入与模型 JSON 解析。
 
 ## Slow loop
 
@@ -63,8 +65,18 @@ Skill 是**可选加速层**；没有匹配 skill 时，FastLoop/通用规划仍
 - `SkillWorkflowPolicy`：把语义 `Tap`/`SetText`/`Back` 映射成 `LoopAction`，交给 FastLoop 的 `RiskGate`；不拿到 `DeviceApi`/`Point`。
 - `SkillSelector`：封闭的语义选择器集合（viewId/text/clickable/editable），**没有坐标**。
 - `SkillRegistry`：`OFFICIAL`/`VERIFIED` 可直接安装；`COMMUNITY`/`SELF_GENERATED` 必须通过 `SkillValidator`。`SkillCandidate` 只能 propose，不能自行上线；支持撤销。
-- `prompt` body 由 `PromptSkillPolicy` + `SkillModel` 执行；模型只收到 observation/prompt/参数/capability 名，只能返回语义选择器。外部模型尚未接入，host 测试用 deterministic fake。
+- `prompt` body 由 `PromptSkillPolicy` + `SkillModel` 执行；模型只收到 observation/prompt/参数/capability 名，只能返回语义选择器。DeepSeek chat-completions API 已移植，app 内接线尚未完成，host 测试用 fake transport。
 - `PromptSkillPolicy` 只接受 `LOW`/`REVERSIBLE_SIDE_EFFECT` 模型步骤；高风险/未知步骤不执行，仍受 RiskGate/validation 约束。
+
+## Model API
+
+`model` 包移植旧仓库的 `model-config.json` + chat-completions 请求形状：
+
+- `ModelConfig.load(Path)`：读取旧格式配置，`toString` 隐藏 key；配置只放在被忽略的 `private/`。
+- `ChatCompletionClient`：`{base_url}/chat/completions`、30s 超时、1 MiB 上限、`finish_reason=stop` 校验。
+- `DeepSeekSkillModel`：把模型 JSON 解析成语义 `SkillModelStep`；坐标字段/Point selector 直接拒绝。
+- 当前支持文本和单帧 PNG；旧 `VisionModel` 的 `verify`、`extract` 尚未移植。
+- 测试用 fake transport，不发起真实 API 调用；不要提交或打印密钥。
 
 ## device-api 边界
 
@@ -89,7 +101,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ## 明确不包含
 
 - 任意 DAG 重排、多技能组合、条件 verifier；当前只有 replace / insertBefore / removeAndRewire；
-- 外部模型接入、社区 registry 的签名/扫描实现；当前只有模型端口/内存 registry；
+- app 内模型接线、视觉 verify/extract、社区 registry 的签名/扫描；当前只有文本模型客户端/内存 registry；
 - OCR/视觉策略与更多 App/异常场景的真机验收（当前只有京东搜索 smoke）；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面。

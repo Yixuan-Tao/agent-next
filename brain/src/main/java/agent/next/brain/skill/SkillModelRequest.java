@@ -1,5 +1,6 @@
 package agent.next.brain.skill;
 
+import agent.next.device.Frame;
 import agent.next.device.Observation;
 
 import java.util.Map;
@@ -17,7 +18,14 @@ public record SkillModelRequest(
         String targetPackage,
         Map<String, String> parameters,
         Set<SkillCapability> capabilities,
-        int step) {
+        int step,
+        Frame frame) {
+
+    public SkillModelRequest(String skillId, String prompt, Observation observation,
+            String targetPackage, Map<String, String> parameters,
+            Set<SkillCapability> capabilities, int step) {
+        this(skillId, prompt, observation, targetPackage, parameters, capabilities, step, null);
+    }
 
     public SkillModelRequest {
         skillId = Checks.text(skillId, "skillId");

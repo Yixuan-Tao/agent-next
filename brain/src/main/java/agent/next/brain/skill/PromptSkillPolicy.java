@@ -7,6 +7,8 @@ import agent.next.brain.loop.LoopContext;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.brain.loop.SetTextAction;
 import agent.next.brain.loop.TapAction;
+import agent.next.device.DeviceException;
+import agent.next.device.Frame;
 import agent.next.device.Observation;
 
 import java.util.Map;
@@ -30,19 +32,31 @@ public final class PromptSkillPolicy implements LoopPolicy {
     private final String prompt;
     private final Map<String, String> parameters;
     private final SkillModel model;
+    private final SkillFrameSource frameSource;
     private final int maxSteps;
     private int step;
 
     public PromptSkillPolicy(SkillPackage skill, Map<String, String> parameters, SkillModel model) {
-        this(skill, parameters, model, DEFAULT_MAX_STEPS);
+        this(skill, parameters, model, () -> null, DEFAULT_MAX_STEPS);
     }
 
     public PromptSkillPolicy(SkillPackage skill, Map<String, String> parameters,
             SkillModel model, int maxSteps) {
+        this(skill, parameters, model, () -> null, maxSteps);
+    }
+
+    public PromptSkillPolicy(SkillPackage skill, Map<String, String> parameters,
+            SkillModel model, SkillFrameSource frameSource) {
+        this(skill, parameters, model, frameSource, DEFAULT_MAX_STEPS);
+    }
+
+    public PromptSkillPolicy(SkillPackage skill, Map<String, String> parameters,
+            SkillModel model, SkillFrameSource frameSource, int maxSteps) {
         this.skill = Objects.requireNonNull(skill, "skill");
         Objects.requireNonNull(parameters, "parameters");
         this.parameters = Map.copyOf(parameters);
         this.model = Objects.requireNonNull(model, "model");
+        this.frameSource = Objects.requireNonNull(frameSource, "frameSource");
         if (!(skill.body() instanceof SkillBody.Prompt promptBody)) {
             throw new IllegalArgumentException("prompt policy requires a prompt skill body");
         }
@@ -61,7 +75,7 @@ public final class PromptSkillPolicy implements LoopPolicy {
         SkillModelRequest request = new SkillModelRequest(
                 skill.id(), prompt, context.observation(),
                 context.observation().packageName(), parameters,
-                skill.permissions().capabilities(), step);
+                skill.permissions().capabilities(), step, captureFrame());
         SkillModelStep proposal;
         try {
             proposal = model.next(request);
@@ -118,6 +132,14 @@ public final class PromptSkillPolicy implements LoopPolicy {
                     observation, observation.packageName(), parameters).applicable();
         } catch (RuntimeException invalidCheck) {
             return false;
+        }
+    }
+
+    private Frame captureFrame() {
+        try {
+            return frameSource.capture();
+        } catch (DeviceException | RuntimeException unavailable) {
+            return null;
         }
     }
 
