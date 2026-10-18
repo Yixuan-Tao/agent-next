@@ -38,11 +38,12 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
         Map<String, Object> root = Json.object(content);
         if (root.containsKey("clarification")) {
             requireKeys(root, Set.of("clarification"));
-            String question = Json.string(root, "clarification").trim();
-            if (question.isEmpty() || question.length() > 300) {
+            Object value = root.get("clarification");
+            if (!(value instanceof String question) || question.trim().isEmpty()
+                    || question.trim().length() > 300) {
                 throw new IllegalArgumentException("invalid clarification");
             }
-            return PlanningResult.clarify(question);
+            return PlanningResult.clarify(question.trim());
         }
         requireKeys(root, Set.of("task", "subgoals"));
         Map<String, Object> task = map(root.get("task"), "task");

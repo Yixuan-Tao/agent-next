@@ -20,6 +20,7 @@ public final class TaskPlannerTest {
     public static void run() {
         validPlan();
         clarification();
+        invalidClarification();
         rejectsDisallowedApp();
         rejectsFirstTargetMismatch();
         rejectsCycle();
@@ -51,6 +52,12 @@ public final class TaskPlannerTest {
         PlanningResult result = plan("{\"clarification\":\"哪个城市？\"}");
         check(result.needsClarification(), "clarification detected");
         check(result.clarification().contains("城市"), "clarification text");
+    }
+
+    private static void invalidClarification() {
+        expect(IllegalArgumentException.class,
+                () -> plan("{\"clarification\":{\"text\":\"which city\"}}"),
+                "non-string clarification rejected");
     }
 
     private static void rejectsDisallowedApp() {
