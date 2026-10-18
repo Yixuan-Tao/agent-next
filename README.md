@@ -20,7 +20,6 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 尚未包含：
 
 - `brain/` 的完整实现：当前只有领域骨架和 host 测试，快慢循环、模型调用、技能库未接入；
-- capability 窗口切换观察的稳定性：跳转后立即 observe 可能先 `WINDOW_CHANGED` 再 `ERROR/MALFORMED`；smoke 用 1.5–2s 等待规避，接 loop 前需修；
 - preview mirror + 用户触摸接管的真机链路；
 - `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
 - 新 loop 的真实设备验收；

@@ -179,7 +179,7 @@ public final class ShellActivity extends Activity {
             }
             InputReceipt entryTap = api.input().tap(target, home, searchPoint);
             append("tap search entry: " + entryTap.status());
-            Thread.sleep(1_500L);
+            Thread.sleep(300L);
 
             Observation search = observeReady(api, target, "search");
             UiNode field = findEditable(search);
@@ -192,7 +192,7 @@ public final class ShellActivity extends Activity {
             if (input.status() != InputStatus.VERIFIED) {
                 throw new IllegalStateException("setText was not verified");
             }
-            Thread.sleep(800L);
+            Thread.sleep(200L);
 
             Observation typed = observeReady(api, target, "typed");
             UiNode typedField = findEditable(typed);
@@ -204,7 +204,7 @@ public final class ShellActivity extends Activity {
             }
             InputReceipt submit = api.input().tap(target, typed, center(searchButton));
             append("tap search: " + submit.status());
-            Thread.sleep(2_000L);
+            Thread.sleep(600L);
 
             Observation results = observeReady(api, target, "results");
             append("results nodes=" + results.nodes().size());
@@ -223,7 +223,7 @@ public final class ShellActivity extends Activity {
 
             TargetInfo back = api.tasks().moveToPrivate(target, display);
             append("moveToPrivate display=" + back.displayId());
-            Thread.sleep(1_200L);
+            Thread.sleep(300L);
             Observation restored = observeReady(api, target, "restored");
             append("restored nodes=" + restored.nodes().size());
             append("SMOKE PASS");

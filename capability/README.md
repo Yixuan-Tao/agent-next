@@ -36,12 +36,12 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 
 `agent.next.app` 最小 shell 已在 Redmi Pad Pro / Android 16 上跑通：connect → create display → 启动京东 → observe → frame → tap → setText → search → task move 往返 → release。搜索页字段回读 `短袖T恤 男款 XL`，结果页 55 节点，主屏 agent 输入被拒绝。详见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
 
-窗口切换后立即 observe 可能先 `WINDOW_CHANGED` 再 `ERROR/MALFORMED`；shell 用 1.5–2s 等待规避。这是接 brain loop 前需要修的观察状态问题。
+窗口切换时 `AndroidTargetObserver.read` 会把瞬时 `IllegalStateException`（双焦点、display mismatch、遍历中 root 变化）映射为 `WINDOW_CHANGED`，不再 invalidate target；客户端重试 observe 即可。最新深 smoke 在 300/200/600/300ms 等待下通过，日志出现 `TARGET_NOT_READY`/`WINDOW_CHANGED → READY`，无 `MALFORMED`。
 
 为支持新 app package：
 
 - `ShizukuBackend(Context)` 用当前 app package 作为 Shizuku user-service component；`UserServiceProtocol` 不再硬编码 `agent.phone`。
-- user-service version/tag/process 为 `12` / `agent.next.connection.v12` / `agent_next_shell`。
+- user-service version/tag/process 为 `13` / `agent.next.connection.v13` / `agent_next_shell`。
 - `ShellService(Context)` 用 Context 的 package 解析 owner app UID；无参构造回退到 `agent.next.app`。
 
 真机 input/task move 尚未通过 adapter 验证。

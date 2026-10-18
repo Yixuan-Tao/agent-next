@@ -40,7 +40,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 - adapter 是阻塞式，需在 worker thread 调用；默认超时 15s。
 - `TargetController.release` 只清理客户端绑定；远端 target 随 private display 释放。
 - `Observation.activityName` 目前为空；capability 的 observation 还没有当前 Activity 字段。
-- 真机 smoke 已覆盖 connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝。窗口切换后的立即 observe 仍有 `WINDOW_CHANGED → MALFORMED` 边界。见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
+- 真机 smoke 已覆盖 connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝。窗口切换的瞬时状态现在以 `WINDOW_CHANGED` 返回，可重试 observe。见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
 
 ## 错误
 

@@ -39,7 +39,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 ## 明确不包含
 
-- capability adapter 的真实设备调用：adapter host 契约与 app shell 真机 smoke（observe/frame/input/task move）已有；brain loop 尚未调用；窗口切换观察稳定性待修；
+- capability adapter 的真实设备调用：adapter host 契约与 app shell 真机 smoke（observe/frame/input/task move）已有；brain loop 尚未调用；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；
 - 快循环/慢循环执行器、模型调用、prompt、技能库；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面；

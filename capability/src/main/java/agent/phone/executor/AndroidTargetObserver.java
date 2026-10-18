@@ -170,12 +170,13 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
         }
         @Override public TargetObservation read(String id,long sequence,long started,long deadline,boolean includeNodes)
                 throws Exception {
-            checkDeadline(deadline);
             ObservationBudget budget = new ObservationBudget();
-            automation.clearCache();
-            List<AccessibilityWindowInfo> windows = automation.getWindows(); // mDisplayId, never all displays.
+            List<AccessibilityWindowInfo> windows = null;
             Window initial = null;
             try {
+                checkDeadline(deadline);
+                automation.clearCache();
+                windows = automation.getWindows(); // mDisplayId, never all displays.
                 initial = focused(windows,budget,false,deadline);
                 if (initial == null) return refusal(id,sequence,started,TargetObservation.Status.TARGET_NOT_READY,budget);
                 if (!initial.allowed) return refusal(id,sequence,started,TargetObservation.Status.FOREIGN_WINDOW,budget);
@@ -193,6 +194,11 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 checkDeadline(deadline);
                 return new TargetObservation(target,id,sequence,started,SystemClock.elapsedRealtimeNanos(),
                         TargetObservation.Status.READY,initial.id,initial.bounds,budget.lookups(),budget.truncated,nodes);
+            } catch (IllegalStateException transientWindowChange) {
+                // Window transitions can momentarily expose two focused windows, a display
+                // mismatch, or a root that changes under traversal. That is not a broken
+                // target: return a non-actionable observation so the caller can re-observe.
+                return refusal(id,sequence,started,TargetObservation.Status.WINDOW_CHANGED,budget);
             } finally { if (initial != null) recycle(initial.root); recycleWindows(windows); }
         }
         @Override public FrameEvidence.Capture capture(String frameId,long sequence,long started,long deadline,String observationId)

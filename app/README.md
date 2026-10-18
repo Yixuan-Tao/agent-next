@@ -31,7 +31,7 @@ adb logcat -s AgentNextSmoke:I
 ## 限制
 
 - 京东首页搜索栏不在 accessibility 树里，当前用固定坐标 `(360,180)` 点击；这是 smoke 探针的妥协，不是新 brain 的 UI 策略。
-- 窗口切换后需要等待 1.5–2s 再 observe；立即 observe 可能先得到 `WINDOW_CHANGED`，再触发 `ERROR/MALFORMED`。这是 capability 观察状态待修的边界。
+- 窗口切换时 observe 会返回 `TARGET_NOT_READY`/`WINDOW_CHANGED`；shell 会重试，服务端把瞬时窗口变化映射成可重观察状态，不再把 target 置为 `ERROR`。
 - 主屏上的 agent 输入会被 adapter 拒绝；shell 只验证拒绝，不执行主屏动作。
 - 没有自然语言入口、确认卡、接管 UI、前台服务或快慢 loop。
 - 目标包写死为 `com.jingdong.app.mall`，仅用于 smoke。

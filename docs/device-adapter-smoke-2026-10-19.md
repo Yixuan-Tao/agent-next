@@ -46,7 +46,7 @@ display released
 
 ## 为接新 app 做的必要修复
 
-- `UserServiceProtocol` 不再硬编码旧包 `agent.phone`：`ShizukuBackend(Context)` 使用当前 app package 作为 user-service component；version/tag/process 改为 `12` / `agent.next.connection.v12` / `agent_next_shell`。
+- `UserServiceProtocol` 不再硬编码旧包 `agent.phone`：`ShizukuBackend(Context)` 使用当前 app package 作为 user-service component；version/tag/process 改为 `13` / `agent.next.connection.v13` / `agent_next_shell`。
 - `InstalledAppIdentity.resolveUid(packageName)`：`ShellService(Context)` 用 Context 的 package 解析 owner app UID；无参构造回退到 `agent.next.app`。
 - `BlockingDeviceApi.connect()`：先等初始 `check` 结束（`canConnect`），再请求 Shizuku 权限；否则首次 `connect()` 会在 check 进行中被忽略，表现为卡住。
 - 最小 `app` 增加状态日志，真实设备上能看到 `DISCONNECTED → CONNECTING → CONNECTED`。
@@ -77,21 +77,22 @@ SMOKE PASS
 - `moveToPrivate` 后结果页仍 `READY`，55 个节点。
 - 释放后无 `agent-phone` display，主屏焦点回到 shell。
 
-已知边界：窗口切换后立刻 observe 会先返回 `WINDOW_CHANGED`，紧接着可能触发 `ERROR/MALFORMED`。深 smoke 在跳转后等待 1.5–2s 再 observe 才稳定通过；这是接 brain loop 前需要修的服务端观察状态问题。
+窗口切换观察已修：`AndroidTargetObserver.read` 把瞬时 `IllegalStateException`（双焦点、display mismatch、遍历中 root 变化）映射为 `WINDOW_CHANGED`，不再让 target 进入 `ERROR/MALFORMED`；客户端重试 observe 即可。最新深 smoke 用 300/200/600/300ms 等待 + `observeReady` 重试通过，日志出现 `TARGET_NOT_READY` / `WINDOW_CHANGED` → `READY`，没有 `MALFORMED`。
 
 ## 未覆盖
 
-- adapter 的 **真机 input/task move**：目前只在 `CapabilityAdapterHostTest` 的 host 契约里覆盖；真机 smoke 只做 observe/frame。
 - preview mirror + 用户触摸接管（需要 app Surface 桥接）。
 - 产品 UI、自然语言入口、前台服务、快慢 loop。
 - 京东账号/风控/支付页面。
+- 更长并发、多 App、中文 IME 组词。
 
 ## 证据
 
 本机忽略目录 `work/device-regression/app-shell/`：
 
-- `smoke-pass.log`：完整 logcat
-- `smoke-pass.png`：shell 结果页截图
+- `smoke-pass.log` / `smoke-pass.png`：首轮 observe/frame smoke
+- `deep-smoke-pass.log` / `deep-smoke-pass.png`：input/task move deep smoke
+- `deep-smoke-fixed.log` / `deep-smoke-fixed.png`：观察修复 + user-service v13 后的最终深 smoke
 - 安装/权限过程截图与 UI dump
 
 这些文件不提交，避免把 App 页面内容和设备状态带进仓库。

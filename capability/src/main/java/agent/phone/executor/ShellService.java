@@ -300,6 +300,8 @@ public final class ShellService extends IAgentShell.Stub {
         } catch (SecurityException denied) { throw denied; }
         catch (Exception failure) {
             // No remote exception messages or observed content are written to Logcat.
+            Log.w("AgentShellService", "target operation failed: "
+                    + failure.getClass().getName() + ": " + failure.getMessage());
             throw new IllegalStateException("Target operation failed; disconnect to clean up");
         } finally { Binder.restoreCallingIdentity(identity); }
     }
