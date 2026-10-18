@@ -512,6 +512,13 @@ public final class ConnectionCoordinator {
         target = null; observation = null; frame = null; observationSequence = 0; frameSequence = 0;
     }
 
+    /** Releases the client-side target binding; the remote target is cleaned when the display is released. */
+    public void releaseTarget() {
+        if (operation != null || target == null) return;
+        clearTarget();
+        refresh();
+    }
+
     public void disconnect() { cancelSession(Status.DISCONNECTED, Reason.USER); }
     public void managerDied() { cancelSession(Status.NEEDS_SHIZUKU, Reason.NO_SHIZUKU); }
 

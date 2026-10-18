@@ -66,6 +66,7 @@ public final class ShizukuConnection implements AutoCloseable {
     public void bindTarget(String taskId, String[] allowedPackages, String selected) {
         if (!closed) coordinator.bindTarget(taskId,allowedPackages,selected);
     }
+    public void releaseTarget() { if (!closed) coordinator.releaseTarget(); }
     public void launchTarget() { if (!closed) coordinator.launchTarget(); }
     public void observeTarget() { if (!closed) coordinator.observeTarget(); }
     public void captureTarget() { if (!closed) coordinator.captureTarget(); }

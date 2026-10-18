@@ -32,6 +32,11 @@ public final class FakeDeviceApi implements DeviceApi {
     private final TaskController taskController = new Tasks();
 
     @Override
+    public void connect() throws DeviceException {
+        ensureOpen();
+    }
+
+    @Override
     public DeviceCapabilities capabilities() throws DeviceException {
         ensureOpen();
         return new DeviceCapabilities(11, 36, 2000, 10000, true,
@@ -278,6 +283,7 @@ public final class FakeDeviceApi implements DeviceApi {
             ensureOpen();
             FakeObservation stored = observation(target, observation);
             requirePoint(stored, point);
+            consume(stored);
             return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
         }
 
@@ -299,6 +305,7 @@ public final class FakeDeviceApi implements DeviceApi {
             if (!node.hasFlag(NodeFlag.EDITABLE) || node.hasFlag(NodeFlag.PASSWORD)) {
                 throw rejected("node is not a non-password editable field");
             }
+            consume(stored);
             return new InputReceipt(InputStatus.VERIFIED, true, true, text, Instant.now());
         }
 
@@ -312,6 +319,7 @@ public final class FakeDeviceApi implements DeviceApi {
             }
             requirePoint(stored, from);
             requirePoint(stored, to);
+            consume(stored);
             return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
         }
 
@@ -319,7 +327,8 @@ public final class FakeDeviceApi implements DeviceApi {
         public InputReceipt back(TargetHandle target, Observation observation)
                 throws DeviceException {
             ensureOpen();
-            observation(target, observation);
+            FakeObservation stored = observation(target, observation);
+            consume(stored);
             return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
         }
     }
@@ -359,6 +368,13 @@ public final class FakeDeviceApi implements DeviceApi {
         NodeBounds bounds = observation.observation.windowBounds().orElse(NodeBounds.EMPTY);
         if (!bounds.contains(point)) {
             throw rejected("point is outside the target window");
+        }
+    }
+
+    private void consume(FakeObservation observation) {
+        ObservationRef reference = observation.observation.reference().orElse(null);
+        if (reference != null) {
+            observations.remove(reference.observationId());
         }
     }
 

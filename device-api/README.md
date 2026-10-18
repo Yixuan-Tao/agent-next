@@ -12,20 +12,35 @@ app → brain → device-api ← capability
 - `capability`：实现端口；负责 AIDL/Shizuku/display/target/shell 细节。
 - `brain`：只依赖端口，不 import `agent.phone.*`，不接触 `ShellService`、AIDL、Parcel 或 Android `Surface`。
 - 句柄（display/target/observation）由能力端签发，携带 token + generation；数字 display ID 本身不是授权。
-- 一次操作必须带当前观察；旧观察/旧句柄由实现端拒绝。
+- 一次操作必须带当前观察；成功输入会消费观察，下一次动作前必须重新 observe；旧观察/旧句柄由实现端拒绝。
 
 ## 端口
 
 | 端口 | 作用 |
 |---|---|
-| `DeviceApi` | capabilities + 四组控制器 + close |
+| `DeviceApi` | connect + capabilities + 四组控制器 + close |
 | `DisplayController` | 创建/检查/释放私有 display |
 | `TargetController` | 授权并启动目标、查询状态、释放 |
 | `ObservationController` | 观察 UI 树、抓取单帧 |
-| `InputController` | 定向 tap/setText/swipe/back |
+| `InputController` | 定向 tap/setText/swipe/back；成功即消费观察 |
 | `TaskController` | 主屏接管（moveToMain）与回到私有 display |
 
 `DisplaySpec.standard()` 对应 capability 当前支持的 720×1280 / 240dpi；自定义尺寸由实现端决定是否接受。
+
+## capability adapter
+
+`agent.phone.capability.BlockingDeviceApi` 已实现本端口，`ShizukuConnectionDriver` 负责 Android/Shizuku 绑定。host 契约：
+
+```sh
+JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
+```
+
+已知边界：
+
+- adapter 是阻塞式，需在 worker thread 调用；默认超时 15s。
+- `TargetController.release` 只清理客户端绑定；远端 target 随 private display 释放。
+- `Observation.activityName` 目前为空；capability 的 observation 还没有当前 Activity 字段。
+- 真实 app/Shizuku 端到端尚未跑；host 契约只覆盖 `FakeConnectionDriver`。
 
 ## 错误
 

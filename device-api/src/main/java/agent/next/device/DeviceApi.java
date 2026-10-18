@@ -9,6 +9,9 @@ package agent.next.device;
  */
 public interface DeviceApi extends AutoCloseable {
 
+    /** Connect/authorize the underlying device service. Idempotent when already connected. */
+    void connect() throws DeviceException;
+
     DeviceCapabilities capabilities() throws DeviceException;
 
     DisplayController displays();

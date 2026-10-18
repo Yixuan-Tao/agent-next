@@ -39,7 +39,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 
 ## 明确不包含
 
-- capability adapter 与真实设备调用（`device-api` 端口已定义，实现未接）；
+- capability adapter 的真实设备调用：adapter host 契约已有，brain loop 尚未调用；真机 app/Shizuku 端到端待验；
 - 快循环/慢循环执行器、模型调用、prompt、技能库；
 - 持久化记忆（当前只有策略与内存实现）；
 - UI、确认卡、接管界面；

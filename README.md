@@ -19,7 +19,7 @@ docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 +
 尚未包含：
 
 - `brain/` 的完整实现：当前只有领域骨架和 host 测试，快慢循环、模型调用、技能库未接入；
-- `device-api` 的 capability adapter：端口已定义，但还没有把 Android `ShellService` 包成实现；
+- capability adapter 的真实设备验证：host 契约已过，尚未在 app/Shizuku 真机上跑完整链路；
 - `app/`：新的自然语言 UI/人工网关/前台服务；
 - 新 loop 的真实设备验收；
 - 真正的视频/文字接管 UI（capability 只提供底层能力）。
@@ -43,6 +43,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-service.sh
 GRADLE_USER_HOME=/path/to/gradle-cache \
 QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-shizuku-adapter.sh
 QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-device-api.sh
+QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 ```
 
@@ -52,6 +53,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - `test-service.sh` 全部 PASS（服务/display/target/observation/frame/packet）；
 - `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
 - `test-device-api.sh` PASS（FakeDeviceApi 上的 display/target/observation/input/task-move 契约）；
+- `test-capability-adapter.sh` PASS（BlockingDeviceApi + FakeConnectionDriver 契约）；
 - `test-brain.sh` 全部 PASS（9 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill）；
 - 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)。
 

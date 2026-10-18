@@ -8,6 +8,7 @@ public final class DeviceApiHostTest {
 
     public static void main(String[] args) throws Exception {
         FakeDeviceApi api = new FakeDeviceApi();
+        api.connect();
         DeviceApiContract.run(api);
         api.close();
 

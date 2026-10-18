@@ -11,6 +11,7 @@ public final class DeviceApiContract {
 
     public static void run(DeviceApi api) throws Exception {
         TestSupport.check(api != null, "api is required");
+        api.connect();
         capabilities(api);
         DisplayHandle display = api.displays().create(DisplaySpec.standard());
         DisplayInfo displayInfo = display(api, display);
@@ -69,46 +70,65 @@ public final class DeviceApiContract {
 
     private static void input(DeviceApi api, TargetHandle target, Observation observation)
             throws Exception {
-        UiNode editable = null;
-        UiNode password = null;
-        for (UiNode node : observation.nodes()) {
-            if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
-                editable = node;
-            }
-            if (node.hasFlag(NodeFlag.PASSWORD)) {
-                password = node;
-            }
-        }
-        TestSupport.check(editable != null, "editable node exists");
-        TestSupport.check(password != null, "password node exists");
-        final UiNode editableNode = editable;
-        final UiNode passwordNode = password;
-
-        UiNode root = observation.nodes().get(0);
-        Point point = new Point(editableNode.bounds().centerX(), editableNode.bounds().centerY());
+        Point point = center(findEditable(observation));
         InputReceipt tap = api.input().tap(target, observation, point);
         TestSupport.check(tap.status() == InputStatus.INJECTED && tap.accepted(), "tap accepted");
 
+        Observation textObservation = api.observations().observe(
+                target, ObservationOptions.defaults());
+        UiNode editable = findEditable(textObservation);
+        UiNode password = findPassword(textObservation);
+        UiNode root = textObservation.nodes().get(0);
+
+        expectCode(DeviceException.Code.REJECTED,
+                () -> api.input().setText(target, textObservation, root.ref(), "x"),
+                "non-editable node rejected");
+        expectCode(DeviceException.Code.REJECTED,
+                () -> api.input().setText(target, textObservation, password.ref(), "x"),
+                "password node rejected");
+
         String text = "短袖T恤 男款 XL";
-        InputReceipt setText = api.input().setText(target, observation, editableNode.ref(), text);
+        InputReceipt setText = api.input().setText(target, textObservation, editable.ref(), text);
         TestSupport.check(setText.status() == InputStatus.VERIFIED, "setText verified");
         TestSupport.check(setText.actualText().orElse("").equals(text), "setText readback");
 
+        Observation swipeObservation = api.observations().observe(
+                target, ObservationOptions.defaults());
+        Point swipePoint = center(findEditable(swipeObservation));
         expectCode(DeviceException.Code.REJECTED,
-                () -> api.input().setText(target, observation, root.ref(), "x"),
-                "non-editable node rejected");
-        expectCode(DeviceException.Code.REJECTED,
-                () -> api.input().setText(target, observation, passwordNode.ref(), "x"),
-                "password node rejected");
-        expectCode(DeviceException.Code.REJECTED,
-                () -> api.input().swipe(target, observation, point, point, 50),
+                () -> api.input().swipe(target, swipeObservation, swipePoint, swipePoint, 50),
                 "short swipe rejected");
 
-        InputReceipt swipe = api.input().swipe(target, observation, point,
-                new Point(point.x(), 700), 300);
+        InputReceipt swipe = api.input().swipe(target, swipeObservation, swipePoint,
+                new Point(swipePoint.x(), 700), 300);
         TestSupport.check(swipe.status() == InputStatus.INJECTED, "swipe injected");
-        InputReceipt back = api.input().back(target, observation);
+
+        Observation backObservation = api.observations().observe(
+                target, ObservationOptions.defaults());
+        InputReceipt back = api.input().back(target, backObservation);
         TestSupport.check(back.status() == InputStatus.INJECTED, "back injected");
+    }
+
+    private static UiNode findEditable(Observation observation) {
+        for (UiNode node : observation.nodes()) {
+            if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
+                return node;
+            }
+        }
+        throw new AssertionError("editable node exists");
+    }
+
+    private static UiNode findPassword(Observation observation) {
+        for (UiNode node : observation.nodes()) {
+            if (node.hasFlag(NodeFlag.PASSWORD)) {
+                return node;
+            }
+        }
+        throw new AssertionError("password node exists");
+    }
+
+    private static Point center(UiNode node) {
+        return new Point(node.bounds().centerX(), node.bounds().centerY());
     }
 
     private static void frames(DeviceApi api, TargetHandle target) throws DeviceException {
