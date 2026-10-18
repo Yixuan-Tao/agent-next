@@ -9,17 +9,14 @@
 - `FrameMemoryProbe.java`：探针及断言。
 - `build.sh`：使用 `../qualification/build.env` 中的 JDK、API 36 SDK、D8 编译。
 - `run.sh`：编译、推送临时 JAR、执行并保存输出，结束时清理设备上的该 JAR。
-- `api-signatures.txt`：编译前用 SDK `javap` 核对的 `SharedMemory` 公共签名。
-- `run.log`：实际设备执行结果。
+
 
 ## 复现
 
 从仓库根目录执行（设备需要已授权 ADB）：
 
 ```sh
-sh work/frame-memory-probe/run.sh \
-  /Users/tommy/Documents/Codex/2026-10-15/xia/work/tools/platform-tools/adb \
-  9ec7fe43
+ADB=/path/to/adb ANDROID_SERIAL=<device-serial> sh testkit/probes/frame-memory/run.sh
 ```
 
 本工作环境的 ADB 命令需使用 `require_escalated`；主机编译不需要。
