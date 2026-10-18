@@ -23,3 +23,4 @@
 - `foreground/README.md`、`qualification/README.md` 是旧环境说明；构建前按本机 Android SDK/包名适配。
 - 旧 harness 的 mock action 是旧 `AgentLoop` 的 schema；新 brain 不直接使用，只迁移场景/布景。
 - 旧 loop 场景证据（38 次采样、A18 1219.92s、5 轮 JD、主屏接管、mirror/touch、Quark/Planner）保留在旧仓库证据目录；本仓库只保留工具和摘要，不重新声明新 loop 通过。
+- 本目录是内部测试资产，不随产品发布（见 [决策记录](../docs/decisions.md) D8）。

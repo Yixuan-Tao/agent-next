@@ -209,7 +209,7 @@
 
 ```text
 agent-next/
-  device/            # Android module: AIDL, Shizuku, display/target, observation/frame,
+  capability/        # Android module: AIDL, Shizuku, display/target, observation/frame,
                      # input, preview mirror, task move, policies
   brain/             # pure JVM/Kotlin: TaskSpec, TaskGraph, skills, memory,
                      # slow/fast loop, risk gate, verifier interfaces
@@ -225,7 +225,9 @@ agent-next/
     validation.md
 ```
 
-依赖方向：`app → brain → device-api`；`device` 实现 `device-api`；`brain` 不依赖 Android UI。保留 AIDL 作为 `device-api` 的边界，不把 shell 细节暴露给 brain。
+依赖方向：`app → brain → device-api`；`capability` 实现 `device-api`；`brain` 不依赖 Android UI。保留 AIDL 作为 `device-api` 的边界，不把 shell 细节暴露给 brain。
+
+> 模块名沿用现有 `capability/`，不重命名为 `device/`；`device-api` 指其对外接口边界（D5）。
 
 ## 8. 复制清单（建议）
 
@@ -310,14 +312,15 @@ model API keys / model-config.json
 - 新 loop 的“技能”容易退化成固定点击脚本：技能必须声明前置/后置条件与回退，不接受固定坐标序列。
 - 旧 JD 失败被误读为“新 loop 也应能自动完成”：安全验证仍需人。
 
-## 12. 待确认
+## 12. 待确认（已定）
 
-- 新项目独立 repo 还是 monorepo？
-- 是否保留主屏接管，还是只保留预览触摸接管？
-- 默认自主级别 A2/A3？
-- 文字/IME 接管的优先级？
-- 旧仓库是否只读归档，还是保留维护分支？
-- 设备测试工具是否随新 repo 发布，还是内部保留？
+2026-10-19 已定稿，权威记录见 [decisions.md](decisions.md)：
+
+- D5：单一模块化 monorepo（`agent-next`）；旧仓库只读冻结，不保留维护分支。
+- D6：保留主屏接管，作为预览触摸之外的显式 fallback。
+- D1：默认自主级别 A3。
+- D7：文字输入优先 `setText`；不做自有 IME，IME 场景走主屏接管。
+- D8：testkit 随仓库内部保留，不随产品发布。
 
 ---
 

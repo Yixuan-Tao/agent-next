@@ -11,7 +11,7 @@ capability/   Android library：AIDL、Shizuku 连接、display/target、
               observation/frame、定向输入、preview mirror、主屏 task move、安全策略
 testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
 tools/        capability 的 host 回归脚本
-docs/         loop 重设计 + 新项目保留清单 + capability 契约
+docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录
 ```
 
 尚未包含：
@@ -53,7 +53,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-shizuku-adapter.sh
 - 新 brain 不得直接依赖 Android `ShellService`/坐标；只能通过 capability API。
 - 旧 loop 的固定计划、预设、条件/预算数字不作为新设计基线。
 - 测试工具中的旧 model-loop 脚本只用于布景/参考，不代表新 loop 验收。
-- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)。
+- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)。
 - capability 约束：[docs/device-capability.md](docs/device-capability.md)。
 
 ## 关于目录
