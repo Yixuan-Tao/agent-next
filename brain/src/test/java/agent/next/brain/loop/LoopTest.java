@@ -52,6 +52,7 @@ public final class LoopTest {
         confirmationIsRequired();
         stopControlStopsBeforeAction();
         rejectedActionRetries();
+        handoffRiskSignal();
         System.out.println("LoopTest: PASS (fast loop, effect, slow-loop signal, risk)");
     }
 
@@ -169,6 +170,17 @@ public final class LoopTest {
                 new InMemoryEpisodicMemory());
         check(result.status() == LoopResult.Status.DONE, "retry after rejected action succeeds");
         check(result.actions() == 2, "rejected action not counted");
+    }
+
+    private static void handoffRiskSignal() {
+        LoopPolicy policy = context -> {
+            throw new HumanHandoffRequiredException("verification required");
+        };
+        LoopResult result = loop(new LoopFakeDevice(), graph(), task(10), policy,
+                new FakeHumanGateway(), new InMemoryWorkingMemory(),
+                new InMemoryEpisodicMemory());
+        check(result.status() == LoopResult.Status.NEED_USER, "risk signal needs user");
+        check(result.actions() == 0, "risk signal performs no action");
     }
 
     private static LoopResult loop(LoopFakeDevice api, TaskGraph graph, TaskSpec task,

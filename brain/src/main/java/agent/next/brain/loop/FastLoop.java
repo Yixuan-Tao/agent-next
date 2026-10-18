@@ -155,7 +155,13 @@ public final class FastLoop {
                 return LoopResult.budgetExhausted("action budget", actions, last);
             }
 
-            Optional<LoopAction> next = policy.next(context);
+            Optional<LoopAction> next;
+            try {
+                next = policy.next(context);
+            } catch (HumanHandoffRequiredException handoff) {
+                event(TaskEvent.EventType.HANDOFF, handoff.getMessage(), Map.of());
+                return LoopResult.needUser(handoff.getMessage(), actions, last);
+            }
             if (next.isEmpty()) {
                 return LoopResult.slowLoop(SlowLoopReason.GRAPH_INCONSISTENT,
                         "policy produced no action", actions, last);

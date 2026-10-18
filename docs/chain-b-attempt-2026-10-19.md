@@ -84,3 +84,17 @@ viewId: 顶层容器若干，无“加入购物车/规格/XL”可点击节点
 - 通用 `DeviceApi` 只能 tap/swipe 坐标，无法通过语义 selector 找到规格/加购按钮；
 - 继续让 prompt model 重试只会产生无效动作，必须做 scoped coordinate/domain/web 路径；
 - 在拿到可靠详情页坐标/结构前，不应继续自动点击，避免误触“立即购买”。
+
+## Risk/CAPTCHA safety guard（2026-10-19）
+
+一次重复自动化后 JD 进入了“京东验证”页面。没有尝试绕过/识别验证码。
+
+新增：
+
+- `HumanHandoffRequiredException` + `FastLoop` 捕获：policy 检测到风险页时直接返回
+  `NEED_USER`，不执行动作；
+- `RiskGuardPolicy`：匹配“京东验证/安全验证/人机验证/验证码/滑块验证/CAPTCHA”等信号；
+- 所有 app policy（prompt、Quark、Calendar）都包在 guard 外；
+- host test：风险信号 → `NEED_USER actions=0`。
+
+在拿到可靠的 JD 详情页坐标/domain 路径且账户不触发风控前，Chain B 不应继续自动点击。

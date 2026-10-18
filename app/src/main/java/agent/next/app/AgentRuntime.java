@@ -7,6 +7,7 @@ import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
 import agent.next.app.calendar.CalendarPolicy;
+import agent.next.app.skill.RiskGuardPolicy;
 import agent.next.app.skill.QuarkWeatherPolicy;
 import agent.next.app.calendar.CalendarStore;
 import agent.next.app.calendar.CalendarSubgoalVerifier;
@@ -418,18 +419,18 @@ public final class AgentRuntime {
                     loggingModel, frames, memory);
             SessionPolicyFactory policies = (task, subgoal, target, attempt) -> {
                 if ("com.android.calendar".equals(target.packageName())) {
-                    return new CalendarPolicy(calendarStore, task, subgoal);
+                    return new RiskGuardPolicy(new CalendarPolicy(calendarStore, task, subgoal));
                 }
                 if ("com.quark.browser".equals(target.packageName())
                         && task.goal().contains("天气")) {
-                    return new QuarkWeatherPolicy(task, subgoal);
+                    return new RiskGuardPolicy(new QuarkWeatherPolicy(task, subgoal));
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && (subgoal.intent().contains("输入")
                         || subgoal.intent().contains("提交"))) {
                     prepareJdSearchEntry(target);
                 }
-                return promptPolicies.create(task, subgoal, target, attempt);
+                return new RiskGuardPolicy(promptPolicies.create(task, subgoal, target, attempt));
             };
             VerifierRegistry verifiers = new VerifierRegistry();
             SubgoalVerifier visualDelegate = new VisualSubgoalVerifier(visualModel, frames);
@@ -499,6 +500,10 @@ public final class AgentRuntime {
     }
 
     private void prepareAppEntry(String packageName, TargetHandle target) {
+        if ("com.jingdong.app.mall".equals(packageName)) {
+            prepareJdHome(target);
+            return;
+        }
         if (!"com.quark.browser".equals(packageName)) {
             return;
         }
@@ -530,6 +535,21 @@ public final class AgentRuntime {
             Log.i(TAG, "Quark search entry opened");
         } catch (Throwable failure) {
             Log.w(TAG, "Quark entry prelude failed: " + failure);
+        }
+    }
+
+    private void prepareJdHome(TargetHandle target) {
+        try {
+            Observation observation = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            // JD restores its last activity (cart/detail) on reopen; the bottom Home
+            // tab is a custom view without text, so use the scoped 720x1280 hit area.
+            api.input().tap(target, observation, new Point(72, 1210));
+            Thread.sleep(800L);
+            api.observations().observe(target, ObservationOptions.defaults());
+            Log.i(TAG, "JD home tab selected");
+        } catch (Throwable failure) {
+            Log.w(TAG, "JD home prelude failed: " + failure);
         }
     }
 

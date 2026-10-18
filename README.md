@@ -67,6 +67,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - 兼容性准入：Android 16 平板上 `mode=compat` PASS，shell service 报告 `PREVIEW_MIRROR`；Android 13 手机待连接；详见 [docs/android-13-compat.md](docs/android-13-compat.md)；
 - Product UI/plan review smoke：真实模型四段计划、确认按钮、SessionRunner 接线 PASS；s2 加入 bounded scroll fallback 后 verifier 2/2 通过，DONE actions=1 attempts=2；详见 [docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；
 - Chain A PASS：Quark 天气结果 + 降雨信息视觉 verifier 2/2，calendar domain skill 创建“带伞”明天 09:00 提醒，DONE actions=3 attempts=6；详见 [docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；
+- Risk guard PASS：JD 进入“京东验证”时不再盲点，FastLoop 返回 NEED_USER actions=0；Chain B 仍因详情页/风控阻塞；
 - JD search PASS：搜索入口 → 输入 → 提交 → 结果页，DONE actions=2 attempts=3；加购/购物车段仍被商品详情无障碍阻塞；详见 [docs/chain-b-attempt-2026-10-19.md](docs/chain-b-attempt-2026-10-19.md)；
 - Calendar domain skill PASS：CalendarContract 创建“带伞”明天 09:00 提醒，4 个 calendar 子目标 verifier 通过 DONE；详见 [docs/calendar-domain-skill-2026-10-19.md](docs/calendar-domain-skill-2026-10-19.md)；
 - Foreground service smoke PASS：dataSync|specialUse、通知 Stop action、RUNNING 启动/DONE 停止；详见 [docs/foreground-service-smoke-2026-10-19.md](docs/foreground-service-smoke-2026-10-19.md)；
