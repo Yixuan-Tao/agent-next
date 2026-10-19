@@ -100,6 +100,15 @@ public final class CapabilityAdapterHostTest {
         if (!driver.previewStarted()) {
             throw new AssertionError("preview must be started");
         }
+        try {
+            api.input().tap(target, api.observations().observe(target,
+                    ObservationOptions.defaults()), new Point(10, 10));
+            throw new AssertionError("agent input must be blocked while preview is active");
+        } catch (DeviceException expected) {
+            if (expected.code() != DeviceException.Code.REJECTED) {
+                throw new AssertionError("preview ownership rejection code: " + expected.code());
+            }
+        }
         api.userTap(target, 123, 456);
         if (driver.lastTapX() != 123 || driver.lastTapY() != 456) {
             throw new AssertionError("user tap coordinates");
@@ -111,6 +120,11 @@ public final class CapabilityAdapterHostTest {
         api.stopPreview(display);
         if (driver.previewStarted()) {
             throw new AssertionError("preview must be stopped");
+        }
+        Observation resumed = api.observations().observe(target, ObservationOptions.defaults());
+        InputReceipt afterPreview = api.input().tap(target, resumed, new Point(10, 10));
+        if (!afterPreview.accepted()) {
+            throw new AssertionError("agent input resumes after preview stops");
         }
         api.targets().release(target);
         api.displays().release(display);

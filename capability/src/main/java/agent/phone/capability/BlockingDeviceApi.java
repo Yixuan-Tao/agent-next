@@ -66,6 +66,10 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
     private long stateSequence;
     private boolean closed;
     private int targetDisplayId = -1;
+    private final Object inputOwnership = new Object();
+    private boolean previewActive;
+    private boolean agentInputInFlight;
+    private boolean userInputInFlight;
 
     private final DisplayController displays = new Displays();
     private final TargetController targets = new Targets();
@@ -362,73 +366,93 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
         @Override
         public InputReceipt tap(TargetHandle target, Observation observation, Point point)
                 throws DeviceException {
-            TargetSession session = targetFor(target);
-            requireReady();
-            requirePrivateDisplay(session);
-            Observation current = currentObservation(observation);
-            requirePoint(current, point);
-            long sequence = stateSequence();
-            driver.tap(point.x(), point.y());
-            awaitInput(sequence, "tap");
-            return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+            beginAgentInput();
+            try {
+                TargetSession session = targetFor(target);
+                requireReady();
+                requirePrivateDisplay(session);
+                Observation current = currentObservation(observation);
+                requirePoint(current, point);
+                long sequence = stateSequence();
+                driver.tap(point.x(), point.y());
+                awaitInput(sequence, "tap");
+                return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+            } finally {
+                endAgentInput();
+            }
         }
 
         @Override
         public InputReceipt setText(TargetHandle target, Observation observation,
                 String nodeRef, String text) throws DeviceException {
-            TargetSession session = targetFor(target);
-            requireReady();
-            requirePrivateDisplay(session);
-            Observation current = currentObservation(observation);
-            if (nodeRef == null || nodeRef.isEmpty() || nodeRef.length() > 80) {
-                throw rejected("nodeRef must be 1..80 characters");
+            beginAgentInput();
+            try {
+                TargetSession session = targetFor(target);
+                requireReady();
+                requirePrivateDisplay(session);
+                Observation current = currentObservation(observation);
+                if (nodeRef == null || nodeRef.isEmpty() || nodeRef.length() > 80) {
+                    throw rejected("nodeRef must be 1..80 characters");
+                }
+                if (text == null || text.isEmpty() || text.length() > 120
+                        || text.indexOf('\n') >= 0 || text.indexOf('\r') >= 0) {
+                    throw rejected("text must be 1..120 characters without newlines");
+                }
+                UiNode node = current.node(nodeRef).orElse(null);
+                if (node == null) {
+                    throw stale("node is not part of the current observation");
+                }
+                if (!node.hasFlag(NodeFlag.EDITABLE) || node.hasFlag(NodeFlag.PASSWORD)) {
+                    throw rejected("node is not a non-password editable field");
+                }
+                long sequence = stateSequence();
+                driver.setText(nodeRef, text);
+                awaitInput(sequence, "set text");
+                return new InputReceipt(InputStatus.VERIFIED, true, true, text, Instant.now());
+            } finally {
+                endAgentInput();
             }
-            if (text == null || text.isEmpty() || text.length() > 120
-                    || text.indexOf('\n') >= 0 || text.indexOf('\r') >= 0) {
-                throw rejected("text must be 1..120 characters without newlines");
-            }
-            UiNode node = current.node(nodeRef).orElse(null);
-            if (node == null) {
-                throw stale("node is not part of the current observation");
-            }
-            if (!node.hasFlag(NodeFlag.EDITABLE) || node.hasFlag(NodeFlag.PASSWORD)) {
-                throw rejected("node is not a non-password editable field");
-            }
-            long sequence = stateSequence();
-            driver.setText(nodeRef, text);
-            awaitInput(sequence, "set text");
-            return new InputReceipt(InputStatus.VERIFIED, true, true, text, Instant.now());
         }
 
         @Override
         public InputReceipt swipe(TargetHandle target, Observation observation,
                 Point from, Point to, int durationMs) throws DeviceException {
-            TargetSession session = targetFor(target);
-            requireReady();
-            requirePrivateDisplay(session);
-            Observation current = currentObservation(observation);
-            if (durationMs < 100 || durationMs > 2000) {
-                throw rejected("swipe duration must be 100..2000 ms");
+            beginAgentInput();
+            try {
+                TargetSession session = targetFor(target);
+                requireReady();
+                requirePrivateDisplay(session);
+                Observation current = currentObservation(observation);
+                if (durationMs < 100 || durationMs > 2000) {
+                    throw rejected("swipe duration must be 100..2000 ms");
+                }
+                requirePoint(current, from);
+                requirePoint(current, to);
+                long sequence = stateSequence();
+                driver.swipe(from.x(), from.y(), to.x(), to.y(), durationMs);
+                awaitInput(sequence, "swipe");
+                return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+            } finally {
+                endAgentInput();
             }
-            requirePoint(current, from);
-            requirePoint(current, to);
-            long sequence = stateSequence();
-            driver.swipe(from.x(), from.y(), to.x(), to.y(), durationMs);
-            awaitInput(sequence, "swipe");
-            return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
         }
 
         @Override
         public InputReceipt back(TargetHandle target, Observation observation)
                 throws DeviceException {
-            TargetSession session = targetFor(target);
-            requireReady();
-            requirePrivateDisplay(session);
-            currentObservation(observation);
-            long sequence = stateSequence();
-            driver.back();
-            awaitInput(sequence, "back");
-            return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+            beginAgentInput();
+            try {
+                TargetSession session = targetFor(target);
+                requireReady();
+                requirePrivateDisplay(session);
+                currentObservation(observation);
+                long sequence = stateSequence();
+                driver.back();
+                awaitInput(sequence, "back");
+                return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+            } finally {
+                endAgentInput();
+            }
         }
     }
 
@@ -604,23 +628,75 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
         if (surface == null || !surface.isValid()) {
             throw rejected("preview surface is invalid");
         }
+        synchronized (inputOwnership) {
+            if (agentInputInFlight) {
+                throw rejected("agent input is in flight");
+            }
+        }
         if (!driver.startPreviewMirror(surface)) {
             throw rejected("preview mirror was rejected");
+        }
+        synchronized (inputOwnership) {
+            previewActive = true;
         }
     }
 
     @Override
     public void stopPreview(DisplayHandle display) throws DeviceException {
         activeDisplay(display);
-        driver.stopPreviewMirror();
+        try {
+            driver.stopPreviewMirror();
+        } finally {
+            synchronized (inputOwnership) {
+                previewActive = false;
+            }
+        }
+    }
+
+    private void beginAgentInput() throws DeviceException {
+        synchronized (inputOwnership) {
+            if (previewActive || userInputInFlight) {
+                throw rejected("preview or user input owns the device");
+            }
+            if (agentInputInFlight) {
+                throw rejected("agent input already in flight");
+            }
+            agentInputInFlight = true;
+        }
+    }
+
+    private void endAgentInput() {
+        synchronized (inputOwnership) {
+            agentInputInFlight = false;
+        }
+    }
+
+    private void beginUserInput() throws DeviceException {
+        synchronized (inputOwnership) {
+            if (agentInputInFlight) {
+                throw rejected("agent input is in flight");
+            }
+            userInputInFlight = true;
+        }
+    }
+
+    private void endUserInput() {
+        synchronized (inputOwnership) {
+            userInputInFlight = false;
+        }
     }
 
     @Override
     public void userTap(TargetHandle target, int x, int y) throws DeviceException {
         targetFor(target);
         requireReady();
-        if (x < 0 || y < 0 || !driver.userTap(x, y)) {
-            throw rejected("user tap was rejected");
+        beginUserInput();
+        try {
+            if (x < 0 || y < 0 || !driver.userTap(x, y)) {
+                throw rejected("user tap was rejected");
+            }
+        } finally {
+            endUserInput();
         }
     }
 
@@ -629,9 +705,15 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
             int durationMs) throws DeviceException {
         targetFor(target);
         requireReady();
-        if (startX < 0 || startY < 0 || endX < 0 || endY < 0
-                || durationMs <= 0 || !driver.userSwipe(startX, startY, endX, endY, durationMs)) {
-            throw rejected("user swipe was rejected");
+        beginUserInput();
+        try {
+            if (startX < 0 || startY < 0 || endX < 0 || endY < 0
+                    || durationMs <= 0
+                    || !driver.userSwipe(startX, startY, endX, endY, durationMs)) {
+                throw rejected("user swipe was rejected");
+            }
+        } finally {
+            endUserInput();
         }
     }
 
