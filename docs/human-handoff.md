@@ -40,3 +40,22 @@ verify you are human / unusual activity
 - 主屏期间 Activity 生命周期/服务存活；
 - 超时和停止 action；
 - Android 13 通知权限/前台服务类型。
+
+## 2026-10-19 真机触发（部分）
+
+用 Preview 手动进入 JD 商品卡后出现“京东验证”。关闭预览让 agent 恢复：
+
+```text
+AgentTaskService: isForeground=true, actions=2
+notification title: AgentNext 需要人工接管
+notification text: human verification required: 京东验证 · 在主屏完成后点“继续”
+action[0]: 完成，继续
+```
+
+- target 已移到主屏，JD 验证页可见；
+- 前台服务/通知正常；
+- **“完成，继续”尚未实际点击成功**（MIUI 通知折叠/展开方式限制），
+  因此 resume → 回私有 display 的链路仍未完全验收；
+- 未尝试点击“快速验证”绕过。
+
+结论：handoff 触发和通知链路 PASS；resume/恢复显示仍是待验收项。
