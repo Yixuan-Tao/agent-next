@@ -380,3 +380,16 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 
 结论：JD 自动加购的可靠方案是 **人工完成验证 + 人工/半自动加购**；
 纯自动路径在风控存在时不可保证。
+
+## 2026-10-19 候选列表 + 安全过滤
+
+- `VisualCandidate` / `VisualCandidateFilter`（brain，host test 18 suites）；
+- `JdVisualLocator` 改为返回最多 8 个候选，按 allow/forbid/confidence 过滤；
+- 搜索提交允许“搜索/提交/按钮”，拒绝“拍照/大图/显示模式/筛选”；
+- 结果卡允许“商品/商品卡/卡片”，拒绝“广告/地址/筛选/结算”；
+- 视觉输出 token 从 900 提高到 4096，修复 `finish_reason=length`。
+
+真机：
+- 视觉提交曾成功：point 666,69 → s2 true；
+- s3 视觉定位曾因 token length 失败，已提高预算；
+- 最新重跑仍 STOPPED，未完成详情/加购；自动加购仍未 PASS。

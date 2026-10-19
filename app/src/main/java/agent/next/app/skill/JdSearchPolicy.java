@@ -67,7 +67,9 @@ public final class JdSearchPolicy implements LoopPolicy {
             submitted = true;
             return Optional.of(new VisualTapAction(locator,
                     "京东搜索页右上角的搜索提交按钮，不要点输入框/拍照",
-                    "jd.search.submit"));
+                    "jd.search.submit",
+                    java.util.Set.of("搜索", "提交", "按钮"),
+                    java.util.Set.of("拍照", "大图", "显示模式", "筛选")));
         }
         return Optional.of(new WaitAction(800));
     }

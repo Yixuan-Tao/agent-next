@@ -505,7 +505,10 @@ public final class AgentRuntime {
                     try {
                         Frame frame = api.observations().captureFrame(target);
                         Point result = jdLocator.locate(frame,
-                                "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）");
+                                "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）",
+                                java.util.Set.of("商品", "商品卡", "卡片"),
+                                java.util.Set.of("广告", "地址", "筛选", "立即购买", "结算", "去结算"),
+                                0.5);
                         Log.i(TAG, "JD result-card vision point=" + result);
                         return new RiskGuardPolicy(new JdResultPolicy(result), this::handoffToUser);
                     } catch (Throwable failure) {
@@ -522,7 +525,10 @@ public final class AgentRuntime {
                     Point entry = null;
                     try {
                         Frame frame = api.observations().captureFrame(target);
-                        entry = jdLocator.locate(frame, "京东首页顶部搜索输入框");
+                        entry = jdLocator.locate(frame, "京东首页顶部搜索输入框",
+                                java.util.Set.of("搜索", "输入框", "搜索框"),
+                                java.util.Set.of("拍照", "大图", "显示模式", "筛选"),
+                                0.5);
                     } catch (Throwable failure) {
                         Log.w(TAG, "JD search entry locator unavailable: " + failure);
                     }
