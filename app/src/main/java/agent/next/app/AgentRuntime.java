@@ -615,12 +615,31 @@ public final class AgentRuntime {
         try {
             Observation observation = api.observations().observe(
                     target, ObservationOptions.defaults());
+            // JD may restore a Babel/11.11 event page with no bottom navigation.
+            for (int attempt = 0; attempt < 3; attempt++) {
+                boolean babel = observation.activityName().contains("BabelActivity");
+                StringBuilder texts = new StringBuilder();
+                for (UiNode node : observation.nodes()) {
+                    texts.append(node.text()).append(' ').append(node.contentDescription());
+                }
+                if (!babel && !texts.toString().contains("11.11主会场")
+                        && !texts.toString().contains("J_babelOptPage")) {
+                    break;
+                }
+                Log.i(TAG, "JD event page detected, back");
+                api.input().back(target, observation);
+                Thread.sleep(900L);
+                observation = api.observations().observe(
+                        target, ObservationOptions.defaults());
+            }
             // JD restores its last activity (cart/detail) on reopen; the bottom Home
             // tab is a custom view without text, so use the scoped 720x1280 hit area.
             api.input().tap(target, observation, new Point(72, 1210));
             Thread.sleep(800L);
-            api.observations().observe(target, ObservationOptions.defaults());
-            Log.i(TAG, "JD home tab selected");
+            observation = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            Log.i(TAG, "JD home tab selected act=" + observation.activityName()
+                    + " nodes=" + observation.nodes().size());
         } catch (Throwable failure) {
             Log.w(TAG, "JD home prelude failed: " + failure);
         }

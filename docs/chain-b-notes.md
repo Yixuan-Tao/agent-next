@@ -127,3 +127,23 @@ verify cart s2 -> ...
 ```
 
 待后续用这些日志确认 cart 页面。
+
+## 2026-10-19 JD event 恢复 + cart 打开
+
+`prepareJdHome` 增加 Babel/11.11 主会场检测：检测到就 back 后重试，再点 home tab。
+
+本轮日志：
+
+```text
+JD home tab selected act= nodes=33
+verify s1 -> false ... 11.11主会场
+...
+verify s1 -> false ... id=com.jd.lib.cart.feature:id/a15
+...
+```
+
+- cart prelude 已把页面切到 **cart.feature**（购物车）节点；
+- 但 s1 “进入首页” verifier 仍要求首页，因此 s1 失败，s2 没机会运行；
+- 这是**计划顺序/verifier 约束**问题，不再是 cart tab 点击问题。
+
+下一步：cart 任务不应强制 s1 首页；或 s1 在目标已是购物车时应视为满足。
