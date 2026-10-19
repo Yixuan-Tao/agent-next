@@ -125,3 +125,27 @@ install_non_market_apps=1
 当前：**app 未安装**；APK 已放在 `/sdcard/Download/agent-next-debug.apk`。
 需要人工在 MIUI 安装确认中允许安装（或关闭“USB安装”再打开并重新授权 USB 调试），
 之后才能继续真机验收。
+
+## 2026-10-19 Release 安装成功（文件管理器路径）
+
+`adb install` 仍被 MIUI 拦截，但通过文件管理器打开 release APK 成功：
+
+1. 文件管理器 → 最近 → `agent-next-release.apk`；
+2. MIUI ICP 提示 → “继续安装”；
+3. 勾选“已了解此应用未经安全检测”；
+4. “继续安装”。
+
+证明：
+
+```text
+package: agent.next.app
+versionName=0.1
+flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+```
+
+- `DEBUGGABLE` 已消失，确认安装的是 release；
+- MainActivity / SettingsActivity 可打开；
+- release Settings 显示 `model config: 未导入`；
+- release 的 model config 需要通过 Settings document picker 导入（本次未完成文件选择）。
+
+结论：**release APK 安装/启动/设置页 PASS**；release 的 config 导入和任务执行仍待完成。
