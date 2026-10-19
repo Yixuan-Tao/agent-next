@@ -1,9 +1,8 @@
 # Known defects and reproductions (M0 baseline)
 
-These are the five defects from the M0 baseline. One (payment) is fixed in M1; four remain open. They are not yet part of
-`BrainHostTest`; `tools/test-known-defects.sh` reports `REPRODUCED` for each open defect and exits
-0 so the ordinary host gate stays green. When a defect is fixed, move its check into the normal
-suite (or make this script fail) and update this table.
+These are the five defects from the M0 baseline. Three are fixed (payment in M1, midnight and
+Unicode names in M2); two M3 defects remain open. `tools/test-known-defects.sh` reports
+`REPRODUCED` for the open brain defects and runs the positive app-domain regression.
 
 Run:
 
@@ -16,8 +15,8 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-known-defects.sh
 | 1 | Model-marked LOW payment is allowed | `RiskGateTest.guiCommitments` | **FIXED (M1)** — confirm at A3, handoff at A2, deny at A0 | M1 done: GuiRiskClassifier raises kind/risk from action text; task-denied payment/send/delete cannot be confirmed |
 | 2 | Eight subgoals hit the six-attempt cap | `KnownDefectsTest.eightSubgoals` | `REPRODUCED` — `SLOW_LOOP attempts=6` | M3: separate initial/retry/replan accounting; attempt cap must not truncate normal subgoal progress |
 | 3 | Continuous progress stops after three actions | `KnownDefectsTest.continuousProgress` | `REPRODUCED` — `SLOW_LOOP actions=3` | M3: progress must use action effect/stage conditions, not a raw `noProgress++` per action |
-| 4 | 23:30 + 60 minutes ends on the same day | `AppDomainDefectsTest` / `CalendarStore.specFor` | `REPRODUCED` — duration `-82800000` ms | M2: interpret against the task-start date/timezone and carry the date; validate start/end |
-| 5 | Chinese directory name falls back to `agent-demo` | `AppDomainDefectsTest` / `FilesStore.specFor` | `REPRODUCED` — `name=agent-demo` | M4: GUI path must preserve the Chinese name; parameter validation must not silently default |
+| 4 | 23:30 + 60 minutes ends on the same day | `AppDomainDefectsTest` positive regression | **FIXED (M2)** — 23:30 + 60 min = 3,600,000 ms | M2 done: LocalDateTime carries the date across midnight |
+| 5 | Chinese directory name falls back to `agent-demo` | `AppDomainDefectsTest` positive regression | **FIXED (M2)** — `中文目录` preserved | M2 done: Unicode name parser and suffix stripping; M4 still needs the GUI path to fill the actual field |
 
 ## Notes
 

@@ -17,7 +17,7 @@ public final class FilesStore {
     }
 
     private static final Pattern NAME = Pattern.compile(
-            "(?:名为|文件夹名[为是:：]?|文件夹\\s*[「\"']?)([A-Za-z0-9_-]{1,40})");
+            "(?:名为|文件夹名[为是:：]?|文件夹\\s*[「\"']?)([\\p{L}\\p{N}_-]{1,40})");
 
     private final Context context;
 
@@ -29,7 +29,12 @@ public final class FilesStore {
         String text = (goal == null ? "" : goal) + " " + (intent == null ? "" : intent);
         Matcher matcher = NAME.matcher(text);
         String name = matcher.find() ? matcher.group(1) : "agent-demo";
-        return new FolderSpec(name);
+        if (name.endsWith("的文件夹")) {
+            name = name.substring(0, name.length() - "的文件夹".length());
+        } else if (name.endsWith("文件夹")) {
+            name = name.substring(0, name.length() - "文件夹".length());
+        }
+        return new FolderSpec(name.isBlank() ? "agent-demo" : name);
     }
 
     public boolean exists(FolderSpec spec) {

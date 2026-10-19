@@ -9,6 +9,7 @@ import android.provider.CalendarContract;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Optional;
@@ -68,8 +69,10 @@ public final class CalendarStore {
             time = LocalTime.of(9, 0);
         }
         ZoneId zone = ZoneId.systemDefault();
-        long start = day.atTime(time).atZone(zone).toInstant().toEpochMilli();
-        long end = day.atTime(time.plusMinutes(60)).atZone(zone).toInstant().toEpochMilli();
+        LocalDateTime startAt = day.atTime(time);
+        LocalDateTime endAt = startAt.plusMinutes(60);
+        long start = startAt.atZone(zone).toInstant().toEpochMilli();
+        long end = endAt.atZone(zone).toInstant().toEpochMilli();
         return new EventSpec(title, start, end);
     }
 
