@@ -85,6 +85,7 @@ public final class TaskContractTest {
         check(contract.requiredOutcomes().size() == 1, "factory outcome count");
         check(new PlanValidator().validate(contract, plan, Set.of("visual")).valid(),
                 "factory contract validates coverage");
+        check(contract.parameters().isEmpty(), "no time in test goal");
     }
 
     private static PlanValidator validator() {
