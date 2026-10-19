@@ -104,3 +104,26 @@ JD cart tab selected
 但任务仍 `STOPPED actions=2 attempts=1/2`，未进入 `verify s2` PASS。
 说明 cart tab 点击仍未把页面切到购物车（或 verifier 未拿到目标页面），
 cart 导航仍不能算 PASS。
+
+## 2026-10-19 诊断：s1 被 11.11 主会场阻塞
+
+最新日志：
+
+```text
+verify s1 -> false ... 11.11主会场
+verify s1 -> false ... 海运满...
+verify s1 -> false ... 分享得大额券
+```
+
+- `prepareJdHome` 的 home tab 点击没有稳定回到首页；
+- 任务未进入 s2，cart policy 未执行；
+- 因此本轮 cart 失败根因是 **JD 启动/主会场恢复**，不是 cart policy。
+
+新增日志：
+
+```text
+JD cart after tap act=... nodes=... text=...
+verify cart s2 -> ...
+```
+
+待后续用这些日志确认 cart 页面。

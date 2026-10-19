@@ -535,7 +535,15 @@ public final class AgentRuntime {
             };
             verifiers.register("visual", routed);
             verifiers.register("calendar.event", routed);
-            verifiers.register("jd.cart", new JdCartVerifier());
+            JdCartVerifier cartVerifier = new JdCartVerifier();
+            verifiers.register("jd.cart", (task, subgoal, target, observation) -> {
+                SubgoalVerifier.Verification cartResult = cartVerifier.verify(
+                        task, subgoal, target, observation);
+                Log.i(TAG, "verify cart " + subgoal.id() + " -> "
+                        + cartResult.satisfied() + " (" + cartResult.evidence()
+                        + ") act=" + observation.activityName());
+                return cartResult;
+            });
             SessionRunner runner = new SessionRunner(api, confirmed, binder, policies,
                     slow -> new SlowLoopDecision.Stop("v1 stops on slow loop"),
                     verifiers, new DefaultRiskGate(), human, runControl, memory, episodic,
@@ -692,8 +700,18 @@ public final class AgentRuntime {
             // JD's bottom cart tab is a custom view without text; scoped 720x1280 hit area.
             api.input().tap(target, observation, new Point(486, 1210));
             Thread.sleep(1500L);
-            api.observations().observe(target, ObservationOptions.defaults());
-            Log.i(TAG, "JD cart tab selected");
+            Observation cart = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            StringBuilder cartSample = new StringBuilder();
+            for (UiNode node : cart.nodes()) {
+                String value = node.text().isBlank()
+                        ? node.contentDescription() : node.text();
+                if (!value.isBlank() && cartSample.length() < 220) {
+                    cartSample.append(value).append(" | ");
+                }
+            }
+            Log.i(TAG, "JD cart after tap act=" + cart.activityName()
+                    + " nodes=" + cart.nodes().size() + " text=" + cartSample);
         } catch (Throwable failure) {
             Log.w(TAG, "JD cart prelude failed: " + failure);
         }
