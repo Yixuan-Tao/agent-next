@@ -22,7 +22,7 @@ sh "$ROOT/tools/test-capability-adapter.sh"
 echo "== host: Shizuku adapter =="
 sh "$ROOT/tools/test-shizuku-adapter.sh"
 
-echo "== known defects (must reproduce until M2/M3) =="
+echo "== known-defect regressions =="
 sh "$ROOT/tools/test-known-defects.sh"
 
 echo "== build: debug + release manifest =="

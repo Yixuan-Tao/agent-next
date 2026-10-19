@@ -24,6 +24,7 @@ import agent.next.device.TargetHandle;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -97,6 +98,8 @@ public final class SessionRunner {
         long started = System.nanoTime();
         int actions = 0;
         int attempts = 0;
+        int retries = 0;
+        java.util.Map<String, Integer> attemptsBySubgoal = new HashMap<>();
         TargetHandle target = null;
         LoopResult last = null;
         String subgoalId = "";
@@ -134,8 +137,12 @@ public final class SessionRunner {
                     return SessionResult.budget("session budget exhausted", actions, attempts,
                             subgoalId, last);
                 }
-                if (attempts >= maxAttempts) {
-                    return SessionResult.slowLoop("session attempt limit", actions, attempts,
+                int thisAttempt = attemptsBySubgoal.merge(current.id(), 1, Integer::sum);
+                if (thisAttempt > 1) {
+                    retries++;
+                }
+                if (retries > maxAttempts) {
+                    return SessionResult.slowLoop("session retry limit", actions, attempts,
                             subgoalId, last);
                 }
                 attempts++;

@@ -40,26 +40,14 @@ public final class KnownDefectsTest {
     private KnownDefectsTest() {
     }
 
-    public static void main(String[] args) {
-        boolean reproduced = false;
-        reproduced |= reproduce("eight subgoals hit six-attempt cap",
-                KnownDefectsTest::eightSubgoals);
-        reproduced |= reproduce("continuous progress stops at three",
-                KnownDefectsTest::continuousProgress);
-        System.out.println(reproduced
-                ? "KnownDefectsTest: REPRODUCED (defects still open)"
-                : "KnownDefectsTest: FIXED (promote checks into BrainHostTest)");
+    public static void run() {
+        eightSubgoals();
+        continuousProgress();
+        System.out.println("KnownDefectsTest: PASS (attempt cap, continuous progress)");
     }
 
-    private static boolean reproduce(String name, Runnable check) {
-        try {
-            check.run();
-            System.out.println("FIXED: " + name);
-            return false;
-        } catch (AssertionError failure) {
-            System.out.println("REPRODUCED: " + name + " — " + failure.getMessage());
-            return true;
-        }
+    public static void main(String[] args) {
+        run();
     }
 
     private static void lowRiskPayment() {

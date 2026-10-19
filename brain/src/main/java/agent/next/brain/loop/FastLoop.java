@@ -287,10 +287,11 @@ public final class FastLoop {
             if (effect.kind() == Effect.EffectKind.NO_CHANGE
                     || effect.kind() == Effect.EffectKind.LOADING) {
                 noEffect++;
+                noProgress++;
             } else {
                 noEffect = 0;
+                noProgress = 0;
             }
-            noProgress++;
 
             LoopContext afterContext = new LoopContext(task, subgoal, after, actions,
                     noEffect, noProgress, workingMemory);

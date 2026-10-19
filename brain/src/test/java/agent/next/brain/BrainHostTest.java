@@ -1,5 +1,6 @@
 package agent.next.brain;
 
+import agent.next.brain.KnownDefectsTest;
 import agent.next.brain.action.ActionExecutorTest;
 import agent.next.brain.contract.TaskClarificationTest;
 import agent.next.brain.contract.TaskContractTest;
@@ -39,6 +40,7 @@ public final class BrainHostTest {
         TaskContractTest.run();
         TaskClarificationTest.run();
         TaskReportTest.run();
+        KnownDefectsTest.run();
         TaskTimeTest.run();
         GroundingTest.run();
         SkillFeatureTest.run();
@@ -47,6 +49,6 @@ public final class BrainHostTest {
         SessionRunnerTest.run();
         SessionBridgeTest.run();
         SessionIntegrationTest.run();
-        System.out.println("BrainHostTest: PASS (24 suites)");
+        System.out.println("BrainHostTest: PASS (25 suites)");
     }
 }
