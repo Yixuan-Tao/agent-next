@@ -42,7 +42,6 @@ public final class KnownDefectsTest {
 
     public static void main(String[] args) {
         boolean reproduced = false;
-        reproduced |= reproduce("low-risk payment is allowed", KnownDefectsTest::lowRiskPayment);
         reproduced |= reproduce("eight subgoals hit six-attempt cap",
                 KnownDefectsTest::eightSubgoals);
         reproduced |= reproduce("continuous progress stops at three",

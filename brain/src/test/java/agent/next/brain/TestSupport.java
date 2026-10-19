@@ -1,18 +1,18 @@
 package agent.next.brain;
 
 /** Dependency-free assertions shared by the host tests. */
-final class TestSupport {
+public final class TestSupport {
 
     private TestSupport() {
     }
 
-    static void check(boolean condition, String message) {
+    public static void check(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError(message);
         }
     }
 
-    static <T extends Throwable> T expect(Class<T> type, Runnable action, String message) {
+    public static <T extends Throwable> T expect(Class<T> type, Runnable action, String message) {
         try {
             action.run();
         } catch (Throwable thrown) {

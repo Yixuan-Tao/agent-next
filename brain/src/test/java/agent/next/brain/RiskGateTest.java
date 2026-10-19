@@ -17,6 +17,7 @@ final class RiskGateTest {
         messages();
         credentialsAndLegal();
         destructiveAndDenied();
+        guiCommitments();
         nulls();
         System.out.println("RiskGateTest: PASS (allow, confirm, handoff, deny)");
     }
@@ -97,6 +98,32 @@ final class RiskGateTest {
         TaskSpec denied = task(AutonomyLevel.A3_CONFIRM_COMMIT, Set.of("order"));
         check(gate.evaluate(action("order", ActionKind.COMMITMENT, RiskClass.COMMITMENT, Set.of()), denied)
                 instanceof RiskDecision.Deny, "task-level denial wins");
+    }
+
+    private static void guiCommitments() {
+        DefaultRiskGate gate = new DefaultRiskGate();
+        ActionDescriptor payment = action("立即支付", ActionKind.REVERSIBLE_WRITE, RiskClass.LOW, Set.of());
+        check(gate.evaluate(payment, task(AutonomyLevel.A3_CONFIRM_COMMIT, Set.of()))
+                instanceof RiskDecision.Confirm, "low-labelled payment confirms at A3");
+        check(gate.evaluate(payment, task(AutonomyLevel.A2_REVERSIBLE, Set.of()))
+                instanceof RiskDecision.Handoff, "low-labelled payment hands off at A2");
+        check(gate.evaluate(payment, task(AutonomyLevel.A0_READ_ONLY, Set.of()))
+                instanceof RiskDecision.Deny, "low-labelled payment denied at A0");
+        check(gate.evaluate(action("发送消息", ActionKind.NAVIGATE, RiskClass.LOW, Set.of()),
+                task(AutonomyLevel.A3_CONFIRM_COMMIT, Set.of())) instanceof RiskDecision.Confirm,
+                "low-labelled send confirms");
+        check(gate.evaluate(action("删除文件", ActionKind.NAVIGATE, RiskClass.LOW, Set.of()),
+                task(AutonomyLevel.A2_REVERSIBLE, Set.of())) instanceof RiskDecision.Handoff,
+                "low-labelled delete hands off at A2");
+        check(gate.evaluate(action("发送消息", ActionKind.NAVIGATE, RiskClass.LOW, Set.of()),
+                task(AutonomyLevel.A3_CONFIRM_COMMIT, Set.of("send"))) instanceof RiskDecision.Deny,
+                "task-denied send cannot be confirmed");
+        check(gate.evaluate(action("删除文件", ActionKind.NAVIGATE, RiskClass.LOW, Set.of()),
+                task(AutonomyLevel.A3_CONFIRM_COMMIT, Set.of("delete"))) instanceof RiskDecision.Deny,
+                "task-denied delete cannot be confirmed");
+        check(gate.evaluate(action("立即支付", ActionKind.NAVIGATE, RiskClass.LOW, Set.of()),
+                task(AutonomyLevel.A3_CONFIRM_COMMIT, Set.of("payment"))) instanceof RiskDecision.Deny,
+                "task-denied payment cannot be confirmed");
     }
 
     private static void nulls() {
