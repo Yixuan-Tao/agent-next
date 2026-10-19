@@ -20,7 +20,7 @@ Status legend:
 | Directed tap / setText / back / swipe, task move | implemented / host pass / device pass (Android 16) | capability adapter smoke; Android 13 pending |
 | Preview mirror + user touch takeover | implemented / host pass / device pass (Android 16) | preview/touch smoke docs; Android 13 pending |
 | Brain TaskGraph / FastLoop / SlowLoop / SessionRunner | implemented / host pass / legacy device smoke | `test-brain.sh`; not yet a pure-GUI acceptance |
-| `ActionProposal → GroundedAction → ActionExecutor` | partial / host pass | M1 core: semantic proposals, strict grounding, `GuiRiskClassifier`, confirmation and re-ground executor; `Tap/SetText/Back/Scroll` route through it from `FastLoop`; Quark entry migrated to a governed tap; preview/user input ownership enforced in BlockingDeviceApi; JD helper and calculator composite still bypass for M4 |
+| `ActionProposal → GroundedAction → ActionExecutor` | partial / host pass | M1 core: semantic proposals, strict grounding, `GuiRiskClassifier`, confirmation and re-ground executor; `Tap/SetText/Back/Scroll` route through it from `FastLoop`; Quark entry migrated to a governed tap; preview/user input ownership enforced in BlockingDeviceApi; `SequenceAction` executes composites through the executor and cancels remaining steps; JD helper and calculator app action still bypass for M4 |
 | `TaskContract` / structured parameters / `PlanValidator` | **uncovered** | M2; current planner passes free text and `fixedPlan` can replace plans |
 | Semantic progress / bounded recovery / budgets | partial | M3; 3-action no-progress and 6-attempt session cap still present |
 | Pure-GUI skills (search, fill, scroll, save draft, reopen verify) | **uncovered** | M4; not implemented |
