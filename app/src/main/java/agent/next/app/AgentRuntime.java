@@ -8,6 +8,7 @@ import android.util.Log;
 import agent.next.brain.DefaultRiskGate;
 import agent.next.app.calendar.CalendarPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
+import agent.next.app.skill.JdCartVerifier;
 import agent.next.app.skill.QuarkWeatherPolicy;
 import agent.next.app.calendar.CalendarStore;
 import agent.next.app.calendar.CalendarSubgoalVerifier;
@@ -530,7 +531,7 @@ public final class AgentRuntime {
             };
             verifiers.register("visual", routed);
             verifiers.register("calendar.event", routed);
-            verifiers.register("jd.cart", routed);
+            verifiers.register("jd.cart", new JdCartVerifier());
             SessionRunner runner = new SessionRunner(api, confirmed, binder, policies,
                     slow -> new SlowLoopDecision.Stop("v1 stops on slow loop"),
                     verifiers, new DefaultRiskGate(), human, runControl, memory, episodic,
@@ -660,15 +661,23 @@ public final class AgentRuntime {
         try {
             Observation observation = api.observations().observe(
                     target, ObservationOptions.defaults());
+            boolean title = false;
+            boolean footer = false;
             for (UiNode node : observation.nodes()) {
-                if (node.text().contains("购物车")
-                        || node.contentDescription().contains("购物车")) {
-                    return;
+                String text = node.text() + " " + node.contentDescription();
+                if (text.contains("购物车")) {
+                    title = true;
                 }
+                if (text.contains("合计") || text.contains("去结算")) {
+                    footer = true;
+                }
+            }
+            if (title && footer) {
+                return;
             }
             // JD's bottom cart tab is a custom view without text; scoped 720x1280 hit area.
             api.input().tap(target, observation, new Point(486, 1240));
-            Thread.sleep(800L);
+            Thread.sleep(1500L);
             api.observations().observe(target, ObservationOptions.defaults());
             Log.i(TAG, "JD cart tab selected");
         } catch (Throwable failure) {

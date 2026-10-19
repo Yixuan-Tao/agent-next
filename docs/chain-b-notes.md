@@ -48,3 +48,29 @@ result: STOPPED · v1 stops on slow loop actions=2 attempts=1
 - 不能宣称 cart 导航 PASS。
 
 结论：**购物车内容识别 PASS（已在前台时）**；**首页 → 购物车导航仍待修**。
+
+## 2026-10-19 cart verifier 尝试
+
+新增：
+
+- `JdCartVerifier`：确定性检查“购物车”标题 + 商品/合计/去结算；
+- `prepareJdCart` 只在标题+footer 同时存在时认为已在购物车，否则点击 scoped cart tab；
+- cart tap 后 settle 1500ms。
+
+真机日志：
+
+```text
+JD home tab selected
+verify s1 -> true
+JD cart tab selected
+skill step=0 -> Tap selector=clickable text contains 购物车
+...
+```
+
+问题：
+
+- cart tab 点击已发生；
+- 但模型仍尝试按文本找“购物车”并失败，说明 accessibility 树没有该 tab；
+- 随后 s1 再次被 11.11 主会场页面干扰，任务 STOPPED。
+
+结论：cart prelude 点击路径存在；**首页 → 购物车导航仍未 PASS**。
