@@ -37,6 +37,7 @@ public final class ActionExecutorTest {
         confirmationMismatch();
         noHumanDoesNotTap();
         stopBeforeAction();
+        stopAfterConfirmation();
         System.out.println("ActionExecutorTest: PASS (grounding, risk, confirmation, cancel)");
     }
 
@@ -101,6 +102,26 @@ public final class ActionExecutorTest {
             check(expected.getCause() instanceof HumanUnavailableException,
                     "human unavailable propagates");
             check(api.taps() == 0, "unavailable human does not tap");
+        }
+    }
+
+    private static void stopAfterConfirmation() {
+        LoopFakeDevice api = new LoopFakeDevice(true);
+        Human human = new Human(true);
+        int[] checks = {0};
+        LoopControl control = () -> {
+            if (++checks[0] >= 2) {
+                throw new agent.next.brain.loop.LoopStoppedException("stopped after confirm");
+            }
+        };
+        ActionExecutor executor = new ActionExecutor(api, new DefaultRiskGate(), human, control);
+        try {
+            execute(executor, new ActionProposal.Tap("tap.pay", "立即支付",
+                    NodeSelector.textEquals("立即支付"), RiskClass.LOW));
+            throw new AssertionError("stop after confirmation must fail");
+        } catch (RuntimeException expected) {
+            check(human.request != null, "confirmation was requested");
+            check(api.taps() == 0, "stop after confirmation performs no tap");
         }
     }
 
