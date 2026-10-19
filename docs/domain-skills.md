@@ -107,3 +107,19 @@ JD 的搜索入口/提交、结果卡、加购、确认、购物车、负面标�
 profile 的 detailMarkers（如“加入购物车/商品详情”）就停止。失败会尝试下一个候选。
 
 JD skill 通过这些通用 policy + `JdAppProfile` 运行。
+
+## 视觉 prompt 进入 profile
+
+`AppProfile` 新增：
+
+- `searchEntryPrompt`
+- `searchSubmitPrompt`
+- `resultCardPrompt`
+
+`SearchPolicy` 和 JD domain skill 不再硬编码视觉 prompt。
+
+## 仍待修
+
+- JD cart s2 verifier 波动：视觉选中的购物车 tab 有时未打开购物车；
+- 结果卡候选点击后的详情校验；
+- 自动加购端到端。

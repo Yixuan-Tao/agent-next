@@ -74,7 +74,7 @@ public final class SearchPolicy implements LoopPolicy {
         if (!submitted && typed) {
             submitted = true;
             return Optional.of(new VisualTapAction(locator,
-                    "京东搜索页右上角的搜索提交按钮，不要点输入框/拍照",
+                    profile.searchSubmitPrompt(),
                     "jd.search.submit",
                     profile.searchSubmitLabels(),
                     profile.searchSubmitForbidden()));

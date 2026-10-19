@@ -61,7 +61,7 @@ public final class JdDomainSkill implements DomainSkill {
             try {
                 Frame frame = context.api().observations().captureFrame(context.target());
                 java.util.List<Point> results = locator.points(frame,
-                        "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）",
+                        JdAppProfile.PROFILE.resultCardPrompt(),
                         JdAppProfile.PROFILE.resultCardLabels(),
                         JdAppProfile.PROFILE.resultCardForbidden(),
                         0.5);
@@ -82,7 +82,7 @@ public final class JdDomainSkill implements DomainSkill {
             Point entry = null;
             try {
                 Frame frame = context.api().observations().captureFrame(context.target());
-                entry = locator.locate(frame, "京东首页顶部搜索输入框",
+                entry = locator.locate(frame, JdAppProfile.PROFILE.searchEntryPrompt(),
                         JdAppProfile.PROFILE.searchEntryLabels(),
                         JdAppProfile.PROFILE.searchEntryForbidden(), 0.5);
             } catch (Throwable failure) {

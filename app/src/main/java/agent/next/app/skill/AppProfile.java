@@ -2,7 +2,7 @@ package agent.next.app.skill;
 
 import java.util.Set;
 
-/** Declarative per-app vocabulary. Core policies interpret this; no app code in core. */
+/** Declarative per-app vocabulary and recognition prompts. */
 public record AppProfile(
         String packageName,
         Set<String> searchEntryLabels,
@@ -16,7 +16,10 @@ public record AppProfile(
         Set<String> cartLabels,
         Set<String> cartForbidden,
         Set<String> detailMarkers,
-        String cartVerifierId) {
+        String cartVerifierId,
+        String searchEntryPrompt,
+        String searchSubmitPrompt,
+        String resultCardPrompt) {
 
     public AppProfile {
         if (packageName == null || packageName.isBlank()) {
@@ -34,5 +37,15 @@ public record AppProfile(
         cartForbidden = Set.copyOf(cartForbidden);
         detailMarkers = Set.copyOf(detailMarkers);
         cartVerifierId = cartVerifierId == null ? "" : cartVerifierId;
+        searchEntryPrompt = requirePrompt(searchEntryPrompt);
+        searchSubmitPrompt = requirePrompt(searchSubmitPrompt);
+        resultCardPrompt = requirePrompt(resultCardPrompt);
+    }
+
+    private static String requirePrompt(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("prompt required");
+        }
+        return value;
     }
 }

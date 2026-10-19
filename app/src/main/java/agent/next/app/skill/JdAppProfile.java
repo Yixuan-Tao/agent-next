@@ -18,7 +18,10 @@ public final class JdAppProfile {
             Set.of("购物车", "cart", "tab"),
             Set.of("结算", "购买", "广告"),
             Set.of("加入购物车", "商品详情", "立即购买"),
-            "jd.cart");
+            "jd.cart",
+            "京东首页顶部搜索输入框",
+            "京东搜索页右上角的搜索提交按钮，不要点输入框/拍照",
+            "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）");
 
     private JdAppProfile() {
     }
