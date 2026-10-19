@@ -485,6 +485,11 @@ public final class AgentRuntime {
                         || subgoal.intent().contains("提交"))) {
                     prepareJdSearchEntry(target);
                 }
+                if ("com.jingdong.app.mall".equals(target.packageName())
+                        && ("jd.cart".equals(subgoal.verifierId())
+                        || subgoal.intent().contains("购物车"))) {
+                    prepareJdCart(target);
+                }
                 return new RiskGuardPolicy(promptPolicies.create(task, subgoal, target, attempt), this::handoffToUser);
             };
             VerifierRegistry verifiers = new VerifierRegistry();
@@ -648,6 +653,26 @@ public final class AgentRuntime {
             Log.i(TAG, "JD search entry opened");
         } catch (Throwable failure) {
             Log.w(TAG, "JD search entry prelude failed: " + failure);
+        }
+    }
+
+    private void prepareJdCart(TargetHandle target) {
+        try {
+            Observation observation = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            for (UiNode node : observation.nodes()) {
+                if (node.text().contains("购物车")
+                        || node.contentDescription().contains("购物车")) {
+                    return;
+                }
+            }
+            // JD's bottom cart tab is a custom view without text; scoped 720x1280 hit area.
+            api.input().tap(target, observation, new Point(486, 1240));
+            Thread.sleep(800L);
+            api.observations().observe(target, ObservationOptions.defaults());
+            Log.i(TAG, "JD cart tab selected");
+        } catch (Throwable failure) {
+            Log.w(TAG, "JD cart prelude failed: " + failure);
         }
     }
 

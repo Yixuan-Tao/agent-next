@@ -99,7 +99,7 @@ JAVA_HOME=/path/to/jdk21 ANDROID_SDK_ROOT=/path/to/android-sdk \
 - 与 `dist/agent-next-beta-0.1.apk.sha256` 一致。
 
 本次输出：`RELEASE PASS`，SHA-256
-`c3f6884b1bd09504d2c6a82f0e8dec6032f3ec0d18971467c49e0083138a9293`。
+`3f69d3a9b8bc77bed71f013df3c8242d968453f19996def2ec4b8255f74364f3`。
 
 ## 2026-10-19 第二次安装尝试
 
@@ -169,3 +169,9 @@ result: DONE · all subgoals verified actions=2 attempts=4
 
 结论：**release 安装、启动、config 导入、Shizuku、planner/execute/DONE 全链路通过**（当前仅 Android 16 平板）。
 Android 13 手机与 Chain B 仍未验收。
+
+## 2026-10-19 后续 release（cart prelude）
+
+重新构建并安装 release，包含 JD cart scoped prelude；SHA-256
+`3f69d3a9b8bc77bed71f013df3c8242d968453f19996def2ec4b8255f74364f3`。
+cart 任务端到端仍未跑通，不以已编译代替已验证。
