@@ -39,6 +39,7 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     private static final String CALENDAR = "com.android.calendar";
     private static final String GOOGLE_CALENDAR = "com.google.android.calendar";
     private static final String GEMINI = "com.google.android.apps.bard";
+    private static final String GOOGLE_ASSISTANT = "com.google.android.googlequicksearchbox";
     private static final String SETTINGS = "com.android.settings";
     private static final String CLOCK = "com.android.deskclock";
     private static final String NOTES = "com.miui.notes";
@@ -206,6 +207,7 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         addIfInstalled(CALENDAR, "日历");
         addIfInstalled(GOOGLE_CALENDAR, "Google 日历");
         addIfInstalled(GEMINI, "Gemini");
+        addIfInstalled(GOOGLE_ASSISTANT, "Google Assistant");
         addIfInstalled(SETTINGS, "设置");
         addIfInstalled(CLOCK, "时钟");
         addIfInstalled(NOTES, "备忘录");

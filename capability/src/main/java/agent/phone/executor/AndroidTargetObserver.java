@@ -159,6 +159,15 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             info.packageNames = new String[] { target.packageName };
             automation.setServiceInfo(info);
         }
+        private void clearCacheSafe() {
+            try {
+                UiAutomation.class.getMethod("clearCache").invoke(automation);
+            } catch (NoSuchMethodException absentOnOlderApi) {
+                // Android 13 has no clearCache().
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException("Accessibility cache clear failed", failure);
+            }
+        }
         private List<AccessibilityWindowInfo> windows() {
             if (!allDisplays) return automation.getWindows();
             android.util.SparseArray<List<AccessibilityWindowInfo>> all =
@@ -193,14 +202,14 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             Window initial = null;
             try {
                 checkDeadline(deadline);
-                automation.clearCache();
+                clearCacheSafe();
                 windows = windows(); // mDisplayId, never all displays.
                 initial = focused(windows,budget,false,deadline);
                 if (initial == null) return refusal(id,sequence,started,TargetObservation.Status.TARGET_NOT_READY,budget);
                 if (!initial.allowed) return refusal(id,sequence,started,TargetObservation.Status.FOREIGN_WINDOW,budget);
                 ArrayList<TargetObservation.Node> nodes = new ArrayList<>();
                 if (includeNodes) traverse(initial.root,initial.id,id,nodes,budget,deadline);
-                automation.clearCache();
+                clearCacheSafe();
                 List<AccessibilityWindowInfo> finalWindows = windows();
                 Window last = null;
                 try {
@@ -295,7 +304,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             if (before.focusedWindowId != expectedWindowId) {
                 throw new IllegalStateException("Observed window changed before text input");
             }
-            automation.clearCache();
+            clearCacheSafe();
             List<AccessibilityWindowInfo> windows = windows();
             AccessibilityWindowInfo targetWindow = null;
             AccessibilityNodeInfo root = null;
@@ -384,7 +393,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             }
         }
         private FrameSafetyPolicy.Snapshot frameWindows(long deadline) {
-            checkDeadline(deadline); automation.clearCache();
+            checkDeadline(deadline); clearCacheSafe();
             List<AccessibilityWindowInfo> windows = windows();
             ArrayList<FrameSafetyPolicy.Window> identities = new ArrayList<>();
             try {
