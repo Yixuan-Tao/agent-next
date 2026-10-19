@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Log;
 
 /** Keeps the process alive while an autonomous task runs; Stop action is deliberate. */
 public final class AgentTaskService extends Service {
@@ -59,6 +60,7 @@ public final class AgentTaskService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i("AgentNextService", "action=" + (intent == null ? "null" : intent.getAction()));
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             AgentRuntime.get(this).stop();
             stopSelf();

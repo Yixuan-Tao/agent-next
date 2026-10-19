@@ -86,3 +86,24 @@ release 仍保持 service/Activity 不导出。
 
 后续用 debug `RESUME_TASK` 触发时仍未看到 runtime 的 `handoff resume requested` 日志，
 resume 仍未验收；不能把 `am startservice` 返回成功当成恢复成功。
+
+## Resume 验证 PASS（返回私有 display）
+
+用 debug `RESUME_TASK` 触发后：
+
+```text
+AgentNextService: action=agent.next.app.RESUME_TASK
+AgentNextRuntime: handoff resume requested, waiting=true
+AgentNextRuntime: handoff: returned to private display
+AgentNextRuntime: verify ... 京东验证
+AgentNextRuntime: handoff requested ...
+```
+
+- handoff latch 被正确唤醒；
+- target 从主屏移回私有 display；
+- 重新 observe；
+- 因为验证页仍未完成，RiskGuard 再次触发 handoff（这是正确行为，不是死循环）；
+- 用户完成验证后再次 resume 才会继续任务。
+
+因此 `主屏 → 通知继续 → 回私有 display → 重新 observe` 已真机验证；
+“用户完成验证 → 任务继续”仍取决于真实人工验证。
