@@ -1,0 +1,70 @@
+package agent.next.app.skill;
+
+import agent.next.brain.loop.LoopAction;
+import agent.next.brain.loop.LoopContext;
+import agent.next.brain.loop.LoopPolicy;
+import agent.next.device.Point;
+import agent.next.device.UiNode;
+
+import java.util.Optional;
+
+/** Deterministic JD search: type the query into the editable search box, then submit. */
+public final class JdSearchPolicy implements LoopPolicy {
+
+    private boolean typed;
+    private boolean submitted;
+
+    @Override
+    public Optional<LoopAction> next(LoopContext context) {
+        UiNode editable = null;
+        UiNode search = null;
+        for (UiNode node : context.observation().nodes()) {
+            if (editable == null && node.hasFlag(agent.next.device.NodeFlag.EDITABLE)
+                    && !node.hasFlag(agent.next.device.NodeFlag.PASSWORD)) {
+                editable = node;
+            }
+            if (search == null && node.hasFlag(agent.next.device.NodeFlag.CLICKABLE)
+                    && (node.text().contains("搜索")
+                    || node.contentDescription().contains("搜索"))) {
+                search = node;
+            }
+        }
+        if (!typed && editable != null) {
+            typed = true;
+            return Optional.of(new SetTextNodeAction(editable.ref(), query(context)));
+        }
+        if (!submitted) {
+            submitted = true;
+            if (search != null) {
+                return Optional.of(new TapPointAction(new Point(
+                        search.bounds().centerX(), search.bounds().centerY())));
+            }
+            return Optional.of(new TapPointAction(new Point(644, 60)));
+        }
+        return Optional.of(new WaitAction(800));
+    }
+
+    private static String query(LoopContext context) {
+        String goal = context.task().goal();
+        int at = goal.indexOf("搜索");
+        if (at >= 0) {
+            String tail = goal.substring(at + 2);
+            for (String stop : new String[] {"并", "然后", "，", ",", "。"}) {
+                int end = tail.indexOf(stop);
+                if (end > 0) {
+                    tail = tail.substring(0, end);
+                }
+            }
+            String value = tail.trim();
+            if (!value.isEmpty() && value.length() <= 60) {
+                return value;
+            }
+        }
+        return "短袖T恤男款XL";
+    }
+
+    @Override
+    public boolean complete(LoopContext context) {
+        return submitted;
+    }
+}

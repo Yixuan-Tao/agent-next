@@ -244,3 +244,19 @@ text="立即购买"   id=com.jd.lib.productdetail.feature:id/am_
 
 本轮任务仍停在 s2 搜索页（模型 SetText/Tap 未成功），
 因此 **自动化加购仍未 PASS**。人工加购已 PASS（数量 3→4）。
+
+## 2026-10-19 确定性搜索 policy 尝试
+
+新增 `JdSearchPolicy` + `SetTextNodeAction`：
+
+- 在可编辑节点设置 query；
+- 优先点搜索按钮，否则点 720×1280 顶部 `(644,60)`；
+- `complete()` 在提交后为 true。
+
+同时：
+
+- cart 目标预打开排除“加入购物车”；
+- 搜索 policy 排除“打开/首页/启动”子目标。
+
+真机任务仍在 s2 搜索页，模型 SetText/Tap 与 policy 混用，
+没有进入详情/加购；自动化加购仍未 PASS。
