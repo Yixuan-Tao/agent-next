@@ -29,8 +29,7 @@ public final class CalendarStore {
 
     public static EventSpec specFor(String goal, String intent) {
         String text = (goal == null ? "" : goal) + " " + (intent == null ? "" : intent);
-        String title = text.contains("面试") ? "准备 Agent 开发面试"
-                : text.contains("带伞") ? "带伞" : "Agent 日程";
+        String title = extractTitle(text);
         LocalDate day = LocalDate.now();
         DayOfWeek target = null;
         if (text.contains("周五") || text.contains("星期五")) {
@@ -59,17 +58,56 @@ public final class CalendarStore {
         return new EventSpec(title, start, end);
     }
 
-    private static LocalTime parseTime(String text) {
-        Matcher matcher = Pattern.compile(
-                "(?:(上午|下午|晚上|中午)\\s*)?(\\d{1,2})\\s*[:：.]\\s*(\\d{2})")
+    private static String extractTitle(String text) {
+        Matcher matcher = Pattern.compile("提醒我\\s*[「“\"']?([^，。；;\\n」”\"']{1,40})")
                 .matcher(text);
+        if (matcher.find()) {
+            String title = matcher.group(1).trim().replaceAll("[」”\"']$", "").trim();
+            if (!title.isEmpty()) {
+                return title;
+            }
+        }
+        if (text.contains("面试")) {
+            return "面试";
+        }
+        if (text.contains("带伞")) {
+            return "带伞";
+        }
+        return "Agent 日程";
+    }
+
+    private static final Pattern CLOCK_TIME = Pattern.compile(
+            "(?:(上午|下午|晚上|中午|凌晨)\\s*)?(\\d{1,2})\\s*[:：.]\\s*(\\d{1,2})");
+
+    private static final Pattern SPOKEN_TIME = Pattern.compile(
+            "(?:(上午|下午|晚上|中午|凌晨)\\s*)?(\\d{1,2})\\s*[点時时]\\s*(半|\\d{1,2}\\s*分?)?");
+
+    private static LocalTime parseTime(String text) {
+        Matcher matcher = CLOCK_TIME.matcher(text);
+        if (matcher.find()) {
+            return toTime(matcher.group(1), matcher.group(2), matcher.group(3));
+        }
+        matcher = SPOKEN_TIME.matcher(text);
         if (!matcher.find()) {
             return null;
         }
-        String period = matcher.group(1);
-        int hour = Integer.parseInt(matcher.group(2));
-        int minute = Integer.parseInt(matcher.group(3));
-        if (("下午".equals(period) || "晚上".equals(period)) && hour < 12) {
+        String minutes = matcher.group(3);
+        if (minutes == null || minutes.isBlank()) {
+            minutes = "0";
+        } else if (minutes.startsWith("半")) {
+            minutes = "30";
+        } else {
+            minutes = minutes.replace("分", "").trim();
+        }
+        return toTime(matcher.group(1), matcher.group(2), minutes);
+    }
+
+    private static LocalTime toTime(String period, String hourText, String minuteText) {
+        int hour = Integer.parseInt(hourText);
+        int minute = Integer.parseInt(minuteText);
+        if ("凌晨".equals(period) && hour == 12) {
+            hour = 0;
+        } else if (("下午".equals(period) || "晚上".equals(period)) && hour < 12) {
             hour += 12;
         } else if ("中午".equals(period) && hour < 11) {
             hour += 12;

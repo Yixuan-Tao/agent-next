@@ -246,6 +246,10 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     @Override
     public void onState(AgentRuntime.State state, String detail) {
         status.setText(state + " · " + detail);
+        if (state == AgentRuntime.State.FAILED
+                && planView.getText().toString().startsWith("规划中")) {
+            planView.setText("规划失败：" + detail);
+        }
         AgentTaskService.update(this, state + " · " + detail);
         if (state == AgentRuntime.State.DONE || state == AgentRuntime.State.STOPPED
                 || state == AgentRuntime.State.FAILED || state == AgentRuntime.State.NEED_USER

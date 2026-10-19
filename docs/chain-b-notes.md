@@ -460,3 +460,22 @@ MainActivity.append
 - 支持 Gemini（com.google.android.apps.bard）作为可规划 App；
 - CalendarStore 支持“周五下午7.30”解析：下一个周五 19:30，1 小时，标题“准备 Agent 开发面试”；
 - 真机 Pixel 4 XL：AgentNext 可启动；设备锁屏，尚未执行自然语言任务。
+
+## 2026-10-20 Android 13 规划失败
+
+现象：点“生成计划”后一直显示“规划中…”。
+
+Logcat：
+
+```text
+connect-ready failed: UNSUPPORTED/ENVIRONMENT
+```
+
+原因链：
+
+1. `ConnectionChecks` 写死 `SDK_INT == 36`，Android 13 被拒绝；
+2. 已改为 33..36；
+3. 但该机 Shizuku 以 **root uid 0** 运行，`ProtocolPolicy` 只接受 shell uid 2000，仍拒绝；
+4. 需要把 Shizuku 以无线调试 shell 模式启动，而不是 root 模式。
+
+同时修复 UI：FAILED 时 planView 不再停留在“规划中…”。

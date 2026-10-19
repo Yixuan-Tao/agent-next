@@ -12,7 +12,8 @@ final class ConnectionChecks {
     private ConnectionChecks() { }
 
     static ConnectionState inspect() {
-        if (!ClientPolicy.isOwnerAppUid(android.os.Process.myUid()) || Build.VERSION.SDK_INT != 36) {
+        if (!ClientPolicy.isOwnerAppUid(android.os.Process.myUid())
+                || Build.VERSION.SDK_INT < 33 || Build.VERSION.SDK_INT > 36) {
             return state(Status.UNSUPPORTED, Reason.ENVIRONMENT);
         }
         if (!Shizuku.pingBinder()) return state(Status.NEEDS_SHIZUKU, Reason.NO_SHIZUKU);
