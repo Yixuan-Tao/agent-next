@@ -272,3 +272,24 @@ planner prompt 增加：目标含“加入购物车”时必须单独生成加�
 
 但执行仍在 s1 搜索阶段反复 verify false；最后一次 UI 回到“尚未生成计划”，
 没有进入详情/加购。自动化加购仍未 PASS。
+
+## 2026-10-19 搜索 s1/s2 已 PASS，s3 详情仍失败
+
+JdSearchPolicy 改进：
+
+- 无 editable 时先点搜索入口 (360,100)；
+- 提交固定点顶部 (644,60)，避免误点输入框；
+- 记录 typed/submitted/editable/search 状态。
+
+真机：
+
+```text
+verify s1 -> true
+verify s2 -> true
+JD policy candidate s3 intent=打开搜索结果中的第一款商品详情页
+verify s3 -> false ... nodes=96 search.feature
+```
+
+- 搜索输入/提交已经 PASS；
+- s3 打开第一款详情仍未 PASS；
+- 没有进入加购 s4；自动化加购仍未完成。

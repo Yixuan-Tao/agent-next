@@ -6,11 +6,14 @@ import agent.next.brain.loop.LoopPolicy;
 import agent.next.device.Point;
 import agent.next.device.UiNode;
 
+import android.util.Log;
+
 import java.util.Optional;
 
 /** Deterministic JD search: type the query into the editable search box, then submit. */
 public final class JdSearchPolicy implements LoopPolicy {
 
+    private boolean opened;
     private boolean typed;
     private boolean submitted;
 
@@ -29,16 +32,20 @@ public final class JdSearchPolicy implements LoopPolicy {
                 search = node;
             }
         }
+        Log.i("AgentNextRuntime", "JD search policy typed=" + typed + " submitted="
+                + submitted + " editable=" + (editable != null)
+                + " search=" + (search != null));
         if (!typed && editable != null) {
             typed = true;
             return Optional.of(new SetTextNodeAction(editable.ref(), query(context)));
         }
-        if (!submitted) {
+        if (!typed && editable == null && !opened) {
+            opened = true;
+            return Optional.of(new TapPointAction(new Point(360, 100)));
+        }
+        if (!submitted && typed) {
             submitted = true;
-            if (search != null) {
-                return Optional.of(new TapPointAction(new Point(
-                        search.bounds().centerX(), search.bounds().centerY())));
-            }
+            // The clickable "搜索" node is often the input field; the submit button is top-right.
             return Optional.of(new TapPointAction(new Point(644, 60)));
         }
         return Optional.of(new WaitAction(800));
