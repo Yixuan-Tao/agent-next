@@ -52,6 +52,8 @@ public final class LoopTest {
         confirmationIsRequired();
         stopControlStopsBeforeAction();
         rejectedActionRetries();
+        unstableObservationBlocksAction();
+        committedActionUnknownNeedsUser();
         handoffRiskSignal();
         System.out.println("LoopTest: PASS (fast loop, effect, slow-loop signal, risk)");
     }
@@ -78,6 +80,23 @@ public final class LoopTest {
         check(result.status() == LoopResult.Status.DONE, "success loop is done");
         check(result.actions() == 2, "success loop takes two actions");
         check(graph.isDone(), "success graph is done");
+    }
+
+    private static void unstableObservationBlocksAction() {
+        LoopFakeDevice api = new LoopFakeDevice().unstableFirst(100);
+        LoopResult result = loop(api, graph(), task(10), new SuccessPolicy(),
+                new FakeHumanGateway(), new InMemoryWorkingMemory(), new InMemoryEpisodicMemory());
+        check(result.status() == LoopResult.Status.FAILED, "unstable observation fails safely");
+        check(api.taps() == 0, "no action on unstable observation");
+    }
+
+    private static void committedActionUnknownNeedsUser() {
+        LoopFakeDevice api = new LoopFakeDevice().failObserveAfterTap();
+        LoopResult result = loop(api, graph(), task(10), new OneTapPolicy(),
+                new FakeHumanGateway(), new InMemoryWorkingMemory(), new InMemoryEpisodicMemory());
+        check(result.status() == LoopResult.Status.NEED_USER, "unknown side effect needs user");
+        check(result.actions() == 1, "committed action is counted once: " + result.actions());
+        check(api.taps() == 1, "committed action is not replayed");
     }
 
     private static void noEffectEscalates() {
@@ -251,6 +270,20 @@ public final class LoopTest {
                 }
             }
             return Optional.empty();
+        }
+    }
+
+    static final class OneTapPolicy implements LoopPolicy {
+        private boolean done;
+
+        
+        public Optional<LoopAction> next(LoopContext context) {
+            if (done) {
+                return Optional.empty();
+            }
+            done = true;
+            return Optional.of(new TapAction("one", "tap an inert node",
+                    NodeSelector.viewId("inert"), RiskClass.LOW));
         }
     }
 

@@ -36,6 +36,8 @@ public final class LoopFakeDevice implements DeviceApi {
     private final boolean payment;
     private int progress;
     private int taps;
+    private int unstableObservations;
+    private boolean failObserveAfterTap;
 
     public LoopFakeDevice() {
         this(0, false);
@@ -56,6 +58,20 @@ public final class LoopFakeDevice implements DeviceApi {
 
     public int taps() {
         return taps;
+    }
+
+    public int observationCount() {
+        return observationSequence;
+    }
+
+    public LoopFakeDevice unstableFirst(int count) {
+        this.unstableObservations = count;
+        return this;
+    }
+
+    public LoopFakeDevice failObserveAfterTap() {
+        this.failObserveAfterTap = true;
+        return this;
     }
 
     private boolean closed;
@@ -124,6 +140,9 @@ public final class LoopFakeDevice implements DeviceApi {
             public Observation observe(TargetHandle target, ObservationOptions options) throws DeviceException {
                 if (closed) {
                     throw new DeviceException(DeviceException.Code.UNAVAILABLE, "closed");
+                }
+                if (failObserveAfterTap && taps > 0) {
+                    throw new DeviceException(DeviceException.Code.TIMEOUT, "observe lost");
                 }
                 return observation();
             }
@@ -210,7 +229,8 @@ public final class LoopFakeDevice implements DeviceApi {
                             NodeFlag.ENABLED)));
             return new Observation(ObservationStatus.READY,
                     new ObservationRef(id, sequence), "com.example.shop", "fake.Payment",
-                    101, 100, true, Instant.now(), nodes.size(), false, full, nodes);
+                    101, 100, observationSequence > unstableObservations, Instant.now(),
+                nodes.size(), false, full, nodes);
         }
         if (progressSteps > 0) {
             nodes.add(node(id + ":1", 1, 0, 100, "step",
@@ -224,7 +244,8 @@ public final class LoopFakeDevice implements DeviceApi {
                             NodeFlag.ENABLED)));
             return new Observation(ObservationStatus.READY,
                     new ObservationRef(id, sequence), "com.example.shop", "fake.Progress",
-                    101, 100, true, Instant.now(), nodes.size(), false, full, nodes);
+                    101, 100, observationSequence > unstableObservations, Instant.now(),
+                nodes.size(), false, full, nodes);
         }
         if (results) {
             nodes.add(node(id + ":1", 1, 0, 100, "result",
@@ -252,7 +273,8 @@ public final class LoopFakeDevice implements DeviceApi {
                 new ObservationRef(id, sequence),
                 "com.example.shop",
                 results ? "fake.Results" : "fake.Main",
-                101, 100, true, Instant.now(), nodes.size(), false, full, nodes);
+                101, 100, observationSequence > unstableObservations, Instant.now(),
+                nodes.size(), false, full, nodes);
     }
 
     private static UiNode node(String ref, int index, int parent, int windowId,

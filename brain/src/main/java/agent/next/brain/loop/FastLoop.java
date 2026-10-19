@@ -274,9 +274,11 @@ public final class FastLoop {
             try {
                 after = observe();
             } catch (DeviceException failure) {
-                event(TaskEvent.EventType.FAILURE, "post-action observe failed: "
-                        + failure.code(), Map.of("action", action.id()));
-                return LoopResult.failed("post-action observe failed", actions, last);
+                event(TaskEvent.EventType.HANDOFF,
+                        "post-action observe failed; side effect may have committed",
+                        Map.of("action", action.id(), "code", failure.code().name()));
+                return LoopResult.needUser("action executed but result unknown: "
+                        + failure.code(), actions, last);
             }
             last = after;
             Effect effect = effectEvaluator.evaluate(before, ObservationFingerprint.of(after));
@@ -328,7 +330,7 @@ public final class FastLoop {
         Observation last = null;
         for (int attempt = 0; attempt < observationRetries; attempt++) {
             last = api.observations().observe(target, observationOptions);
-            if (last.status() == ObservationStatus.READY) {
+            if (last.status() == ObservationStatus.READY && last.stable()) {
                 return last;
             }
             if (attempt + 1 < observationRetries) {
@@ -336,7 +338,8 @@ public final class FastLoop {
             }
         }
         throw new DeviceException(DeviceException.Code.TIMEOUT,
-                "observation not READY: " + (last == null ? "none" : last.status()));
+                "observation not READY/stable: " + (last == null ? "none"
+                        : last.status() + " stable=" + last.stable()));
     }
 
     private static long elapsedNanos(long started) {
