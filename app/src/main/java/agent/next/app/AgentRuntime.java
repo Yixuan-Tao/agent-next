@@ -203,17 +203,21 @@ public final class AgentRuntime {
                     new java.util.concurrent.CountDownLatch(1);
             handoffLatch = latch;
             handoffApproved = false;
+            Log.i(TAG, "handoff requested: " + reason);
             AgentTaskService.start(context);
             AgentTaskService.handoff(context, reason);
             currentApi.tasks().moveToMain(target);
+            Log.i(TAG, "handoff: target moved to main");
             if (!latch.await(15, java.util.concurrent.TimeUnit.MINUTES)) {
                 return false;
             }
             if (!handoffApproved) {
+                Log.i(TAG, "handoff: not approved");
                 return false;
             }
             currentApi.tasks().moveToPrivate(target, currentDisplay);
             currentApi.observations().observe(target, ObservationOptions.defaults());
+            Log.i(TAG, "handoff: returned to private display");
             return true;
         } catch (Throwable failure) {
             Log.w(TAG, "handoff failed: " + failure);
@@ -226,6 +230,7 @@ public final class AgentRuntime {
     public void resumeHandoff() {
         handoffApproved = true;
         java.util.concurrent.CountDownLatch latch = handoffLatch;
+        Log.i(TAG, "handoff resume requested, waiting=" + (latch != null));
         if (latch != null) {
             latch.countDown();
         }

@@ -74,3 +74,15 @@ release 仍保持 service/Activity 不导出。
 本轮触发后 JD 验证页仍在主屏前台，未观察到明确的
 `moveToPrivate + observe + loop resume` 日志，因此 **resume 仍未验收**；
 不能把 startservice 成功返回当作 handoff 恢复成功。
+
+## 通知修复（2026-10-19）
+
+发现第一次 handoff 通知被 `startForeground` 的普通通知覆盖（actions=1）。
+改为：
+
+- `AgentTaskService.ACTION_HANDOFF` 由 service 自己 `startForeground` handoff 通知；
+- runtime 先启动 service，再发 HANDOFF action，避免 race；
+- 真机 dumpsys 已确认 `actions=2`（“完成，继续/停止”）。
+
+后续用 debug `RESUME_TASK` 触发时仍未看到 runtime 的 `handoff resume requested` 日志，
+resume 仍未验收；不能把 `am startservice` 返回成功当成恢复成功。

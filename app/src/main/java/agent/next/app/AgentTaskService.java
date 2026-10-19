@@ -17,6 +17,8 @@ public final class AgentTaskService extends Service {
     private static final int NOTIFICATION_ID = 41;
     private static final String ACTION_STOP = "agent.next.app.STOP_TASK";
     private static final String ACTION_RESUME = "agent.next.app.RESUME_TASK";
+    private static final String ACTION_HANDOFF = "agent.next.app.HANDOFF_TASK";
+    private static final String EXTRA_REASON = "reason";
 
     public static void start(Context context) {
         Intent intent = new Intent(context, AgentTaskService.class);
@@ -39,10 +41,10 @@ public final class AgentTaskService extends Service {
     }
 
     public static void handoff(Context context, String reason) {
-        NotificationManager manager = context.getSystemService(NotificationManager.class);
-        if (manager != null) {
-            manager.notify(NOTIFICATION_ID, handoffNotification(context, reason));
-        }
+        Intent intent = new Intent(context, AgentTaskService.class)
+                .setAction(ACTION_HANDOFF)
+                .putExtra(EXTRA_REASON, reason);
+        context.startService(intent);
     }
 
     @Override
@@ -64,6 +66,12 @@ public final class AgentTaskService extends Service {
         }
         if (intent != null && ACTION_RESUME.equals(intent.getAction())) {
             AgentRuntime.get(this).resumeHandoff();
+            return START_NOT_STICKY;
+        }
+        if (intent != null && ACTION_HANDOFF.equals(intent.getAction())) {
+            String reason = intent.getStringExtra(EXTRA_REASON);
+            startForeground(NOTIFICATION_ID,
+                    handoffNotification(this, reason == null ? "需要人工接管" : reason));
             return START_NOT_STICKY;
         }
         startForeground(NOTIFICATION_ID, notification(this, "任务准备中"));
