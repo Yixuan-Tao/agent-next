@@ -38,8 +38,13 @@ public final class SearchPolicy implements LoopPolicy {
         String all = "";
         UiNode editable = null;
         UiNode submit = null;
+        UiNode suggestion = null;
         for (UiNode node : context.observation().nodes()) {
             all += node.text() + " " + node.contentDescription();
+            if (suggestion == null && node.bounds().top() > 120
+                    && node.text().contains("短袖")) {
+                suggestion = node;
+            }
             if (editable == null && node.hasFlag(NodeFlag.EDITABLE)
                     && !node.hasFlag(NodeFlag.PASSWORD)) {
                 editable = node;
@@ -72,6 +77,13 @@ public final class SearchPolicy implements LoopPolicy {
         if (!typed && editable == null && !opened && searchEntry != null) {
             opened = true;
             return Optional.of(new TapPointAction(searchEntry));
+        }
+        if (!submitted && typed && suggestion != null) {
+            submitted = true;
+            Log.i("AgentNextRuntime", "JD submit via suggestion text="
+                    + suggestion.text() + " bounds=" + suggestion.bounds());
+            return Optional.of(new TapPointAction(new Point(
+                    suggestion.bounds().centerX(), suggestion.bounds().centerY())));
         }
         if (!submitted && typed) {
             for (UiNode node : context.observation().nodes()) {

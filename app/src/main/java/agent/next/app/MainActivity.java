@@ -309,6 +309,10 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     }
 
     private void append(String line) {
+        if (log == null) {
+            android.util.Log.i("AgentNext", "early log: " + line);
+            return;
+        }
         log.append(line);
         log.append("\n");
     }

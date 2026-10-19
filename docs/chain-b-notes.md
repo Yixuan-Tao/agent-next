@@ -435,3 +435,20 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 
 `DomainSkill.fixedPlan` + `DomainSkills.fixedPlan`，AgentRuntime 在计划确认前替换。
 真机：s1 不再漂移；s2 仍会在搜索提交后停止，s3/s4 未执行。
+
+## 2026-10-20 Android 13 闪退修复
+
+Pixel 4 XL / Android 13 首次启动 AgentNext 闪退：
+
+```text
+MainActivity.append
+ <- MainActivity.addIfInstalled
+ <- MainActivity.loadInstalledApps
+ <- MainActivity.buildUi
+```
+
+原因：`loadInstalledApps()` 在 `log` TextView 初始化之前调用；JD/Quark/Calendar
+都未安装时 `addIfInstalled` 调用 `append`，`log` 为 null。
+
+修复：`append` 在 `log == null` 时只写 Logcat，不崩溃。
+真机验证：Pixel 4 XL 启动成功，主界面显示“没有可用的 App”。
