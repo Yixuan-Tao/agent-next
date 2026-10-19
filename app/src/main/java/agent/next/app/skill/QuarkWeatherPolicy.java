@@ -20,6 +20,7 @@ public final class QuarkWeatherPolicy implements LoopPolicy {
 
     private final String query;
     private int step;
+    private boolean entryTapped;
 
     public QuarkWeatherPolicy(TaskSpec task, Subgoal subgoal) {
         String goal = task.goal() == null ? "" : task.goal();
@@ -34,10 +35,22 @@ public final class QuarkWeatherPolicy implements LoopPolicy {
             return Optional.empty();
         }
         if (step == 0) {
-            step = 1;
             if (findEditable(observation) == null) {
+                if (!entryTapped) {
+                    entryTapped = true;
+                    if (findClickableContaining(observation, "把问题和任务告诉我") != null) {
+                        return Optional.of(new TapAction("quark.entry", "open search entry",
+                                NodeSelector.clickableTextContains("把问题和任务告诉我"),
+                                RiskClass.LOW));
+                    }
+                    if (findClickableContaining(observation, "搜索") != null) {
+                        return Optional.of(new TapAction("quark.entry", "open search entry",
+                                NodeSelector.clickableTextContains("搜索"), RiskClass.LOW));
+                    }
+                }
                 return Optional.of(new WaitAction(900));
             }
+            step = 1;
             return Optional.of(new SetTextAction("quark.query", "type weather query",
                     NodeSelector.editable(), query, RiskClass.REVERSIBLE_SIDE_EFFECT));
         }

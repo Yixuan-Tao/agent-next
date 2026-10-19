@@ -28,35 +28,7 @@ public final class QuarkDomainSkill implements DomainSkill {
     @Override
     public void prepareTarget(String packageName, TargetHandle target, TaskSpec task,
             BlockingDeviceApi api) {
-        try {
-            Observation observation = api.observations().observe(
-                    target, ObservationOptions.defaults());
-            for (UiNode node : observation.nodes()) {
-                if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
-                    return;
-                }
-            }
-            UiNode entry = null;
-            for (UiNode node : observation.nodes()) {
-                if (node.hasFlag(NodeFlag.CLICKABLE)
-                        && (node.text().contains("把问题和任务告诉我")
-                        || node.text().contains("搜索"))) {
-                    entry = node;
-                    break;
-                }
-            }
-            if (entry == null) {
-                Log.i(TAG, "Quark entry not found");
-                return;
-            }
-            api.input().tap(target, observation,
-                    new Point(entry.bounds().centerX(), entry.bounds().centerY()));
-            Thread.sleep(800L);
-            api.observations().observe(target, ObservationOptions.defaults());
-            Log.i(TAG, "Quark search entry opened");
-        } catch (Throwable failure) {
-            Log.w(TAG, "Quark entry prelude failed: " + failure);
-        }
+        // Page preparation is a semantic action inside QuarkWeatherPolicy; no direct input here.
     }
 
     @Override
