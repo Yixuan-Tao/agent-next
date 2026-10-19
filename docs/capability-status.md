@@ -1,0 +1,46 @@
+# Capability status
+
+Updated: 2026-10-20  
+Scope: internal Beta, pure-GUI execution is the only accepted product path.  
+Source of truth for current status; historical docs under `docs/` record earlier prototypes and
+direct-write experiments.
+
+Status legend:
+
+- **implemented** — code exists and is wired.
+- **host pass** — deterministic host tests pass.
+- **device pass** — verified on a real device for the stated scope.
+- **partial** — exists but does not meet the pure-GUI or reliability bar.
+- **uncovered** — not tested on device.
+- **retired** — kept for history; must not be used by product runtime.
+
+| Area | Status | Evidence / gap |
+|---|---|---|
+| Shizuku connection, private display, target, observation, frame | implemented / host pass / device pass (Android 16) | `tools/test-service.sh`, `test-shizuku-adapter.sh`, `test-capability-adapter.sh`; Android 13 phone not connected |
+| Directed tap / setText / back / swipe, task move | implemented / host pass / device pass (Android 16) | capability adapter smoke; Android 13 pending |
+| Preview mirror + user touch takeover | implemented / host pass / device pass (Android 16) | preview/touch smoke docs; Android 13 pending |
+| Brain TaskGraph / FastLoop / SlowLoop / SessionRunner | implemented / host pass / legacy device smoke | `test-brain.sh`; not yet a pure-GUI acceptance |
+| `ActionProposal → GroundedAction → ActionExecutor` | **uncovered** | M1; current policies still emit `LoopAction` directly |
+| `TaskContract` / structured parameters / `PlanValidator` | **uncovered** | M2; current planner passes free text and `fixedPlan` can replace plans |
+| Semantic progress / bounded recovery / budgets | partial | M3; 3-action no-progress and 6-attempt session cap still present |
+| Pure-GUI skills (search, fill, scroll, save draft, reopen verify) | **uncovered** | M4; not implemented |
+| Domain direct writes (CalendarContract, MediaStore, AlarmClock, calculator visual) | **retired for product** | still present in app runtime as legacy; must be removed from product registration in M4; prior PASS records are historical, not pure-GUI acceptance |
+| Debug smoke entry (`ShellActivity`, soak intent) | implemented / debug-only | ShellActivity moved to `app/src/debug`; release manifest checked by `tools/verify-host.sh`; release no longer contains it |
+| Release APK signing / manifest / checks | implemented / host pass | `tools/verify-release.sh`; release checksum and signing verified locally |
+| Android 13 (API 33) device acceptance | partial / uncovered | code compatibility work exists; phone not connected |
+| Device evaluation suite (24 dev + 12 held-out) | **uncovered** | M6; not built |
+| Fault injection / 20-minute soak / two-device report | partial / historical | prior smoke only; not the PLAN gate |
+
+## How to run the current host gate
+
+```sh
+JAVA_HOME=/path/to/jdk21 \
+GRADLE_USER_HOME=/path/to/gradle-cache \
+sh tools/verify-host.sh
+```
+
+The script runs service, device-api, brain, capability-adapter and Shizuku host tests, builds the
+debug APK, and checks that `ShellActivity` is debug-only and release entry points stay unexported.
+It also runs `tools/test-known-defects.sh`, which must report the five M0 reproductions as
+`REPRODUCED` until M2/M3 fix them; see [known-defects.md](known-defects.md). It is not a substitute
+for the device suites in M6.

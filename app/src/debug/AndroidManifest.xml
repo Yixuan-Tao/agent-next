@@ -4,6 +4,9 @@
     <application>
         <!-- Debug-only direct entry for adb preview/touch smoke. Release stays unexported. -->
         <activity
+            android:name=".ShellActivity"
+            android:exported="true" />
+        <activity
             android:name=".PreviewActivity"
             android:exported="true"
             tools:replace="android:exported" />

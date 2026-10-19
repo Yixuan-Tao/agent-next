@@ -3,9 +3,14 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 APK=${1:-"$ROOT/dist/agent-next-beta-0.1.apk"}
-SDK=${ANDROID_SDK_ROOT:-/Users/tommy/Documents/ChatGPT/agent-phone/work/android-sdk}
+SDK=${ANDROID_SDK_ROOT:-}
+if [ -z "$SDK" ] && [ -f "$ROOT/local.properties" ]; then
+  SDK=$(sed -n 's/^sdk\.dir=//p' "$ROOT/local.properties" | head -1)
+fi
+[ -n "$SDK" ] || { echo "ANDROID_SDK_ROOT or local.properties sdk.dir is required" >&2; exit 1; }
 BUILD_TOOLS="$SDK/build-tools/36.0.0"
-JAVA_HOME=${JAVA_HOME:-/Users/tommy/Documents/Codex/2026-10-15/xia/work/tools/temurin21/Contents/Home}
+JAVA_HOME=${JAVA_HOME:-${QUAL_JAVA_HOME:-}}
+[ -n "$JAVA_HOME" ] || { echo "JAVA_HOME or QUAL_JAVA_HOME is required" >&2; exit 1; }
 PATH="$JAVA_HOME/bin:$PATH"
 
 [ -f "$APK" ] || { echo "missing APK: $APK" >&2; exit 1; }

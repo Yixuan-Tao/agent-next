@@ -32,7 +32,15 @@ import java.util.List;
 /** Tiny scripted device for the fast-loop host tests. */
 public final class LoopFakeDevice implements DeviceApi {
 
+    private final int progressSteps;
+    private int progress;
+
     public LoopFakeDevice() {
+        this(0);
+    }
+
+    public LoopFakeDevice(int progressSteps) {
+        this.progressSteps = progressSteps;
     }
 
     private boolean closed;
@@ -118,6 +126,10 @@ public final class LoopFakeDevice implements DeviceApi {
             @Override
             public InputReceipt tap(TargetHandle target, Observation observation, Point point)
                     throws DeviceException {
+                if (progressSteps > 0) {
+                    progress++;
+                    return new InputReceipt(InputStatus.INJECTED, true, false, null, Instant.now());
+                }
                 if (!results && point.y() >= 200 && point.y() < 260) {
                     results = true;
                 }
@@ -174,6 +186,20 @@ public final class LoopFakeDevice implements DeviceApi {
         nodes.add(node(id + ":0", 0, -1, 100, "root",
                 "android.widget.FrameLayout", "", "",
                 full, EnumSet.of(NodeFlag.VISIBLE_TO_USER, NodeFlag.ENABLED)));
+        if (progressSteps > 0) {
+            nodes.add(node(id + ":1", 1, 0, 100, "step",
+                    "android.widget.TextView", "step " + progress, "",
+                    new NodeBounds(20, 100, 700, 160),
+                    EnumSet.of(NodeFlag.VISIBLE_TO_USER, NodeFlag.ENABLED)));
+            nodes.add(node(id + ":2", 2, 0, 100, "next",
+                    "android.widget.Button", "next", "",
+                    new NodeBounds(20, 200, 700, 260),
+                    EnumSet.of(NodeFlag.CLICKABLE, NodeFlag.VISIBLE_TO_USER,
+                            NodeFlag.ENABLED)));
+            return new Observation(ObservationStatus.READY,
+                    new ObservationRef(id, sequence), "com.example.shop", "fake.Progress",
+                    101, 100, true, Instant.now(), nodes.size(), false, full, nodes);
+        }
         if (results) {
             nodes.add(node(id + ":1", 1, 0, 100, "result",
                     "android.widget.TextView", "Item added", "",

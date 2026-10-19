@@ -18,7 +18,9 @@ public final class Bundle implements Parcelable {
     public void putString(String key, String value) { values.put(key, value); }
     public int getInt(String key, int fallback) { Object value = values.get(key); return value instanceof Integer ? (Integer) value : fallback; }
     public boolean getBoolean(String key) { return Boolean.TRUE.equals(values.get(key)); }
+    public boolean getBoolean(String key, boolean fallback) { Object value = values.get(key); return value instanceof Boolean ? (Boolean) value : fallback; }
     public String getString(String key) { Object value = values.get(key); return value instanceof String ? (String) value : null; }
+    public String getString(String key, String fallback) { Object value = values.get(key); return value instanceof String ? (String) value : fallback; }
     public boolean containsKey(String key) { return values.containsKey(key); }
     public Set<String> keySet() { return values.keySet(); }
     public Object get(String key) { return values.get(key); }
