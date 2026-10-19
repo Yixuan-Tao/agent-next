@@ -26,7 +26,7 @@ echo "== known defects (must reproduce until M2/M3) =="
 sh "$ROOT/tools/test-known-defects.sh"
 
 echo "== build: debug + release manifest =="
-( cd "$ROOT" && ./gradlew --offline :app:assembleDebug :app:assembleRelease :app:processReleaseManifest )
+( cd "$ROOT" && ./gradlew --no-daemon --offline :app:assembleDebug :app:assembleRelease :app:processReleaseManifest )
 
 RELEASE_MANIFEST="$ROOT/app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml"
 DEBUG_MANIFEST="$ROOT/app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml"

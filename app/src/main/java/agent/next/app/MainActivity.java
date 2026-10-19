@@ -264,7 +264,8 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
             planView.setText("规划失败：" + detail);
         }
         AgentTaskService.update(this, state + " · " + detail);
-        if (state == AgentRuntime.State.DONE || state == AgentRuntime.State.STOPPED
+        if (state == AgentRuntime.State.DONE || state == AgentRuntime.State.PARTIAL
+                || state == AgentRuntime.State.STOPPED
                 || state == AgentRuntime.State.FAILED || state == AgentRuntime.State.NEED_USER
                 || state == AgentRuntime.State.AWAITING_PLAN) {
             AgentTaskService.stop(this);
@@ -273,6 +274,7 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         stopButton.setEnabled(state == AgentRuntime.State.RUNNING);
         planButton.setEnabled(state == AgentRuntime.State.IDLE
                 || state == AgentRuntime.State.DONE
+                || state == AgentRuntime.State.PARTIAL
                 || state == AgentRuntime.State.FAILED
                 || state == AgentRuntime.State.STOPPED
                 || state == AgentRuntime.State.NEED_USER

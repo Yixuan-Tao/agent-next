@@ -10,6 +10,7 @@ public record SessionResult(Status status, String detail, int actions, int attem
 
     public enum Status {
         DONE,
+        PARTIAL,
         NEED_USER,
         SLOW_LOOP,
         BUDGET_EXHAUSTED,
@@ -28,6 +29,11 @@ public record SessionResult(Status status, String detail, int actions, int attem
     public static SessionResult done(int actions, int attempts) {
         return new SessionResult(Status.DONE, "all subgoals verified", actions, attempts,
                 "", null);
+    }
+
+    public static SessionResult partial(String detail, int actions, int attempts,
+            String subgoalId, LoopResult last) {
+        return new SessionResult(Status.PARTIAL, detail, actions, attempts, subgoalId, last);
     }
 
     public static SessionResult needUser(String detail, int actions, int attempts,

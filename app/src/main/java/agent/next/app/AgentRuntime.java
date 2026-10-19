@@ -34,6 +34,8 @@ import agent.next.brain.contract.PlanValidator;
 import agent.next.brain.contract.TaskClarification;
 import agent.next.brain.contract.TaskContract;
 import agent.next.brain.contract.TaskContractFactory;
+import agent.next.brain.contract.TaskReport;
+import agent.next.brain.contract.TaskReportBuilder;
 import agent.next.brain.plan.PlanningRequest;
 import agent.next.brain.plan.PlanningResult;
 import agent.next.brain.plan.TaskPlan;
@@ -81,6 +83,7 @@ public final class AgentRuntime {
         RUNNING,
         STOPPING,
         DONE,
+        PARTIAL,
         NEED_USER,
         STOPPED,
         FAILED
@@ -107,6 +110,7 @@ public final class AgentRuntime {
     private BlockingDeviceApi api;
     private DisplayHandle display;
     private TaskPlan plan;
+    private TaskContract contract;
     private ChatCompletionClient client;
     private DeepSeekSkillModel skillModel;
     private DeepSeekVisualModel visualModel;
@@ -423,15 +427,17 @@ public final class AgentRuntime {
             }
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
             PlanningResult raw = planner.plan(request);
+            TaskContract validatedContract = null;
             if (!raw.needsClarification() && raw.plan() != null) {
-                TaskContract contract = TaskContractFactory.from(request, raw.plan());
+                validatedContract = TaskContractFactory.from(request, raw.plan());
                 PlanValidator.Result validation = new PlanValidator().validate(
-                        contract, raw.plan(), request.allowedVerifiers());
+                        validatedContract, raw.plan(), request.allowedVerifiers());
                 if (!validation.valid()) {
                     fail("计划校验失败: " + validation.errors());
                     return;
                 }
             }
+            contract = validatedContract;
             PlanningResult result = raw;
             synchronized (this) {
                 if (result.needsClarification()) {
@@ -573,19 +579,29 @@ public final class AgentRuntime {
                     ObservationOptions.defaults(), 20, 6,
                     (task, subgoal, target, observation) -> extractStage(task, target, observation));
             SessionResult result = runner.run();
+            if (contract != null) {
+                TaskReport report = TaskReportBuilder.from(contract, confirmed, result);
+                if (result.status() == SessionResult.Status.DONE && !report.done()) {
+                    result = SessionResult.partial(
+                            "task report: " + report.status() + " outcomes=" + report.outcomes(),
+                            result.actions(), result.attempts(), "", null);
+                }
+            }
+            SessionResult finalResult = result;
             synchronized (this) {
-                state = switch (result.status()) {
+                state = switch (finalResult.status()) {
                     case DONE -> State.DONE;
+                    case PARTIAL -> State.PARTIAL;
                     case NEED_USER -> State.NEED_USER;
                     case STOPPED -> State.STOPPED;
                     default -> State.FAILED;
                 };
-                detail = result.status().name() + " · " + result.detail();
+                detail = finalResult.status().name() + " · " + finalResult.detail();
             }
             postState(state, detail);
             Listener current = listener;
             if (current != null) {
-                main.post(() -> current.onSessionResult(result));
+                main.post(() -> current.onSessionResult(finalResult));
             }
         } catch (Throwable failure) {
             Log.e(TAG, "session failed", failure);
