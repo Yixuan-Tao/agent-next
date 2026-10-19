@@ -100,3 +100,28 @@ JAVA_HOME=/path/to/jdk21 ANDROID_SDK_ROOT=/path/to/android-sdk \
 
 本次输出：`RELEASE PASS`，SHA-256
 `c3f6884b1bd09504d2c6a82f0e8dec6032f3ec0d18971467c49e0083138a9293`。
+
+## 2026-10-19 第二次安装尝试
+
+重试 release 安装仍失败，随后 debug 也无法重装：
+
+```text
+adb install app-release.apk -> INSTALL_FAILED_USER_RESTRICTED
+adb install app-debug.apk   -> INSTALL_FAILED_USER_RESTRICTED
+```
+
+已确认：
+
+```text
+adb_enabled=1
+adb_install_need_confirm=0
+verifier_verify_adb_installs=0
+install_non_market_apps=1
+```
+
+开发者选项“USB安装”开关为开启；“USB安装管理”列表为空。
+通过 Package Installer / `pm install` / MIUI `InstallStart` 均被安全中心拦截。
+
+当前：**app 未安装**；APK 已放在 `/sdcard/Download/agent-next-debug.apk`。
+需要人工在 MIUI 安装确认中允许安装（或关闭“USB安装”再打开并重新授权 USB 调试），
+之后才能继续真机验收。
