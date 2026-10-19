@@ -544,15 +544,7 @@ public final class AgentRuntime {
             };
             verifiers.register("visual", routed);
             verifiers.register("calendar.event", routed);
-            JdCartVerifier cartVerifier = new JdCartVerifier();
-            verifiers.register("jd.cart", (task, subgoal, target, observation) -> {
-                SubgoalVerifier.Verification cartResult = cartVerifier.verify(
-                        task, subgoal, target, observation);
-                Log.i(TAG, "verify cart " + subgoal.id() + " -> "
-                        + cartResult.satisfied() + " (" + cartResult.evidence()
-                        + ") act=" + observation.activityName());
-                return cartResult;
-            });
+            verifiers.register("jd.cart", routed);
             SessionRunner runner = new SessionRunner(api, confirmed, binder, policies,
                     slow -> new SlowLoopDecision.Stop("v1 stops on slow loop"),
                     verifiers, new DefaultRiskGate(), human, runControl, memory, episodic,

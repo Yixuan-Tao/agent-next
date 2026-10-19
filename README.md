@@ -68,10 +68,11 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - Product UI/plan review smoke：真实模型四段计划、确认按钮、SessionRunner 接线 PASS；s2 加入 bounded scroll fallback 后 verifier 2/2 通过，DONE actions=1 attempts=2；详见 [docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；
 - Chain A PASS：Quark 天气结果 + 降雨信息视觉 verifier 2/2，calendar domain skill 创建“带伞”明天 09:00 提醒，DONE actions=3 attempts=6；详见 [docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；
 - 20min foreground soak PASS：13:05 start → 13:10/13:15 前台服务存活 → 13:25 定时停止，进程未崩溃；不是完整 agent 并发；详见 [docs/foreground-soak.md](docs/foreground-soak.md)；
-- Chain B cart prelude 已加入但未跑通；JD cart 手动可读（1 商品，数量 3），不结算；详见 [docs/chain-b-notes.md](docs/chain-b-notes.md)；
+- Chain B cart PASS：JD 首页 → 购物车，视觉 verifier s2/s3 true，DONE actions=1 attempts=3，未结算；
+- JD cart 手动证据：1 商品，数量 3，不结算；详见 [docs/chain-b-notes.md](docs/chain-b-notes.md)；
 - Release end-to-end PASS：文件管理器安装/非 debuggable/config 导入/Shizuku/JD 首页 DONE actions=2 attempts=4；Android 13 待验；
 - Release verification：`tools/verify-release.sh` PASS（签名/SDK/launcher/exported/checksum）；
-- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `0f283b6fb9a5eb607ae1d06bb877fd910efc205d6fe712ac7d9b86ee2376894b`；隐私说明与 release notes 草案已写；
+- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `d8f94ac71e6e0ba098e5079656b8c58005c3bd51e549b49bf7c76624802810b9`；隐私说明与 release notes 草案已写；
 - Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
 - Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
 - Human handoff stop：等待期间 STOP_TASK → not approved、service 停止、不 DONE；

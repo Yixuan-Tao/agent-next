@@ -167,3 +167,24 @@ verify cart s2 -> false (cart view=false title=false items=false footer=false)
 - cart 导航仍未 PASS。
 
 下一步必须在 Preview 中观察 720x1280 的实际 cart tab 命中位置，或使用可点击节点而不是固定坐标。
+
+## 2026-10-19 JD cart 导航 PASS（release）
+
+真机日志：
+
+```text
+verify s1 -> true
+JD cart policy selected: s2 verifier=jd.cart
+verify s2 -> true (matched=2, missing=0)
+JD cart policy selected: s3 verifier=jd.cart
+verify s3 -> true (matched=3, missing=0)
+result: DONE · all subgoals verified actions=1 attempts=3
+```
+
+- 从 JD 首页通过 prelude 点击底部购物车 tab；
+- s2/s3 由视觉 verifier 识别购物车页面/商品/数量/价格；
+- 任务 DONE；
+- 没有结算/支付动作；
+- 购物车中商品：影视飓风“凉伴”Air 短袖，星夜黑 XL，数量 3，合计 ¥165.80。
+
+结论：**JD 首页 → 购物车导航 PASS**（不包含商品详情/加购）。
