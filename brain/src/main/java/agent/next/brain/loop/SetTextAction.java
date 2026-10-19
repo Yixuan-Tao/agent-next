@@ -14,7 +14,7 @@ import java.util.Objects;
 
 /** Replace text in the first editable, non-password node matching a selector. */
 public record SetTextAction(String id, String description, NodeSelector selector,
-        String text, RiskClass risk) implements LoopAction {
+        String text, RiskClass risk) implements LoopAction, ProposalCarrier {
 
     public SetTextAction {
         id = requireText(id, "id");
@@ -26,6 +26,11 @@ public record SetTextAction(String id, String description, NodeSelector selector
             throw new IllegalArgumentException("text must be 1..120 characters without newlines");
         }
         risk = Objects.requireNonNull(risk, "risk");
+    }
+
+    @Override
+    public agent.next.brain.action.ActionProposal proposal() {
+        return new agent.next.brain.action.ActionProposal.SetText(id, description, selector, text, risk);
     }
 
     @Override

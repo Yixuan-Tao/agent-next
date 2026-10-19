@@ -11,12 +11,18 @@ import agent.next.device.TargetHandle;
 import java.util.Objects;
 
 /** Back navigation bound to the current observation. */
-public record BackAction(String id, String description, RiskClass risk) implements LoopAction {
+public record BackAction(String id, String description, RiskClass risk)
+        implements LoopAction, ProposalCarrier {
 
     public BackAction {
         id = requireText(id, "id");
         description = requireText(description, "description");
         risk = Objects.requireNonNull(risk, "risk");
+    }
+
+    @Override
+    public agent.next.brain.action.ActionProposal proposal() {
+        return new agent.next.brain.action.ActionProposal.Back(id, description, risk);
     }
 
     @Override

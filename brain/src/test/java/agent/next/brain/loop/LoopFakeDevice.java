@@ -242,6 +242,11 @@ public final class LoopFakeDevice implements DeviceApi {
                     new NodeBounds(20, 200, 700, 260),
                     EnumSet.of(NodeFlag.CLICKABLE, NodeFlag.VISIBLE_TO_USER,
                             NodeFlag.ENABLED)));
+            nodes.add(node(id + ":3", 3, 0, 100, "inert",
+                    "android.widget.Button", "inert", "",
+                    new NodeBounds(20, 400, 700, 460),
+                    EnumSet.of(NodeFlag.CLICKABLE, NodeFlag.VISIBLE_TO_USER,
+                            NodeFlag.ENABLED)));
         }
         return new Observation(ObservationStatus.READY,
                 new ObservationRef(id, sequence),

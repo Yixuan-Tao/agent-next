@@ -18,6 +18,7 @@ import agent.next.brain.TaskEvent;
 import agent.next.brain.TaskGraph;
 import agent.next.brain.TaskSpec;
 import agent.next.brain.WorkingMemory;
+import agent.next.brain.action.ActionExecutor;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceException;
 import agent.next.device.InputReceipt;
@@ -62,6 +63,7 @@ public final class FastLoop {
     private final EffectEvaluator effectEvaluator = new EffectEvaluator();
     private final int observationRetries;
     private final LoopControl control;
+    private final ActionExecutor actionExecutor;
 
     public FastLoop(DeviceApi api, TargetHandle target, TaskSpec task, TaskGraph graph,
             LoopPolicy policy, RiskGate riskGate, HumanGateway humanGateway,
@@ -97,6 +99,7 @@ public final class FastLoop {
         }
         this.observationRetries = observationRetries;
         this.control = Objects.requireNonNull(control, "control");
+        this.actionExecutor = new ActionExecutor(api, riskGate, humanGateway, control);
     }
 
     public LoopResult run() {
@@ -168,29 +171,35 @@ public final class FastLoop {
             }
             LoopAction action = next.get();
 
-            RiskDecision decision = riskGate.evaluate(
-                    action.descriptor(target.packageName()), task);
-            if (decision instanceof RiskDecision.Handoff handoff) {
-                event(TaskEvent.EventType.HANDOFF, handoff.reason(), Map.of("action", action.id()));
-                return LoopResult.needUser(handoff.reason(), actions, last);
-            }
-            if (decision instanceof RiskDecision.Deny deny) {
-                event(TaskEvent.EventType.FAILURE, deny.reason(), Map.of("action", action.id()));
-                return LoopResult.slowLoop(SlowLoopReason.RISK_GATE, deny.reason(), actions, last);
-            }
-            if (decision instanceof RiskDecision.Confirm confirm) {
-                try {
-                    ConfirmationToken token = humanGateway.confirm(confirm.request());
-                    token.requireValidFor(confirm.request(), Instant.now());
-                } catch (HumanUnavailableException unavailable) {
-                    return LoopResult.needUser("confirmation unavailable: "
-                            + unavailable.getMessage(), actions, last);
-                } catch (ConfirmationRejectedException rejected) {
-                    return LoopResult.needUser("confirmation rejected: "
-                            + rejected.getMessage(), actions, last);
+            boolean governed = action instanceof ProposalCarrier;
+            if (!governed) {
+                RiskDecision decision = riskGate.evaluate(
+                        action.descriptor(target.packageName()), task);
+                if (decision instanceof RiskDecision.Handoff handoff) {
+                    event(TaskEvent.EventType.HANDOFF, handoff.reason(),
+                            Map.of("action", action.id()));
+                    return LoopResult.needUser(handoff.reason(), actions, last);
                 }
-                event(TaskEvent.EventType.CONFIRMATION, "confirmed: " + action.id(),
-                        Map.of("action", action.id()));
+                if (decision instanceof RiskDecision.Deny deny) {
+                    event(TaskEvent.EventType.FAILURE, deny.reason(),
+                            Map.of("action", action.id()));
+                    return LoopResult.slowLoop(SlowLoopReason.RISK_GATE, deny.reason(),
+                            actions, last);
+                }
+                if (decision instanceof RiskDecision.Confirm confirm) {
+                    try {
+                        ConfirmationToken token = humanGateway.confirm(confirm.request());
+                        token.requireValidFor(confirm.request(), Instant.now());
+                    } catch (HumanUnavailableException unavailable) {
+                        return LoopResult.needUser("confirmation unavailable: "
+                                + unavailable.getMessage(), actions, last);
+                    } catch (ConfirmationRejectedException rejected) {
+                        return LoopResult.needUser("confirmation rejected: "
+                                + rejected.getMessage(), actions, last);
+                    }
+                    event(TaskEvent.EventType.CONFIRMATION, "confirmed: " + action.id(),
+                            Map.of("action", action.id()));
+                }
             }
 
             try {
@@ -202,12 +211,36 @@ public final class FastLoop {
             StateFingerprint before = ObservationFingerprint.of(observation);
             InputReceipt receipt;
             try {
-                receipt = action.execute(api, target, observation);
+                if (governed) {
+                    ActionExecutor.Execution execution = actionExecutor.execute(
+                            task, target, ((ProposalCarrier) action).proposal());
+                    receipt = execution.receipt();
+                    if (execution.confirmed()) {
+                        event(TaskEvent.EventType.CONFIRMATION, "confirmed: " + action.id(),
+                                Map.of("action", action.id()));
+                    }
+                } else {
+                    receipt = action.execute(api, target, observation);
+                }
+            } catch (HumanHandoffRequiredException handoff) {
+                event(TaskEvent.EventType.HANDOFF, handoff.getMessage(),
+                        Map.of("action", action.id()));
+                return LoopResult.needUser(handoff.getMessage(), actions, last);
+            } catch (ConfirmationRejectedException rejected) {
+                return LoopResult.needUser("confirmation rejected: "
+                        + rejected.getMessage(), actions, last);
+            } catch (HumanUnavailableException unavailable) {
+                return LoopResult.needUser("confirmation unavailable: "
+                        + unavailable.getMessage(), actions, last);
+            } catch (LoopStoppedException stopped) {
+                event(TaskEvent.EventType.STOPPED, stopped.getMessage(), Map.of());
+                return LoopResult.stopped(stopped.getMessage(), actions, last);
             } catch (DeviceException failure) {
                 event(TaskEvent.EventType.FAILURE,
                         "action failed: " + failure.code() + " " + failure.getMessage(),
                         Map.of("action", action.id()));
-                if (failure.code() == DeviceException.Code.REJECTED
+                if ((failure.code() == DeviceException.Code.REJECTED
+                        || failure.code() == DeviceException.Code.STALE)
                         && rejectedActions++ < 3) {
                     continue;
                 }

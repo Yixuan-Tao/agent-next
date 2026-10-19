@@ -259,7 +259,7 @@ public final class LoopTest {
         @Override
         public Optional<LoopAction> next(LoopContext context) {
             return Optional.of(new TapAction("noop", "tap an inert node",
-                    NodeSelector.viewId("root"), RiskClass.LOW));
+                    NodeSelector.viewId("inert"), RiskClass.LOW));
         }
     }
 

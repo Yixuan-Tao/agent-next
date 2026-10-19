@@ -17,7 +17,7 @@ import java.util.Objects;
  * model-supplied coordinates. Used only as a bounded observe/read fallback.
  */
 public record ScrollAction(String id, String description, Direction direction, RiskClass risk)
-        implements LoopAction {
+        implements LoopAction, ProposalCarrier {
 
     public enum Direction {
         DOWN,
@@ -33,6 +33,15 @@ public record ScrollAction(String id, String description, Direction direction, R
         }
         direction = Objects.requireNonNull(direction, "direction");
         risk = Objects.requireNonNull(risk, "risk");
+    }
+
+    @Override
+    public agent.next.brain.action.ActionProposal proposal() {
+        agent.next.brain.action.ActionProposal.Direction mapped =
+                direction == Direction.DOWN
+                        ? agent.next.brain.action.ActionProposal.Direction.DOWN
+                        : agent.next.brain.action.ActionProposal.Direction.UP;
+        return new agent.next.brain.action.ActionProposal.Swipe(id, description, mapped, 500, risk);
     }
 
     @Override

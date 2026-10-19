@@ -14,13 +14,18 @@ import java.util.Objects;
 
 /** Tap the center of the first node matching a selector. */
 public record TapAction(String id, String description, NodeSelector selector, RiskClass risk)
-        implements LoopAction {
+        implements LoopAction, ProposalCarrier {
 
     public TapAction {
         id = requireText(id, "id");
         description = requireText(description, "description");
         selector = Objects.requireNonNull(selector, "selector");
         risk = Objects.requireNonNull(risk, "risk");
+    }
+
+    @Override
+    public agent.next.brain.action.ActionProposal proposal() {
+        return new agent.next.brain.action.ActionProposal.Tap(id, description, selector, risk);
     }
 
     @Override
