@@ -357,3 +357,26 @@ target=京东搜索页右上角的搜索提交按钮
 
 说明视觉定位可用，但 s2 verifier 仍 false，任务 STOPPED；
 自动化加购仍未 PASS。无硬编码坐标。
+
+## 2026-10-19 互联网资料与 deeplink 实测
+
+参考 JD 官方文档：
+- JSSDK `toSku(skuId)` 跳商品详情
+  https://opendoc.jd.com/jd-jssdk/v4/jm-redirect.html
+- 第三方示例给出 openApp 协议：
+  `openApp.jdMobile://virtual?params={"category":"jump","des":"productDetail","skuId":"..."}`
+
+实测（SKU 10215092347246）：
+
+```text
+am start -d openApp.jdMobile://virtual?params=...
+topResumedActivity=com.jingdong.app.mall/.bundle.jdrhsdk.JDRiskHandleActivity
+```
+
+直接 deep link 进入了 **京东验证**，不是商品详情。
+说明：JD 对直接 deeplink/自动化访问触发风控；不能绕过，也不能保证全自动加购。
+JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址），所以视觉/控件
+都无法稳定拿到首卡。
+
+结论：JD 自动加购的可靠方案是 **人工完成验证 + 人工/半自动加购**；
+纯自动路径在风控存在时不可保证。

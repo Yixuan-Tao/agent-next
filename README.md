@@ -69,6 +69,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - Chain A PASS：Quark 天气结果 + 降雨信息视觉 verifier 2/2，calendar domain skill 创建“带伞”明天 09:00 提醒，DONE actions=3 attempts=6；详见 [docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；
 - 20min foreground soak PASS：13:05 start → 13:10/13:15 前台服务存活 → 13:25 定时停止，进程未崩溃；不是完整 agent 并发；详见 [docs/foreground-soak.md](docs/foreground-soak.md)；
 - Chain B cart PASS：JD 首页 → 购物车，视觉 verifier s2/s3 true，DONE actions=1 attempts=3，未结算；
+- JD 去硬编码坐标 + 视觉定位已实现；JD deeplink 触发验证，纯自动加购不可保证；
 - JD 自动化已去除硬编码坐标，改用控件+视觉定位；s2 搜索提交仍失败；
 - JD result-card policy 已加入；s2 被首页广告浮层阻塞，自动化加购未 PASS；
 - JD 规划器已强制独立加购子目标（4 subgoals），执行仍停在搜索；
@@ -78,7 +79,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - JD 详情/加购人工 PASS：验证后详情 136 nodes，加入购物车后数量 3→4，未结算；agent 自动化加购待做；详见 [docs/chain-b-notes.md](docs/chain-b-notes.md)；
 - Release end-to-end PASS：文件管理器安装/非 debuggable/config 导入/Shizuku/JD 首页 DONE actions=2 attempts=4；Android 13 待验；
 - Release verification：`tools/verify-release.sh` PASS（签名/SDK/launcher/exported/checksum）；
-- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `e94863daa2c3fcd3373ed5026b16d768d629d6d032c9e7c2085f981032024e94`；隐私说明与 release notes 草案已写；
+- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `3d2612ec54a7b0636f81bd44e36fbc991bb11d70941fe5233a7fe40c14f35d63`；隐私说明与 release notes 草案已写；
 - Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
 - Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
 - Human handoff stop：等待期间 STOP_TASK → not approved、service 停止、不 DONE；

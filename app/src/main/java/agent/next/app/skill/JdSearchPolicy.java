@@ -41,8 +41,8 @@ public final class JdSearchPolicy implements LoopPolicy {
                 editable = node;
             }
             if (node.hasFlag(NodeFlag.CLICKABLE)
-                    && (node.text().contains("搜索")
-                    || node.contentDescription().contains("搜索"))
+                    && (node.text().trim().equals("搜索")
+                    || node.contentDescription().trim().equals("搜索"))
                     && node.bounds().top() < 220) {
                 if (submit == null || node.bounds().right() > submit.bounds().right()) {
                     submit = node;
