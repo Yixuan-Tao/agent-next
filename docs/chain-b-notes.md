@@ -415,3 +415,11 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 - JD verifier 对详情页增加 `productdetail` view id 证据；
 - AddToCartPolicy 增加视觉“加入购物车/确定”fallback，禁止立即购买/结算；
 - 最近一次加购计划在 s2 停止，s3/s4 未执行；自动加购仍未 PASS。
+
+## s1/s2 深挖
+
+- `SearchPolicy` 发现一个 bug：`submit` 控件已找到但未使用，始终走 VisualTapAction；
+- 已改为优先 TapPointAction(submit node)，搜索按钮 bounds=619..691,64..106；
+- 搜索提交后等待 7000ms；
+- JD verifier 对“搜索页 search.feature editable”放宽为 s1 证据；
+- 但计划 s1/s2 文案变化会导致 s1 在首页/搜索页之间反复失败，自动加购仍未稳定。

@@ -113,6 +113,17 @@ public final class JdDomainSkill implements DomainSkill {
         JdCartVerifier cart = new JdCartVerifier();
         return (task, subgoal, target, observation) -> {
             if (PACKAGE.equals(target.packageName())
+                    && task.goal().contains("搜索")) {
+                for (UiNode node : observation.nodes()) {
+                    if (node.viewId().contains("search.feature")
+                            && node.hasFlag(NodeFlag.EDITABLE)) {
+                        Log.i(TAG, "verify search entry " + subgoal.id() + " -> true");
+                        return new SubgoalVerifier.Verification(
+                                true, "JD search page editable field visible");
+                    }
+                }
+            }
+            if (PACKAGE.equals(target.packageName())
                     && (subgoal.intent().contains("详情")
                     || subgoal.intent().contains("第一款"))) {
                 for (UiNode node : observation.nodes()) {

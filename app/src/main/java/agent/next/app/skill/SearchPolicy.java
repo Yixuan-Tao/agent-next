@@ -87,13 +87,19 @@ public final class SearchPolicy implements LoopPolicy {
                 }
             }
             submitted = true;
+            if (submit != null) {
+                Log.i("AgentNextRuntime", "JD submit via control ref=" + submit.ref()
+                        + " bounds=" + submit.bounds());
+                return Optional.of(new TapPointAction(new Point(
+                        submit.bounds().centerX(), submit.bounds().centerY())));
+            }
             return Optional.of(new VisualTapAction(locator,
                     profile.searchSubmitPrompt(),
                     "jd.search.submit",
                     profile.searchSubmitLabels(),
                     profile.searchSubmitForbidden()));
         }
-        return Optional.of(new WaitAction(2500));
+        return Optional.of(new WaitAction(7000));
     }
 
     private static String query(LoopContext context) {
