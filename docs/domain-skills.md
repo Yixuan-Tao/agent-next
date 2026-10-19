@@ -74,3 +74,22 @@ DONE · all subgoals verified actions=0 attempts=4
 JD cart: DONE · all subgoals verified actions=0 attempts=3
 target prepared domain=true com.jingdong.app.mall
 ```
+
+## AppProfile 声明式标签
+
+新增：
+
+- `AppProfile`
+- `JdAppProfile.PROFILE`
+
+JD 的搜索入口/提交、结果卡、加购、确认、购物车、负面标签、详情标记、verifier id
+都移到 profile；policy 不再直接写这些集合。
+
+搜索/加购 policy 已接收 profile：
+
+- `JdSearchPolicy(..., AppProfile)`
+- `JdAddPolicy(AppProfile)`
+- JD visual locator 使用 profile 的 allow/forbid 标签。
+
+真机：profile 化后 JD target prepare/购物车 tab 仍工作；
+本轮 s3 verifier 有波动，未作为通过。

@@ -62,8 +62,8 @@ public final class JdDomainSkill implements DomainSkill {
                 Frame frame = context.api().observations().captureFrame(context.target());
                 Point result = locator.locate(frame,
                         "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）",
-                        Set.of("商品", "商品卡", "卡片"),
-                        Set.of("广告", "地址", "筛选", "立即购买", "结算", "去结算"),
+                        JdAppProfile.PROFILE.resultCardLabels(),
+                        JdAppProfile.PROFILE.resultCardForbidden(),
                         0.5);
                 Log.i(TAG, "JD result-card vision point=" + result);
                 return Optional.of(new RiskGuardPolicy(new JdResultPolicy(result),
@@ -82,18 +82,18 @@ public final class JdDomainSkill implements DomainSkill {
             try {
                 Frame frame = context.api().observations().captureFrame(context.target());
                 entry = locator.locate(frame, "京东首页顶部搜索输入框",
-                        Set.of("搜索", "输入框", "搜索框"),
-                        Set.of("拍照", "大图", "显示模式", "筛选"), 0.5);
+                        JdAppProfile.PROFILE.searchEntryLabels(),
+                        JdAppProfile.PROFILE.searchEntryForbidden(), 0.5);
             } catch (Throwable failure) {
                 Log.w(TAG, "JD search entry locator unavailable: " + failure);
             }
             Log.i(TAG, "JD search policy selected: " + subgoal.id());
-            return Optional.of(new RiskGuardPolicy(new JdSearchPolicy(entry, locator),
+            return Optional.of(new RiskGuardPolicy(new JdSearchPolicy(entry, locator, JdAppProfile.PROFILE),
                     context.handoff()));
         }
         if (subgoal.intent().contains("加入购物车")) {
             Log.i(TAG, "JD add-to-cart policy selected: " + subgoal.id());
-            return Optional.of(new RiskGuardPolicy(new JdAddPolicy(), context.handoff()));
+            return Optional.of(new RiskGuardPolicy(new JdAddPolicy(JdAppProfile.PROFILE), context.handoff()));
         }
         if ("jd.cart".equals(subgoal.verifierId())
                 || subgoal.intent().contains("购物车")) {
@@ -243,8 +243,8 @@ public final class JdDomainSkill implements DomainSkill {
                     Frame frame = api.observations().captureFrame(target);
                     Point point = locator.locate(frame,
                             "京东底部导航栏的购物车 tab（不要结算/购买/广告）",
-                            Set.of("购物车", "cart", "tab"),
-                            Set.of("结算", "购买", "广告"),
+                            JdAppProfile.PROFILE.cartLabels(),
+                            JdAppProfile.PROFILE.cartForbidden(),
                             0.5);
                     api.input().tap(target, observation, point);
                     Thread.sleep(1500L);

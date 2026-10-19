@@ -8,13 +8,15 @@ import agent.next.device.UiNode;
 
 import java.util.Optional;
 
-/**
- * Deterministic JD detail add flow: tap 加入购物车, then the spec-sheet 确定.
- * Never taps 立即购买/结算.
- */
+/** Deterministic add flow; labels come from AppProfile, never buy/checkout. */
 public final class JdAddPolicy implements LoopPolicy {
 
+    private final AppProfile profile;
     private boolean confirmed;
+
+    public JdAddPolicy(AppProfile profile) {
+        this.profile = profile;
+    }
 
     @Override
     public Optional<LoopAction> next(LoopContext context) {
@@ -23,9 +25,11 @@ public final class JdAddPolicy implements LoopPolicy {
         }
         for (UiNode node : context.observation().nodes()) {
             String text = node.text() + " " + node.contentDescription();
-            if (text.contains("加入购物车")) {
-                return Optional.of(new TapPointAction(new Point(
-                        node.bounds().centerX(), node.bounds().centerY())));
+            for (String label : profile.addLabels()) {
+                if (text.contains(label)) {
+                    return Optional.of(new TapPointAction(new Point(
+                            node.bounds().centerX(), node.bounds().centerY())));
+                }
             }
         }
         boolean specSheet = false;
@@ -38,10 +42,12 @@ public final class JdAddPolicy implements LoopPolicy {
         if (specSheet) {
             for (UiNode node : context.observation().nodes()) {
                 String text = node.text().trim();
-                if ("确定".equals(text) || "确认".equals(text)) {
-                    confirmed = true;
-                    return Optional.of(new TapPointAction(new Point(
-                            node.bounds().centerX(), node.bounds().centerY())));
+                for (String label : profile.confirmLabels()) {
+                    if (label.equals(text)) {
+                        confirmed = true;
+                        return Optional.of(new TapPointAction(new Point(
+                                node.bounds().centerX(), node.bounds().centerY())));
+                    }
                 }
             }
         }

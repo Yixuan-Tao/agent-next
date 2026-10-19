@@ -19,14 +19,16 @@ public final class JdSearchPolicy implements LoopPolicy {
 
     private final Point searchEntry;
     private final JdVisualLocator locator;
+    private final AppProfile profile;
     private boolean dismissedAd;
     private boolean opened;
     private boolean typed;
     private boolean submitted;
 
-    public JdSearchPolicy(Point searchEntry, JdVisualLocator locator) {
+    public JdSearchPolicy(Point searchEntry, JdVisualLocator locator, AppProfile profile) {
         this.searchEntry = searchEntry;
         this.locator = locator;
+        this.profile = profile;
     }
 
     @Override
@@ -40,9 +42,15 @@ public final class JdSearchPolicy implements LoopPolicy {
                     && !node.hasFlag(NodeFlag.PASSWORD)) {
                 editable = node;
             }
-            if (node.hasFlag(NodeFlag.CLICKABLE)
-                    && (node.text().trim().equals("搜索")
-                    || node.contentDescription().trim().equals("搜索"))
+            boolean submitLabel = false;
+            for (String label : profile.searchSubmitLabels()) {
+                if (node.text().trim().equals(label)
+                        || node.contentDescription().trim().equals(label)) {
+                    submitLabel = true;
+                    break;
+                }
+            }
+            if (node.hasFlag(NodeFlag.CLICKABLE) && submitLabel
                     && node.bounds().top() < 220) {
                 if (submit == null || node.bounds().right() > submit.bounds().right()) {
                     submit = node;
@@ -68,8 +76,8 @@ public final class JdSearchPolicy implements LoopPolicy {
             return Optional.of(new VisualTapAction(locator,
                     "京东搜索页右上角的搜索提交按钮，不要点输入框/拍照",
                     "jd.search.submit",
-                    java.util.Set.of("搜索", "提交", "按钮"),
-                    java.util.Set.of("拍照", "大图", "显示模式", "筛选")));
+                    profile.searchSubmitLabels(),
+                    profile.searchSubmitForbidden()));
         }
         return Optional.of(new WaitAction(800));
     }
