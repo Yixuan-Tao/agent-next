@@ -293,3 +293,15 @@ verify s3 -> false ... nodes=96 search.feature
 - 搜索输入/提交已经 PASS；
 - s3 打开第一款详情仍未 PASS；
 - 没有进入加购 s4；自动化加购仍未完成。
+
+## 2026-10-19 result-card policy + 广告阻塞
+
+新增 `JdResultPolicy`：优先点击结果页含 ¥/￥ 的节点，否则点首卡区域 `(180,360)`。
+但本轮 s2 在执行搜索前，JD 首页出现“挑好物逛京东”广告/Babel 浮层：
+
+```text
+JD search policy typed=false ... editable=false search=true
+verify s2 -> false ... 挑好物逛京东
+```
+
+搜索入口点击被广告拦截，未进入搜索结果；自动化加购仍未 PASS。

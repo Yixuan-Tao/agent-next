@@ -9,6 +9,7 @@ import agent.next.brain.DefaultRiskGate;
 import agent.next.app.calendar.CalendarPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
 import agent.next.app.skill.JdAddPolicy;
+import agent.next.app.skill.JdResultPolicy;
 import agent.next.app.skill.JdSearchPolicy;
 import agent.next.app.skill.JdCartPolicy;
 import agent.next.app.skill.JdCartVerifier;
@@ -493,6 +494,13 @@ public final class AgentRuntime {
                         && (subgoal.intent().contains("输入")
                         || subgoal.intent().contains("提交"))) {
                     prepareJdSearchEntry(target);
+                }
+                if ("com.jingdong.app.mall".equals(target.packageName())
+                        && (subgoal.intent().contains("第一款")
+                        || (subgoal.intent().contains("结果")
+                        && subgoal.intent().contains("详情")))) {
+                    Log.i(TAG, "JD result-card policy selected: " + subgoal.id());
+                    return new RiskGuardPolicy(new JdResultPolicy(), this::handoffToUser);
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && task.goal().contains("搜索")
