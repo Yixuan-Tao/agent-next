@@ -39,6 +39,13 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     private static final String CALENDAR = "com.android.calendar";
     private static final String GOOGLE_CALENDAR = "com.google.android.calendar";
     private static final String GEMINI = "com.google.android.apps.bard";
+    private static final String SETTINGS = "com.android.settings";
+    private static final String CLOCK = "com.android.deskclock";
+    private static final String NOTES = "com.miui.notes";
+    private static final String FILES = "com.android.fileexplorer";
+    private static final String CALCULATOR = "com.miui.calculator";
+    private static final String CONTACTS = "com.android.contacts";
+    private static final String WEATHER = "com.miui.weather2";
 
     private AgentRuntime runtime;
     private EditText goal;
@@ -199,6 +206,13 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         addIfInstalled(CALENDAR, "日历");
         addIfInstalled(GOOGLE_CALENDAR, "Google 日历");
         addIfInstalled(GEMINI, "Gemini");
+        addIfInstalled(SETTINGS, "设置");
+        addIfInstalled(CLOCK, "时钟");
+        addIfInstalled(NOTES, "备忘录");
+        addIfInstalled(FILES, "文件管理");
+        addIfInstalled(CALCULATOR, "计算器");
+        addIfInstalled(CONTACTS, "联系人");
+        addIfInstalled(WEATHER, "天气");
         if (packages.isEmpty()) {
             labels.add("没有可用的 App");
         }
@@ -262,7 +276,8 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
                 || state == AgentRuntime.State.DONE
                 || state == AgentRuntime.State.FAILED
                 || state == AgentRuntime.State.STOPPED
-                || state == AgentRuntime.State.NEED_USER);
+                || state == AgentRuntime.State.NEED_USER
+                || state == AgentRuntime.State.AWAITING_PLAN);
     }
 
     @Override

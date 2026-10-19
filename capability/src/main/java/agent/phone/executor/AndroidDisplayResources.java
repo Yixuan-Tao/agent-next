@@ -34,7 +34,13 @@ final class AndroidDisplayResources implements DisplayLifecycle.Factory {
 
     private static int flags(Class<?> type, String prefix, String... names) throws ReflectiveOperationException {
         int value = 0;
-        for (String name : names) value |= type.getField(prefix + name).getInt(null);
+        for (String name : names) {
+            try {
+                value |= type.getField(prefix + name).getInt(null);
+            } catch (NoSuchFieldException absentOnOlderApi) {
+                // OWN_FOCUS/STEAL_TOP_FOCUS_DISABLED are not present on Android 13.
+            }
+        }
         return value;
     }
 

@@ -28,8 +28,17 @@ public final class CalendarStore {
     }
 
     public static EventSpec specFor(String goal, String intent) {
-        String text = (goal == null ? "" : goal) + " " + (intent == null ? "" : intent);
-        String title = extractTitle(text);
+        String goalText = goal == null ? "" : goal;
+        String intentText = intent == null ? "" : intent;
+        String text = goalText + " " + intentText;
+        String title = extractTitle(goalText);
+        if (title == null) {
+            title = extractTitle(intentText);
+        }
+        if (title == null) {
+            title = text.contains("面试") ? "面试"
+                    : text.contains("带伞") ? "带伞" : "Agent 日程";
+        }
         LocalDate day = LocalDate.now();
         DayOfWeek target = null;
         if (text.contains("周五") || text.contains("星期五")) {
@@ -59,21 +68,15 @@ public final class CalendarStore {
     }
 
     private static String extractTitle(String text) {
-        Matcher matcher = Pattern.compile("提醒我\\s*[「“\"']?([^，。；;\\n」”\"']{1,40})")
+        Matcher matcher = Pattern.compile(
+                "(?:提醒我|(?:日程|事件)?标题\\s*[为是:：]?)\\s*[「“\"']?"
+                        + "([^，。；;\\s」”\"']{1,40})")
                 .matcher(text);
-        if (matcher.find()) {
-            String title = matcher.group(1).trim().replaceAll("[」”\"']$", "").trim();
-            if (!title.isEmpty()) {
-                return title;
-            }
+        if (!matcher.find()) {
+            return null;
         }
-        if (text.contains("面试")) {
-            return "面试";
-        }
-        if (text.contains("带伞")) {
-            return "带伞";
-        }
-        return "Agent 日程";
+        String title = matcher.group(1).trim().replaceAll("[」”\"']$", "").trim();
+        return title.isEmpty() ? null : title;
     }
 
     private static final Pattern CLOCK_TIME = Pattern.compile(

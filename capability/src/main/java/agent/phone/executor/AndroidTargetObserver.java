@@ -133,11 +133,23 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 throw new IllegalStateException("Shizuku runtime is not initialized");
             }
             connection = Class.forName("android.app.UiAutomationConnection").getConstructor().newInstance();
-            Constructor<?> constructor = UiAutomation.class.getDeclaredConstructor(int.class,Looper.class,
-                    Class.forName("android.app.IUiAutomationConnection"));
-            constructor.setAccessible(true);
-            // The existing main looper handles local callbacks; UiAutomation owns one bounded callback thread.
-            automation = (UiAutomation) constructor.newInstance(display.displayId,Looper.getMainLooper(),connection);
+            try {
+                Constructor<?> constructor = UiAutomation.class.getDeclaredConstructor(
+                        int.class, Looper.class,
+                        Class.forName("android.app.IUiAutomationConnection"));
+                constructor.setAccessible(true);
+                automation = (UiAutomation) constructor.newInstance(
+                        display.displayId, Looper.getMainLooper(), connection);
+            } catch (NoSuchMethodException olderApi) {
+                Constructor<?> constructor = UiAutomation.class.getDeclaredConstructor(
+                        Looper.class, Class.forName("android.app.IUiAutomationConnection"));
+                constructor.setAccessible(true);
+                automation = (UiAutomation) constructor.newInstance(
+                        Looper.getMainLooper(), connection);
+                Field displayId = UiAutomation.class.getDeclaredField("mDisplayId");
+                displayId.setAccessible(true);
+                displayId.setInt(automation, display.displayId);
+            }
             try {
                 UiAutomation.class.getMethod("connectWithTimeout",int.class,long.class).invoke(automation,
                         UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES,2000L);

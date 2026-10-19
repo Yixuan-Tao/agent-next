@@ -101,7 +101,7 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
         }
         TaskSpec spec = new TaskSpec(
                 request.taskId(), request.goal(), request.constraints(),
-                criteria.stream().map(new SuccessCriterionFactory()).toList(),
+                criteria.stream().map(new SuccessCriterionFactory()).collect(java.util.stream.Collectors.toList()),
                 request.autonomy(), request.allowedApps(), request.deniedActions(),
                 Budget.defaults());
         return PlanningResult.plan(new TaskPlan(spec, subgoals, assumptions));
