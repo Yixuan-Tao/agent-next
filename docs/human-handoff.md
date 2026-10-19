@@ -59,3 +59,18 @@ action[0]: 完成，继续
 - 未尝试点击“快速验证”绕过。
 
 结论：handoff 触发和通知链路 PASS；resume/恢复显示仍是待验收项。
+
+## Resume 测试钩子与结果
+
+debug manifest 将 `AgentTaskService` 设为 exported=true，便于 adb 触发：
+
+```sh
+adb shell am startservice -n agent.next.app/.AgentTaskService \
+  -a agent.next.app.RESUME_TASK
+```
+
+release 仍保持 service/Activity 不导出。
+
+本轮触发后 JD 验证页仍在主屏前台，未观察到明确的
+`moveToPrivate + observe + loop resume` 日志，因此 **resume 仍未验收**；
+不能把 startservice 成功返回当作 handoff 恢复成功。

@@ -11,5 +11,9 @@
             android:name=".SettingsActivity"
             android:exported="true"
             tools:replace="android:exported" />
+        <service
+            android:name=".AgentTaskService"
+            android:exported="true"
+            tools:replace="android:exported" />
     </application>
 </manifest>
