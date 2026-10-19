@@ -401,3 +401,8 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 - 真机购物车任务：DONE · all subgoals verified actions=0 attempts=3；
 - 自动加购：s2 搜索提交视觉候选正确（搜索按钮红底 x=.91 y=.07），点击后仍停在搜索页，s2 false；
 - 未完成详情/加购，自动加购仍未 PASS。
+
+## s2 提交后继续验证
+
+`SearchPolicy.complete` 改为 false，搜索提交后持续 Wait 2.5s，让 verifier 观察结果页；
+避免“已提交即完成”导致 s2 过早失败。真机仍 s2 false，搜索页未进入结果页。

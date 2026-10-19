@@ -103,6 +103,7 @@ public final class SearchPolicy implements LoopPolicy {
 
     @Override
     public boolean complete(LoopContext context) {
-        return submitted;
+        // Let the visual verifier decide; a submitted search may still be loading.
+        return false;
     }
 }
