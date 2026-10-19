@@ -11,6 +11,8 @@ import agent.next.device.Observation;
 import agent.next.device.Point;
 import agent.next.device.TargetHandle;
 
+import android.util.Log;
+
 import java.io.IOException;
 
 /** Vision-grounded tap executed against a fresh frame; no stored coordinates. */
@@ -57,6 +59,7 @@ public final class VisualTapAction implements LoopAction {
         try {
             Frame frame = api.observations().captureFrame(targetHandle);
             Point point = locator.locate(frame, target);
+            Log.i("AgentNextRuntime", "visual tap point=" + point + " target=" + target);
             return api.input().tap(targetHandle, observation, point);
         } catch (IOException failure) {
             throw new DeviceException(DeviceException.Code.INTERNAL,

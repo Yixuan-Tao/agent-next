@@ -345,3 +345,15 @@ verify s3 -> false ... 选择地址 id=/address/delivery?stamp=1
 
 最新真机仍 STOPPED 在 s2 搜索提交，未进入结果/详情/加购。
 人工加购仍 PASS。自动化加购未完成。
+
+## 2026-10-19 视觉提交按钮
+
+`JdSearchPolicy` 提交阶段改为始终调用 `VisualTapAction`：
+
+```text
+visual tap point=Point{639,79}
+target=京东搜索页右上角的搜索提交按钮
+```
+
+说明视觉定位可用，但 s2 verifier 仍 false，任务 STOPPED；
+自动化加购仍未 PASS。无硬编码坐标。
