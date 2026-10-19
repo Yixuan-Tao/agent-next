@@ -107,3 +107,18 @@ AgentNextRuntime: handoff requested ...
 
 因此 `主屏 → 通知继续 → 回私有 display → 重新 observe` 已真机验证；
 “用户完成验证 → 任务继续”仍取决于真实人工验证。
+
+## Stop during handoff PASS
+
+handoff 等待期间触发 `STOP_TASK`：
+
+```text
+AgentNextService: action=agent.next.app.STOP_TASK
+AgentNextRuntime: handoff: not approved
+```
+
+- 不再等待 15 分钟；
+- 不会 moveToPrivate / 恢复执行；
+- 不伪造 DONE；
+- service 停止，notification 随之移除；
+- 这是用户拒绝接管时的安全路径。

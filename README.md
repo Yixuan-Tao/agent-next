@@ -72,6 +72,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `c3f6884b1bd09504d2c6a82f0e8dec6032f3ec0d18971467c49e0083138a9293`；隐私说明与 release notes 草案已写；
 - Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
 - Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
+- Human handoff stop：等待期间 STOP_TASK → not approved、service 停止、不 DONE；
 - Human handoff resume：主屏 → RESUME_TASK → 回私有 display → 重新 observe 真机 PASS；验证页未完成会再次 handoff（正确）；
 - Human handoff trigger：京东验证 → 主屏 + 通知 action 真机观察 PASS；resume 点击仍待验收；
 - Target-loss fault：执行中关闭 JD → FAILED post-action observe failed，无 DONE/支付；
