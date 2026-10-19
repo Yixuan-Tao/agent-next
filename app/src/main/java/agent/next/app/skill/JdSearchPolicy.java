@@ -1,66 +1,77 @@
 package agent.next.app.skill;
 
-import agent.next.brain.loop.LoopAction;
-import agent.next.brain.loop.LoopContext;
 import agent.next.brain.RiskClass;
 import agent.next.brain.loop.BackAction;
+import agent.next.brain.loop.LoopAction;
+import agent.next.brain.loop.LoopContext;
 import agent.next.brain.loop.LoopPolicy;
+import agent.next.device.NodeFlag;
 import agent.next.device.Point;
 import agent.next.device.UiNode;
 
-import android.util.Log;
-
 import java.util.Optional;
 
-/** Deterministic JD search: type the query into the editable search box, then submit. */
+/**
+ * JD search using observed controls; an optional vision-located search entry is
+ * allowed when the home page exposes no searchable node. No fixed coordinates.
+ */
 public final class JdSearchPolicy implements LoopPolicy {
 
+    private final Point searchEntry;
+    private final JdVisualLocator locator;
     private boolean dismissedAd;
-    private int openAttempts;
+    private boolean opened;
     private boolean typed;
     private boolean submitted;
 
+    public JdSearchPolicy(Point searchEntry, JdVisualLocator locator) {
+        this.searchEntry = searchEntry;
+        this.locator = locator;
+    }
+
     @Override
     public Optional<LoopAction> next(LoopContext context) {
-        if (!dismissedAd) {
-            String all = "";
-            for (UiNode node : context.observation().nodes()) {
-                all += node.text() + " " + node.contentDescription();
-            }
-            if (all.contains("挑好物逛京东") || all.contains("11.11主会场")) {
-                dismissedAd = true;
-                return Optional.of(new TapPointAction(new Point(495, 370)));
-            }
-        }
+        String all = "";
         UiNode editable = null;
-        UiNode search = null;
+        UiNode submit = null;
         for (UiNode node : context.observation().nodes()) {
-            if (editable == null && node.hasFlag(agent.next.device.NodeFlag.EDITABLE)
-                    && !node.hasFlag(agent.next.device.NodeFlag.PASSWORD)) {
+            all += node.text() + " " + node.contentDescription();
+            if (editable == null && node.hasFlag(NodeFlag.EDITABLE)
+                    && !node.hasFlag(NodeFlag.PASSWORD)) {
                 editable = node;
             }
-            if (search == null && node.hasFlag(agent.next.device.NodeFlag.CLICKABLE)
+            if (node.hasFlag(NodeFlag.CLICKABLE)
                     && (node.text().contains("搜索")
-                    || node.contentDescription().contains("搜索"))) {
-                search = node;
+                    || node.contentDescription().contains("搜索"))
+                    && node.bounds().top() < 220) {
+                if (submit == null || node.bounds().right() > submit.bounds().right()) {
+                    submit = node;
+                }
             }
         }
-        Log.i("AgentNextRuntime", "JD search policy typed=" + typed + " submitted="
-                + submitted + " editable=" + (editable != null)
-                + " search=" + (search != null));
+        if (!dismissedAd && (all.contains("挑好物逛京东")
+                || all.contains("11.11主会场"))) {
+            dismissedAd = true;
+            return Optional.of(new BackAction("jd.dismiss-ad",
+                    "close JD home ad", RiskClass.LOW));
+        }
         if (!typed && editable != null) {
             typed = true;
             return Optional.of(new SetTextNodeAction(editable.ref(), query(context)));
         }
-        if (!typed && editable == null && openAttempts < 3) {
-            openAttempts++;
-            int y = openAttempts == 1 ? 100 : (openAttempts == 2 ? 90 : 120);
-            return Optional.of(new TapPointAction(new Point(360, y)));
+        if (!typed && editable == null && !opened && searchEntry != null) {
+            opened = true;
+            return Optional.of(new TapPointAction(searchEntry));
         }
         if (!submitted && typed) {
             submitted = true;
-            // The clickable "搜索" node is often the input field; the submit button is top-right.
-            return Optional.of(new TapPointAction(new Point(644, 60)));
+            if (submit != null) {
+                return Optional.of(new TapPointAction(new Point(
+                        submit.bounds().centerX(), submit.bounds().centerY())));
+            }
+            return Optional.of(new VisualTapAction(locator,
+                    "京东搜索页右上角的搜索提交按钮，不要点输入框/拍照",
+                    "jd.search.submit"));
         }
         return Optional.of(new WaitAction(800));
     }

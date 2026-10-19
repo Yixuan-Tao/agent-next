@@ -10,6 +10,7 @@ import agent.next.app.calendar.CalendarPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
 import agent.next.app.skill.JdAddPolicy;
 import agent.next.app.skill.JdResultPolicy;
+import agent.next.app.skill.JdVisualLocator;
 import agent.next.app.skill.JdSearchPolicy;
 import agent.next.app.skill.JdCartPolicy;
 import agent.next.app.skill.JdCartVerifier;
@@ -109,6 +110,7 @@ public final class AgentRuntime {
     private ChatCompletionClient client;
     private DeepSeekSkillModel skillModel;
     private DeepSeekVisualModel visualModel;
+    private JdVisualLocator jdLocator;
     private RuntimeControl control;
     private TargetHandle activeTarget;
 
@@ -404,6 +406,7 @@ public final class AgentRuntime {
             client = new ChatCompletionClient(config.get(), new ModelCallBudget(80));
             skillModel = new DeepSeekSkillModel(client);
             visualModel = new DeepSeekVisualModel(client);
+            jdLocator = new JdVisualLocator(client);
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
             PlanningResult result = planner.plan(request);
             synchronized (this) {
@@ -499,8 +502,15 @@ public final class AgentRuntime {
                         && (subgoal.intent().contains("第一款")
                         || (subgoal.intent().contains("结果")
                         && subgoal.intent().contains("详情")))) {
-                    Log.i(TAG, "JD result-card policy selected: " + subgoal.id());
-                    return new RiskGuardPolicy(new JdResultPolicy(), this::handoffToUser);
+                    try {
+                        Frame frame = api.observations().captureFrame(target);
+                        Point result = jdLocator.locate(frame,
+                                "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）");
+                        Log.i(TAG, "JD result-card vision point=" + result);
+                        return new RiskGuardPolicy(new JdResultPolicy(result), this::handoffToUser);
+                    } catch (Throwable failure) {
+                        Log.w(TAG, "JD result locator unavailable: " + failure);
+                    }
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && task.goal().contains("搜索")
@@ -509,8 +519,15 @@ public final class AgentRuntime {
                         && (subgoal.intent().contains("搜索")
                         || subgoal.intent().contains("输入"))) {
                     prepareJdSearchEntry(target);
+                    Point entry = null;
+                    try {
+                        Frame frame = api.observations().captureFrame(target);
+                        entry = jdLocator.locate(frame, "京东首页顶部搜索输入框");
+                    } catch (Throwable failure) {
+                        Log.w(TAG, "JD search entry locator unavailable: " + failure);
+                    }
                     Log.i(TAG, "JD search policy selected: " + subgoal.id());
-                    return new RiskGuardPolicy(new JdSearchPolicy(), this::handoffToUser);
+                    return new RiskGuardPolicy(new JdSearchPolicy(entry, jdLocator), this::handoffToUser);
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && subgoal.intent().contains("加入购物车")) {
@@ -668,13 +685,23 @@ public final class AgentRuntime {
                 observation = api.observations().observe(
                         target, ObservationOptions.defaults());
             }
-            // JD restores its last activity (cart/detail) on reopen; the bottom Home
-            // tab is a custom view without text, so use the scoped 720x1280 hit area.
-            api.input().tap(target, observation, new Point(72, 1210));
-            Thread.sleep(800L);
-            observation = api.observations().observe(
-                    target, ObservationOptions.defaults());
-            Log.i(TAG, "JD home tab selected act=" + observation.activityName()
+            UiNode home = null;
+            for (UiNode node : observation.nodes()) {
+                if (node.hasFlag(NodeFlag.CLICKABLE)
+                        && (node.text().contains("首页")
+                        || node.contentDescription().contains("首页"))) {
+                    home = node;
+                    break;
+                }
+            }
+            if (home != null) {
+                api.input().tap(target, observation,
+                        new Point(home.bounds().centerX(), home.bounds().centerY()));
+                Thread.sleep(800L);
+                observation = api.observations().observe(
+                        target, ObservationOptions.defaults());
+            }
+            Log.i(TAG, "JD home prepared act=" + observation.activityName()
                     + " nodes=" + observation.nodes().size());
         } catch (Throwable failure) {
             Log.w(TAG, "JD home prelude failed: " + failure);
@@ -708,10 +735,7 @@ public final class AgentRuntime {
                 }
             }
             if (entry == null) {
-                Log.i(TAG, "JD search entry not in tree; using scoped top search coordinate");
-                api.input().tap(target, observation, new Point(360, 180));
-                Thread.sleep(700L);
-                api.observations().observe(target, ObservationOptions.defaults());
+                Log.i(TAG, "JD search entry not in tree; leaving to visual locator");
                 return;
             }
             Point point = new Point(entry.bounds().centerX(), entry.bounds().centerY());
@@ -731,7 +755,7 @@ public final class AgentRuntime {
             for (UiNode node : observation.nodes()) {
                 String popup = node.text() + " " + node.contentDescription();
                 if (popup.contains("别折腾了") || popup.contains("跳过广告")) {
-                    api.input().tap(target, observation, new Point(495, 370));
+                    api.input().back(target, observation);
                     Thread.sleep(1000L);
                     observation = api.observations().observe(
                             target, ObservationOptions.defaults());
@@ -740,6 +764,7 @@ public final class AgentRuntime {
             }
             boolean title = false;
             boolean footer = false;
+            UiNode cartTab = null;
             for (UiNode node : observation.nodes()) {
                 if (node.viewId().contains("cart.feature")) {
                     Log.i(TAG, "JD cart view already visible");
@@ -748,6 +773,9 @@ public final class AgentRuntime {
                 String text = node.text() + " " + node.contentDescription();
                 if (text.contains("购物车")) {
                     title = true;
+                    if (node.hasFlag(NodeFlag.CLICKABLE)) {
+                        cartTab = node;
+                    }
                 }
                 if (text.contains("合计") || text.contains("去结算")) {
                     footer = true;
@@ -756,8 +784,12 @@ public final class AgentRuntime {
             if (title && footer) {
                 return;
             }
-            // JD's bottom cart tab is a custom view without text; scoped 720x1280 hit area.
-            api.input().tap(target, observation, new Point(486, 1210));
+            if (cartTab == null) {
+                Log.i(TAG, "JD cart tab not in tree; no blind tap");
+                return;
+            }
+            api.input().tap(target, observation,
+                    new Point(cartTab.bounds().centerX(), cartTab.bounds().centerY()));
             Thread.sleep(1500L);
             Observation cart = api.observations().observe(
                     target, ObservationOptions.defaults());
