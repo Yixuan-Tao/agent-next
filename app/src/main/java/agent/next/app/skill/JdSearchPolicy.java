@@ -2,6 +2,8 @@ package agent.next.app.skill;
 
 import agent.next.brain.loop.LoopAction;
 import agent.next.brain.loop.LoopContext;
+import agent.next.brain.RiskClass;
+import agent.next.brain.loop.BackAction;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.device.Point;
 import agent.next.device.UiNode;
@@ -13,12 +15,24 @@ import java.util.Optional;
 /** Deterministic JD search: type the query into the editable search box, then submit. */
 public final class JdSearchPolicy implements LoopPolicy {
 
-    private boolean opened;
+    private boolean dismissedAd;
+    private int openAttempts;
     private boolean typed;
     private boolean submitted;
 
     @Override
     public Optional<LoopAction> next(LoopContext context) {
+        if (!dismissedAd) {
+            String all = "";
+            for (UiNode node : context.observation().nodes()) {
+                all += node.text() + " " + node.contentDescription();
+            }
+            if (all.contains("挑好物逛京东") || all.contains("11.11主会场")) {
+                dismissedAd = true;
+                return Optional.of(new BackAction("jd.dismiss-ad",
+                        "close JD home ad", RiskClass.LOW));
+            }
+        }
         UiNode editable = null;
         UiNode search = null;
         for (UiNode node : context.observation().nodes()) {
@@ -39,9 +53,10 @@ public final class JdSearchPolicy implements LoopPolicy {
             typed = true;
             return Optional.of(new SetTextNodeAction(editable.ref(), query(context)));
         }
-        if (!typed && editable == null && !opened) {
-            opened = true;
-            return Optional.of(new TapPointAction(new Point(360, 100)));
+        if (!typed && editable == null && openAttempts < 3) {
+            openAttempts++;
+            int y = openAttempts == 1 ? 100 : (openAttempts == 2 ? 90 : 120);
+            return Optional.of(new TapPointAction(new Point(360, y)));
         }
         if (!submitted && typed) {
             submitted = true;

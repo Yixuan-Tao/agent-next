@@ -658,7 +658,8 @@ public final class AgentRuntime {
                     texts.append(node.text()).append(' ').append(node.contentDescription());
                 }
                 if (!babel && !texts.toString().contains("11.11主会场")
-                        && !texts.toString().contains("J_babelOptPage")) {
+                        && !texts.toString().contains("J_babelOptPage")
+                        && !texts.toString().contains("挑好物逛京东")) {
                     break;
                 }
                 Log.i(TAG, "JD event page detected, back");
