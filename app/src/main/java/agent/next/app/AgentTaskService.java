@@ -19,10 +19,24 @@ public final class AgentTaskService extends Service {
     private static final String ACTION_STOP = "agent.next.app.STOP_TASK";
     private static final String ACTION_RESUME = "agent.next.app.RESUME_TASK";
     private static final String ACTION_HANDOFF = "agent.next.app.HANDOFF_TASK";
+    private static final String ACTION_SOAK = "agent.next.app.SOAK";
     private static final String EXTRA_REASON = "reason";
+    private static final String EXTRA_MINUTES = "minutes";
 
     public static void start(Context context) {
         Intent intent = new Intent(context, AgentTaskService.class);
+        if (Build.VERSION.SDK_INT >= 26) {
+            context.startForegroundService(intent);
+        } else {
+            context.startService(intent);
+        }
+    }
+
+    /** Debug/soak only: keep a foreground service alive for a bounded interval. */
+    public static void startSoak(Context context, int minutes) {
+        Intent intent = new Intent(context, AgentTaskService.class)
+                .setAction(ACTION_SOAK)
+                .putExtra(EXTRA_MINUTES, minutes);
         if (Build.VERSION.SDK_INT >= 26) {
             context.startForegroundService(intent);
         } else {
@@ -74,6 +88,15 @@ public final class AgentTaskService extends Service {
             String reason = intent.getStringExtra(EXTRA_REASON);
             startForeground(NOTIFICATION_ID,
                     handoffNotification(this, reason == null ? "需要人工接管" : reason));
+            return START_NOT_STICKY;
+        }
+        if (intent != null && ACTION_SOAK.equals(intent.getAction())) {
+            int minutes = Math.max(1, Math.min(20,
+                    intent.getIntExtra(EXTRA_MINUTES, 1)));
+            startForeground(NOTIFICATION_ID,
+                    notification(this, "Foreground soak " + minutes + "min"));
+            new android.os.Handler(getMainLooper()).postDelayed(this::stopSelf,
+                    minutes * 60_000L);
             return START_NOT_STICKY;
         }
         startForeground(NOTIFICATION_ID, notification(this, "任务准备中"));

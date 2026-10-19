@@ -65,6 +65,9 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
                 primary.setSelection(index);
             }
         }
+        if (getIntent().getBooleanExtra("soak", false)) {
+            AgentTaskService.startSoak(this, 20);
+        }
         runtime = AgentRuntime.get(this);
         runtime.setListener(this);
         runtime.setConfirmationPresenter(this::askConfirmation);
