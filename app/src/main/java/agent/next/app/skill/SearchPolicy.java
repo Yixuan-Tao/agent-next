@@ -79,7 +79,7 @@ public final class SearchPolicy implements LoopPolicy {
                     profile.searchSubmitLabels(),
                     profile.searchSubmitForbidden()));
         }
-        return Optional.of(new WaitAction(800));
+        return Optional.of(new WaitAction(2500));
     }
 
     private static String query(LoopContext context) {

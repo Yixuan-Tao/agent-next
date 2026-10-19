@@ -24,6 +24,8 @@
 
 package agent.next.app.skill;
 
+import android.util.Log;
+
 import agent.next.brain.grounding.VisualCandidate;
 import agent.next.brain.grounding.VisualCandidateFilter;
 import agent.next.brain.model.ChatCompletionClient;
@@ -56,6 +58,11 @@ public final class JdVisualLocator {
     public Point locate(Frame frame, String target, Set<String> allowed,
             Set<String> forbidden, double minConfidence) throws IOException {
         List<VisualCandidate> candidates = candidates(frame, target, minConfidence);
+        for (VisualCandidate candidate : candidates) {
+            Log.i("AgentNextRuntime", "vision candidate target=" + target
+                    + " label=" + candidate.label() + " x=" + candidate.x()
+                    + " y=" + candidate.y() + " conf=" + candidate.confidence());
+        }
         Optional<VisualCandidate> chosen = VisualCandidateFilter.select(
                 candidates, allowed, forbidden, minConfidence);
         if (chosen.isEmpty()) {

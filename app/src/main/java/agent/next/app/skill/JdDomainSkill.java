@@ -38,9 +38,6 @@ public final class JdDomainSkill implements DomainSkill {
     public void prepareTarget(String packageName, TargetHandle target, TaskSpec task,
             BlockingDeviceApi api) {
         prepareJdHome(api, target);
-        if (task.goal().contains("购物车") && !task.goal().contains("加入购物车")) {
-            prepareJdCart(api, target);
-        }
     }
 
     @Override
@@ -242,30 +239,38 @@ public final class JdDomainSkill implements DomainSkill {
             if (cartTab == null) {
                 try {
                     Frame frame = api.observations().captureFrame(target);
-                    java.util.List<Point> points = locator.points(frame,
-                            "京东底部导航栏的购物车 tab（不要结算/购买/广告）",
-                            JdAppProfile.PROFILE.cartLabels(),
-                            JdAppProfile.PROFILE.cartForbidden(),
-                            0.5);
+                    java.util.List<agent.next.brain.grounding.VisualCandidate> candidates =
+                            locator.candidates(frame,
+                                    "京东底部导航栏的购物车 tab（不要结算/购买/广告）", 0.4);
+                    java.util.List<Point> points = new java.util.ArrayList<>();
+                    for (agent.next.brain.grounding.VisualCandidate candidate : candidates) {
+                        String label = candidate.label().toLowerCase();
+                        Log.i(TAG, "JD cart candidate label=" + candidate.label()
+                                + " x=" + candidate.x() + " y=" + candidate.y()
+                                + " conf=" + candidate.confidence());
+                        boolean forbidden = JdAppProfile.PROFILE.cartForbidden().stream()
+                                .anyMatch(label::contains);
+                        boolean cartLabel = JdAppProfile.PROFILE.cartLabels().stream()
+                                .anyMatch(label::contains);
+                        if (!forbidden && cartLabel && candidate.y() > 0.6) {
+                            int px = (int) Math.round(candidate.x() * frame.width());
+                            int py = (int) Math.round(candidate.y() * frame.height());
+                            points.add(new Point(px, py));
+                        }
+                    }
+                    if (points.isEmpty()) {
+                        points = locator.points(frame,
+                                "京东底部导航栏的购物车 tab（不要结算/购买/广告）",
+                                JdAppProfile.PROFILE.cartLabels(),
+                                JdAppProfile.PROFILE.cartForbidden(), 0.5);
+                    }
                     for (Point point : points) {
                         api.input().tap(target, observation, point);
                         Thread.sleep(1200L);
-                        Observation cart = api.observations().observe(
-                                target, ObservationOptions.defaults());
-                        boolean cartPage = false;
-                        for (UiNode node : cart.nodes()) {
-                            if (node.viewId().contains("cart.feature")
-                                    || node.text().contains("合计")
-                                    || node.text().contains("去结算")) {
-                                cartPage = true;
-                                break;
-                            }
-                        }
-                        if (cartPage) {
+                        if (awaitCartPage(api, target)) {
                             Log.i(TAG, "JD cart tab selected by vision candidate");
                             return;
                         }
-                        observation = cart;
                     }
                     Log.i(TAG, "JD cart tab candidates did not open cart");
                 } catch (Throwable failure) {
@@ -291,5 +296,23 @@ public final class JdDomainSkill implements DomainSkill {
         } catch (Throwable failure) {
             Log.w(TAG, "JD cart prelude failed: " + failure);
         }
+    }
+
+    private boolean awaitCartPage(BlockingDeviceApi api, TargetHandle target)
+            throws Exception {
+        for (int attempt = 0; attempt < 4; attempt++) {
+            Observation cart = api.observations().observe(
+                    target, ObservationOptions.defaults());
+            for (UiNode node : cart.nodes()) {
+                if (node.viewId().contains("cart.feature")
+                        || node.text().contains("合计")
+                        || node.text().contains("去结算")
+                        || node.contentDescription().contains("购物车")) {
+                    return true;
+                }
+            }
+            Thread.sleep(700L);
+        }
+        return false;
     }
 }

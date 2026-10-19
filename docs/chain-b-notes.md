@@ -393,3 +393,11 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 - 视觉提交曾成功：point 666,69 → s2 true；
 - s3 视觉定位曾因 token length 失败，已提高预算；
 - 最新重跑仍 STOPPED，未完成详情/加购；自动加购仍未 PASS。
+
+## 2026-10-19 cart 修复与 add 诊断
+
+- JD cart tab 视觉候选增加 debug 日志、底部区域过滤、4 次轮询；
+- target prepare 不再预先打开购物车；
+- 真机购物车任务：DONE · all subgoals verified actions=0 attempts=3；
+- 自动加购：s2 搜索提交视觉候选正确（搜索按钮红底 x=.91 y=.07），点击后仍停在搜索页，s2 false；
+- 未完成详情/加购，自动加购仍未 PASS。
