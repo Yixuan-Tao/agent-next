@@ -443,7 +443,7 @@ public final class AgentRuntime {
                     } catch (Throwable waitFailure) {
                         Log.w(TAG, "target settle failed: " + waitFailure);
                     }
-                    prepareAppEntry(packageName, opened);
+                    prepareAppEntry(packageName, opened, confirmed.task());
                     return opened;
                 }
 
@@ -524,6 +524,15 @@ public final class AgentRuntime {
             CalendarSubgoalVerifier calendarVerifier =
                     new CalendarSubgoalVerifier(calendarStore);
             SubgoalVerifier routed = (task, subgoal, target, observation) -> {
+                if ("com.jingdong.app.mall".equals(target.packageName())
+                        && task.goal().contains("购物车")) {
+                    SubgoalVerifier.Verification cart = new JdCartVerifier().verify(
+                            task, subgoal, target, observation);
+                    if (cart.satisfied()) {
+                        Log.i(TAG, "verify cart-goal " + subgoal.id() + " -> true");
+                        return cart;
+                    }
+                }
                 if ("com.android.calendar".equals(target.packageName())) {
                     SubgoalVerifier.Verification verification = calendarVerifier.verify(
                             task, subgoal, target, observation);
@@ -572,9 +581,13 @@ public final class AgentRuntime {
         }
     }
 
-    private void prepareAppEntry(String packageName, TargetHandle target) {
+    private void prepareAppEntry(String packageName, TargetHandle target,
+            agent.next.brain.TaskSpec task) {
         if ("com.jingdong.app.mall".equals(packageName)) {
             prepareJdHome(target);
+            if (task.goal().contains("购物车")) {
+                prepareJdCart(target);
+            }
             return;
         }
         if (!"com.quark.browser".equals(packageName)) {
@@ -705,6 +718,10 @@ public final class AgentRuntime {
             boolean title = false;
             boolean footer = false;
             for (UiNode node : observation.nodes()) {
+                if (node.viewId().contains("cart.feature")) {
+                    Log.i(TAG, "JD cart view already visible");
+                    return;
+                }
                 String text = node.text() + " " + node.contentDescription();
                 if (text.contains("购物车")) {
                     title = true;

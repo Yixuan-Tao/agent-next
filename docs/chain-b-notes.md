@@ -147,3 +147,23 @@ verify s1 -> false ... id=com.jd.lib.cart.feature:id/a15
 - 这是**计划顺序/verifier 约束**问题，不再是 cart tab 点击问题。
 
 下一步：cart 任务不应强制 s1 首页；或 s1 在目标已是购物车时应视为满足。
+
+## 2026-10-19 cart view-id verifier 结果
+
+- 新增 cart.feature viewId 识别；
+- cart goal 在 target 打开时预执行 `prepareJdCart`；
+- s1 可以在 cart 页面通过（cart goal 特例）；
+- 但最新日志：
+
+```text
+verify s1 -> true
+JD cart policy selected: s2 verifier=jd.cart
+JD cart after tap act= nodes=96 text=
+verify cart s2 -> false (cart view=false title=false items=false footer=false)
+```
+
+- 点击后没有出现 cart.feature 节点；
+- cart prelude 坐标仍未真正打开购物车；
+- cart 导航仍未 PASS。
+
+下一步必须在 Preview 中观察 720x1280 的实际 cart tab 命中位置，或使用可点击节点而不是固定坐标。
