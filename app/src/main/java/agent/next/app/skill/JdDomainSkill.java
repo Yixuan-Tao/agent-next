@@ -91,7 +91,7 @@ public final class JdDomainSkill implements DomainSkill {
         }
         if (subgoal.intent().contains("加入购物车")) {
             Log.i(TAG, "JD add-to-cart policy selected: " + subgoal.id());
-            return Optional.of(new RiskGuardPolicy(new AddToCartPolicy(JdAppProfile.PROFILE), context.handoff()));
+            return Optional.of(new RiskGuardPolicy(new AddToCartPolicy(JdAppProfile.PROFILE, locator), context.handoff()));
         }
         if ("jd.cart".equals(subgoal.verifierId())
                 || subgoal.intent().contains("购物车")) {
@@ -112,6 +112,17 @@ public final class JdDomainSkill implements DomainSkill {
     public SubgoalVerifier verifier(SubgoalVerifier fallback) {
         JdCartVerifier cart = new JdCartVerifier();
         return (task, subgoal, target, observation) -> {
+            if (PACKAGE.equals(target.packageName())
+                    && (subgoal.intent().contains("详情")
+                    || subgoal.intent().contains("第一款"))) {
+                for (UiNode node : observation.nodes()) {
+                    if (node.viewId().contains("productdetail")) {
+                        Log.i(TAG, "verify detail " + subgoal.id() + " -> true by view id");
+                        return new SubgoalVerifier.Verification(
+                                true, "JD product detail view visible");
+                    }
+                }
+            }
             if (PACKAGE.equals(target.packageName()) && task.goal().contains("购物车")) {
                 SubgoalVerifier.Verification result = cart.verify(
                         task, subgoal, target, observation);

@@ -1,5 +1,7 @@
 package agent.next.app.skill;
 
+import android.util.Log;
+
 import agent.next.brain.RiskClass;
 import agent.next.brain.loop.BackAction;
 import agent.next.brain.loop.LoopAction;
@@ -72,6 +74,18 @@ public final class SearchPolicy implements LoopPolicy {
             return Optional.of(new TapPointAction(searchEntry));
         }
         if (!submitted && typed) {
+            for (UiNode node : context.observation().nodes()) {
+                String label = node.text() + " " + node.contentDescription();
+                if (label.contains("搜索") || label.contains("短袖")
+                        || label.contains("T恤")) {
+                    Log.i("AgentNextRuntime", "JD search node ref=" + node.ref()
+                            + " text=" + node.text()
+                            + " desc=" + node.contentDescription()
+                            + " click=" + node.hasFlag(NodeFlag.CLICKABLE)
+                            + " edit=" + node.hasFlag(NodeFlag.EDITABLE)
+                            + " bounds=" + node.bounds());
+                }
+            }
             submitted = true;
             return Optional.of(new VisualTapAction(locator,
                     profile.searchSubmitPrompt(),

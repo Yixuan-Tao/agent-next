@@ -406,3 +406,12 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 
 `SearchPolicy.complete` 改为 false，搜索提交后持续 Wait 2.5s，让 verifier 观察结果页；
 避免“已提交即完成”导致 s2 过早失败。真机仍 s2 false，搜索页未进入结果页。
+
+## 2026-10-19 s3 详情与视觉加购
+
+- SearchPolicy 增加搜索控件诊断：搜索节点 `text=搜索 bounds=619..691,64..106`；
+- 搜索提交后 7s 曾 s2 true，但重跑仍会停在搜索页（flaky）；
+- s3 结果卡点击曾进入 `productdetail.feature` 页面；
+- JD verifier 对详情页增加 `productdetail` view id 证据；
+- AddToCartPolicy 增加视觉“加入购物车/确定”fallback，禁止立即购买/结算；
+- 最近一次加购计划在 s2 停止，s3/s4 未执行；自动加购仍未 PASS。
