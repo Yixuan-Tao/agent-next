@@ -74,3 +74,19 @@ skill step=0 -> Tap selector=clickable text contains 购物车
 - 随后 s1 再次被 11.11 主会场页面干扰，任务 STOPPED。
 
 结论：cart prelude 点击路径存在；**首页 → 购物车导航仍未 PASS**。
+
+## 2026-10-19 确定性 cart policy
+
+新增 `JdCartPolicy`：cart 子目标不再调用 prompt model，只返回 WaitAction，
+依靠 `JdCartVerifier` 判定完成。
+
+真机重跑仍出现：
+
+```text
+JD cart tab selected
+...
+FAILED action failed: REJECTED tap target not found: clickable text contains 购物车
+```
+
+说明当前 build 中仍有模型文本点击路径（或未走到 JdCartPolicy 分支），
+cart 导航仍未 PASS。不得以新增类代替验证。
