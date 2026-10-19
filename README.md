@@ -79,7 +79,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - JD 详情/加购人工 PASS：验证后详情 136 nodes，加入购物车后数量 3→4，未结算；agent 自动化加购待做；详见 [docs/chain-b-notes.md](docs/chain-b-notes.md)；
 - Release end-to-end PASS：文件管理器安装/非 debuggable/config 导入/Shizuku/JD 首页 DONE actions=2 attempts=4；Android 13 待验；
 - Release verification：`tools/verify-release.sh` PASS（签名/SDK/launcher/exported/checksum）；
-- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `9359bffd45e42566e489aaa275cf6fbbe794a5da86f366d9f414a8b6112849bd`；隐私说明与 release notes 草案已写；
+- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `d923401f0fe69e44129b56e7be053d9cd0397d49f3db3188199fc8f4a4810fcd`；隐私说明与 release notes 草案已写；
 - Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
 - Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
 - Human handoff stop：等待期间 STOP_TASK → not approved、service 停止、不 DONE；

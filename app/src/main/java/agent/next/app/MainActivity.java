@@ -37,6 +37,8 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     private static final String QUARK = "com.quark.browser";
     private static final String JD = "com.jingdong.app.mall";
     private static final String CALENDAR = "com.android.calendar";
+    private static final String GOOGLE_CALENDAR = "com.google.android.calendar";
+    private static final String GEMINI = "com.google.android.apps.bard";
 
     private AgentRuntime runtime;
     private EditText goal;
@@ -195,6 +197,8 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         addIfInstalled(JD, "京东");
         addIfInstalled(QUARK, "Quark");
         addIfInstalled(CALENDAR, "日历");
+        addIfInstalled(GOOGLE_CALENDAR, "Google 日历");
+        addIfInstalled(GEMINI, "Gemini");
         if (packages.isEmpty()) {
             labels.add("没有可用的 App");
         }

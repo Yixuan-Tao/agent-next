@@ -18,6 +18,7 @@ import java.util.Optional;
 public final class CalendarDomainSkill implements DomainSkill {
 
     private static final String PACKAGE = "com.android.calendar";
+    private static final String GOOGLE_PACKAGE = "com.google.android.calendar";
     private final CalendarStore store;
     private final CalendarSubgoalVerifier verifier;
 
@@ -28,7 +29,7 @@ public final class CalendarDomainSkill implements DomainSkill {
 
     @Override
     public boolean matches(String packageName, TaskSpec task) {
-        return PACKAGE.equals(packageName);
+        return isCalendar(packageName);
     }
 
     @Override
@@ -39,7 +40,7 @@ public final class CalendarDomainSkill implements DomainSkill {
 
     @Override
     public Optional<LoopPolicy> policy(SkillContext context) {
-        if (!PACKAGE.equals(context.target().packageName())) {
+        if (!isCalendar(context.target().packageName())) {
             return Optional.empty();
         }
         Subgoal subgoal = context.subgoal();
@@ -55,10 +56,14 @@ public final class CalendarDomainSkill implements DomainSkill {
     @Override
     public SubgoalVerifier verifier(SubgoalVerifier fallback) {
         return (task, subgoal, target, observation) -> {
-            if (PACKAGE.equals(target.packageName())) {
+            if (isCalendar(target.packageName())) {
                 return verifier.verify(task, subgoal, target, observation);
             }
             return fallback.verify(task, subgoal, target, observation);
         };
+    }
+
+    private static boolean isCalendar(String packageName) {
+        return PACKAGE.equals(packageName) || GOOGLE_PACKAGE.equals(packageName);
     }
 }

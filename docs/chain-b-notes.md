@@ -452,3 +452,11 @@ MainActivity.append
 
 修复：`append` 在 `log == null` 时只写 Logcat，不崩溃。
 真机验证：Pixel 4 XL 启动成功，主界面显示“没有可用的 App”。
+
+## 2026-10-20 Android 13 全链路准备
+
+- 修复 fresh install 无 App 时 MainActivity 闪退（append 在 log 初始化前被调用）；
+- 支持 Google Calendar（com.google.android.calendar）作为 calendar domain target；
+- 支持 Gemini（com.google.android.apps.bard）作为可规划 App；
+- CalendarStore 支持“周五下午7.30”解析：下一个周五 19:30，1 小时，标题“准备 Agent 开发面试”；
+- 真机 Pixel 4 XL：AgentNext 可启动；设备锁屏，尚未执行自然语言任务。
