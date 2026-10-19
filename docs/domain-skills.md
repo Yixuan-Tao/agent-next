@@ -123,3 +123,15 @@ JD skill 通过这些通用 policy + `JdAppProfile` 运行。
 - JD cart s2 verifier 波动：视觉选中的购物车 tab 有时未打开购物车；
 - 结果卡候选点击后的详情校验；
 - 自动加购端到端。
+
+## 购物车候选重试
+
+`prepareJdCart` 不再只点一个视觉点：
+
+- 获取多个购物车 tab 候选；
+- 逐个点击；
+- 每次重新 observe；
+- 只有出现 `cart.feature` / 合计 / 去结算才停止；
+- 都不行则放弃，不盲点。
+
+仍待真机验证 s2 cart verifier。

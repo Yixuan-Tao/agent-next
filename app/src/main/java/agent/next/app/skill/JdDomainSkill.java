@@ -242,17 +242,34 @@ public final class JdDomainSkill implements DomainSkill {
             if (cartTab == null) {
                 try {
                     Frame frame = api.observations().captureFrame(target);
-                    Point point = locator.locate(frame,
+                    java.util.List<Point> points = locator.points(frame,
                             "京东底部导航栏的购物车 tab（不要结算/购买/广告）",
                             JdAppProfile.PROFILE.cartLabels(),
                             JdAppProfile.PROFILE.cartForbidden(),
                             0.5);
-                    api.input().tap(target, observation, point);
-                    Thread.sleep(1500L);
-                    api.observations().observe(target, ObservationOptions.defaults());
-                    Log.i(TAG, "JD cart tab selected by vision");
+                    for (Point point : points) {
+                        api.input().tap(target, observation, point);
+                        Thread.sleep(1200L);
+                        Observation cart = api.observations().observe(
+                                target, ObservationOptions.defaults());
+                        boolean cartPage = false;
+                        for (UiNode node : cart.nodes()) {
+                            if (node.viewId().contains("cart.feature")
+                                    || node.text().contains("合计")
+                                    || node.text().contains("去结算")) {
+                                cartPage = true;
+                                break;
+                            }
+                        }
+                        if (cartPage) {
+                            Log.i(TAG, "JD cart tab selected by vision candidate");
+                            return;
+                        }
+                        observation = cart;
+                    }
+                    Log.i(TAG, "JD cart tab candidates did not open cart");
                 } catch (Throwable failure) {
-                    Log.i(TAG, "JD cart tab not in tree; visual locator unavailable");
+                    Log.i(TAG, "JD cart tab visual locator unavailable");
                 }
                 return;
             }
