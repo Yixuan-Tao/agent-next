@@ -105,11 +105,6 @@ public final class JdDomainSkill implements DomainSkill {
     }
 
     @Override
-    public TaskPlan fixedPlan(TaskPlan planned) {
-        return JdAddPlan.replace(planned);
-    }
-
-    @Override
     public java.util.Set<String> verifierIds() {
         return java.util.Set.of("jd.cart", "jd.home", "jd.detail");
     }

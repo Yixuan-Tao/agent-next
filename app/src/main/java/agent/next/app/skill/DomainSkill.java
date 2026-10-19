@@ -3,7 +3,6 @@ package agent.next.app.skill;
 import agent.next.brain.Subgoal;
 import agent.next.brain.TaskSpec;
 import agent.next.brain.loop.LoopPolicy;
-import agent.next.brain.plan.TaskPlan;
 import agent.next.brain.session.SubgoalVerifier;
 import agent.next.device.TargetHandle;
 import agent.phone.capability.BlockingDeviceApi;
@@ -20,10 +19,6 @@ public interface DomainSkill {
             BlockingDeviceApi api);
 
     Optional<LoopPolicy> policy(SkillContext context);
-
-    default TaskPlan fixedPlan(TaskPlan planned) {
-        return null;
-    }
 
     default Set<String> verifierIds() {
         return Set.of();

@@ -55,29 +55,6 @@ public final class CalendarDomainSkill implements DomainSkill {
     }
 
     @Override
-    public TaskPlan fixedPlan(TaskPlan planned) {
-        if (planned == null || planned.subgoals().isEmpty()) {
-            return null;
-        }
-        String goal = planned.task().goal();
-        boolean creates = goal.contains("添加") || goal.contains("新建")
-                || goal.contains("创建") || goal.contains("设置");
-        boolean calendar = goal.contains("提醒") || goal.contains("日程")
-                || goal.contains("日历");
-        String pkg = planned.subgoals().get(0).targetPackage();
-        if (!creates || !calendar || !isCalendar(pkg)) {
-            return null;
-        }
-        Subgoal subgoal = new Subgoal("s1", "创建日历事件并添加提醒", Set.of(),
-                List.of(new Condition("s1.pre", "calendar domain ready", true)),
-                List.of(new Condition("s1.post", "日历事件存在", true)),
-                new Fallback(Fallback.Strategy.RETRY, "retry once"),
-                RiskClass.REVERSIBLE_SIDE_EFFECT, true, pkg, "calendar.event");
-        return new TaskPlan(planned.task(), List.of(subgoal),
-                List.of("calendar event path is deterministic"));
-    }
-
-    @Override
     public java.util.Set<String> verifierIds() {
         return java.util.Set.of("calendar.event");
     }

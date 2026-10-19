@@ -53,25 +53,6 @@ public final class ClockDomainSkill implements DomainSkill {
     }
 
     @Override
-    public TaskPlan fixedPlan(TaskPlan planned) {
-        if (planned == null || planned.subgoals().isEmpty()) {
-            return null;
-        }
-        String goal = planned.task().goal();
-        String pkg = planned.subgoals().get(0).targetPackage();
-        if (!goal.contains("闹钟") || !PACKAGE.equals(pkg)) {
-            return null;
-        }
-        Subgoal subgoal = new Subgoal("s1", "设置一个闹钟", Set.of(),
-                List.of(new Condition("s1.pre", "clock domain ready", true)),
-                List.of(new Condition("s1.post", "系统下一个闹钟与目标时间一致", true)),
-                new Fallback(Fallback.Strategy.RETRY, "retry once"),
-                RiskClass.REVERSIBLE_SIDE_EFFECT, true, pkg, "clock.alarm");
-        return new TaskPlan(planned.task(), List.of(subgoal),
-                List.of("alarm path is deterministic"));
-    }
-
-    @Override
     public Set<String> verifierIds() {
         return Set.of("clock.alarm");
     }

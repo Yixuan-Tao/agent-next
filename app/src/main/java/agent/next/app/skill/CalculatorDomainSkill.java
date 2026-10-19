@@ -54,26 +54,6 @@ public final class CalculatorDomainSkill implements DomainSkill {
     }
 
     @Override
-    public TaskPlan fixedPlan(TaskPlan planned) {
-        if (planned == null || planned.subgoals().isEmpty()) {
-            return null;
-        }
-        String goal = planned.task().goal();
-        String pkg = planned.subgoals().get(0).targetPackage();
-        if (!goal.contains("计算") || !PACKAGE.equals(pkg)
-                || CalculatorExpression.parse(goal, "").isEmpty()) {
-            return null;
-        }
-        Subgoal subgoal = new Subgoal("s1", "在计算器上输入表达式并计算结果", Set.of(),
-                List.of(new Condition("s1.pre", "calculator ready", true)),
-                List.of(new Condition("s1.post", "计算结果在显示区可见", true)),
-                new Fallback(Fallback.Strategy.RETRY, "retry once"),
-                RiskClass.LOW, true, pkg, "calculator.result");
-        return new TaskPlan(planned.task(), List.of(subgoal),
-                List.of("calculator visual tap path is deterministic"));
-    }
-
-    @Override
     public Set<String> verifierIds() {
         return Set.of("calculator.result");
     }

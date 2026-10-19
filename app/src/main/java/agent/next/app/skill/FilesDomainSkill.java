@@ -53,26 +53,6 @@ public final class FilesDomainSkill implements DomainSkill {
     }
 
     @Override
-    public TaskPlan fixedPlan(TaskPlan planned) {
-        if (planned == null || planned.subgoals().isEmpty()) {
-            return null;
-        }
-        String goal = planned.task().goal();
-        boolean folder = goal.contains("文件夹") || goal.contains("目录");
-        String pkg = planned.subgoals().get(0).targetPackage();
-        if (!folder || !PACKAGE.equals(pkg)) {
-            return null;
-        }
-        Subgoal subgoal = new Subgoal("s1", "在下载目录创建文件夹", Set.of(),
-                List.of(new Condition("s1.pre", "files domain ready", true)),
-                List.of(new Condition("s1.post", "下载目录中存在目标文件夹", true)),
-                new Fallback(Fallback.Strategy.RETRY, "retry once"),
-                RiskClass.REVERSIBLE_SIDE_EFFECT, true, pkg, "files.folder");
-        return new TaskPlan(planned.task(), List.of(subgoal),
-                List.of("download folder path is deterministic"));
-    }
-
-    @Override
     public Set<String> verifierIds() {
         return Set.of("files.folder");
     }

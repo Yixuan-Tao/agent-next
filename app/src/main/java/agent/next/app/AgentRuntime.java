@@ -31,6 +31,7 @@ import agent.next.brain.skill.SkillModelStep;
 import agent.next.brain.model.StageExtractRequest;
 import agent.next.brain.plan.DeepSeekTaskPlanner;
 import agent.next.brain.contract.PlanValidator;
+import agent.next.brain.contract.TaskClarification;
 import agent.next.brain.contract.TaskContract;
 import agent.next.brain.contract.TaskContractFactory;
 import agent.next.brain.plan.PlanningRequest;
@@ -59,6 +60,8 @@ import agent.next.device.UiNode;
 import agent.phone.capability.BlockingDeviceApi;
 import agent.phone.connection.ShizukuConnectionDriver;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -403,6 +406,21 @@ public final class AgentRuntime {
             skillModel = new DeepSeekSkillModel(client);
             visualModel = new DeepSeekVisualModel(client);
             domainSkills = DomainSkills.create(context, client);
+            java.util.Optional<String> clarification = TaskClarification.detect(
+                    request.goal(), LocalDate.now(), ZoneId.systemDefault());
+            if (clarification.isPresent()) {
+                PlanningResult result = PlanningResult.clarify(clarification.get());
+                synchronized (this) {
+                    state = State.AWAITING_PLAN;
+                    detail = "需要澄清";
+                }
+                postState(state, detail);
+                Listener current = listener;
+                if (current != null) {
+                    main.post(() -> current.onPlan(result));
+                }
+                return;
+            }
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
             PlanningResult raw = planner.plan(request);
             if (!raw.needsClarification() && raw.plan() != null) {
