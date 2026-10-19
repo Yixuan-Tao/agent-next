@@ -236,6 +236,16 @@ public final class FastLoop {
                 event(TaskEvent.EventType.STOPPED, stopped.getMessage(), Map.of());
                 return LoopResult.stopped(stopped.getMessage(), actions, last);
             } catch (DeviceException failure) {
+                if (failure.code() == DeviceException.Code.NEED_USER) {
+                    event(TaskEvent.EventType.HANDOFF, failure.getMessage(),
+                            Map.of("action", action.id()));
+                    return LoopResult.needUser(failure.getMessage(), actions, last);
+                }
+                if (failure.code() == DeviceException.Code.CANCELLED) {
+                    event(TaskEvent.EventType.STOPPED, failure.getMessage(),
+                            Map.of("action", action.id()));
+                    return LoopResult.stopped(failure.getMessage(), actions, last);
+                }
                 event(TaskEvent.EventType.FAILURE,
                         "action failed: " + failure.code() + " " + failure.getMessage(),
                         Map.of("action", action.id()));

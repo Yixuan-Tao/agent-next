@@ -15,7 +15,9 @@ public final class DeviceException extends Exception {
         STALE,
         BUSY,
         PROTOCOL,
-        INTERNAL
+        INTERNAL,
+        CANCELLED,
+        NEED_USER
     }
 
     private final Code code;
