@@ -8,6 +8,7 @@ import android.util.Log;
 import agent.next.brain.DefaultRiskGate;
 import agent.next.app.calendar.CalendarPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
+import agent.next.app.skill.JdCartPolicy;
 import agent.next.app.skill.JdCartVerifier;
 import agent.next.app.skill.QuarkWeatherPolicy;
 import agent.next.app.calendar.CalendarStore;
@@ -489,7 +490,10 @@ public final class AgentRuntime {
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && ("jd.cart".equals(subgoal.verifierId())
                         || subgoal.intent().contains("购物车"))) {
+                    Log.i(TAG, "JD cart policy selected: " + subgoal.id()
+                            + " verifier=" + subgoal.verifierId());
                     prepareJdCart(target);
+                    return new RiskGuardPolicy(new JdCartPolicy(), this::handoffToUser);
                 }
                 return new RiskGuardPolicy(promptPolicies.create(task, subgoal, target, attempt), this::handoffToUser);
             };
@@ -661,6 +665,16 @@ public final class AgentRuntime {
         try {
             Observation observation = api.observations().observe(
                     target, ObservationOptions.defaults());
+            for (UiNode node : observation.nodes()) {
+                String popup = node.text() + " " + node.contentDescription();
+                if (popup.contains("别折腾了") || popup.contains("跳过广告")) {
+                    api.input().back(target, observation);
+                    Thread.sleep(1000L);
+                    observation = api.observations().observe(
+                            target, ObservationOptions.defaults());
+                    break;
+                }
+            }
             boolean title = false;
             boolean footer = false;
             for (UiNode node : observation.nodes()) {
@@ -676,7 +690,7 @@ public final class AgentRuntime {
                 return;
             }
             // JD's bottom cart tab is a custom view without text; scoped 720x1280 hit area.
-            api.input().tap(target, observation, new Point(486, 1240));
+            api.input().tap(target, observation, new Point(486, 1210));
             Thread.sleep(1500L);
             api.observations().observe(target, ObservationOptions.defaults());
             Log.i(TAG, "JD cart tab selected");

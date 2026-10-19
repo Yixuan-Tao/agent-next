@@ -90,3 +90,17 @@ FAILED action failed: REJECTED tap target not found: clickable text contains 购
 
 说明当前 build 中仍有模型文本点击路径（或未走到 JdCartPolicy 分支），
 cart 导航仍未 PASS。不得以新增类代替验证。
+
+## 2026-10-19 policy wiring 修复
+
+发现 `JdCartPolicy` 类已添加但 **AgentRuntime 未 import / 未 return**，因此 cart 子目标仍走 prompt model。
+已修复：
+
+```text
+JD cart policy selected: s2 verifier=jd.cart
+JD cart tab selected
+```
+
+但任务仍 `STOPPED actions=2 attempts=1/2`，未进入 `verify s2` PASS。
+说明 cart tab 点击仍未把页面切到购物车（或 verifier 未拿到目标页面），
+cart 导航仍不能算 PASS。

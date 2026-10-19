@@ -71,7 +71,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - Chain B cart prelude 已加入但未跑通；JD cart 手动可读（1 商品，数量 3），不结算；详见 [docs/chain-b-notes.md](docs/chain-b-notes.md)；
 - Release end-to-end PASS：文件管理器安装/非 debuggable/config 导入/Shizuku/JD 首页 DONE actions=2 attempts=4；Android 13 待验；
 - Release verification：`tools/verify-release.sh` PASS（签名/SDK/launcher/exported/checksum）；
-- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `e213ae7e82e48c0ebd99bc77875318f6ad3c17c93382b1601d9f368dad38343f`；隐私说明与 release notes 草案已写；
+- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `0afe0963bb74554527aeb1362e104085699b3ba8c7d50bd7dac6f65b1be419da`；隐私说明与 release notes 草案已写；
 - Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
 - Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
 - Human handoff stop：等待期间 STOP_TASK → not approved、service 停止、不 DONE；
