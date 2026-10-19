@@ -50,6 +50,12 @@ public final class CalendarStore {
             target = DayOfWeek.SUNDAY;
         } else if (text.contains("周一") || text.contains("星期一")) {
             target = DayOfWeek.MONDAY;
+        } else if (text.contains("周二") || text.contains("星期二")) {
+            target = DayOfWeek.TUESDAY;
+        } else if (text.contains("周三") || text.contains("星期三")) {
+            target = DayOfWeek.WEDNESDAY;
+        } else if (text.contains("周四") || text.contains("星期四")) {
+            target = DayOfWeek.THURSDAY;
         } else if (text.contains("明天")) {
             day = day.plusDays(1);
         }

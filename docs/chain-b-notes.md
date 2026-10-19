@@ -479,3 +479,16 @@ connect-ready failed: UNSUPPORTED/ENVIRONMENT
 4. 需要把 Shizuku 以无线调试 shell 模式启动，而不是 root 模式。
 
 同时修复 UI：FAILED 时 planView 不再停留在“规划中…”。
+
+## Android 13 多显示观察
+
+Android 13 `UiAutomation` 只有 `(Looper, IUiAutomationConnection)`，没有 displayId 构造函数，
+也没有 `mDisplayId` 字段。
+
+已改为：
+
+- API 34+ 继续用 `UiAutomation(displayId, looper, connection)`；
+- Android 13 fallback 用旧构造函数 + `getWindowsOnAllDisplays()`；
+- 按 target displayId 过滤窗口。
+
+尚未在设备上复测：无线调试端口变化，设备当前 offline。

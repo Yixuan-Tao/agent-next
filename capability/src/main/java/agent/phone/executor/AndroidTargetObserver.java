@@ -124,6 +124,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
         private final TargetSession target;
         private final AndroidInputDispatcher input = new AndroidInputDispatcher();
         private UiAutomation automation;
+        private boolean allDisplays;
         private Object connection;
         private HandlerThread callbacks;
         Observer(TargetSession target) { this.target = target; this.display = target.display; }
@@ -146,9 +147,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 constructor.setAccessible(true);
                 automation = (UiAutomation) constructor.newInstance(
                         Looper.getMainLooper(), connection);
-                Field displayId = UiAutomation.class.getDeclaredField("mDisplayId");
-                displayId.setAccessible(true);
-                displayId.setInt(automation, display.displayId);
+                allDisplays = true;
             }
             try {
                 UiAutomation.class.getMethod("connectWithTimeout",int.class,long.class).invoke(automation,
@@ -159,6 +158,13 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
             info.packageNames = new String[] { target.packageName };
             automation.setServiceInfo(info);
+        }
+        private List<AccessibilityWindowInfo> windows() {
+            if (!allDisplays) return automation.getWindows();
+            android.util.SparseArray<List<AccessibilityWindowInfo>> all =
+                    automation.getWindowsOnAllDisplays();
+            List<AccessibilityWindowInfo> selected = all.get(display.displayId);
+            return selected == null ? java.util.List.of() : selected;
         }
         private static Object field(Object object,String name) throws Exception {
             Field field = object.getClass().getDeclaredField(name);
@@ -188,14 +194,14 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             try {
                 checkDeadline(deadline);
                 automation.clearCache();
-                windows = automation.getWindows(); // mDisplayId, never all displays.
+                windows = windows(); // mDisplayId, never all displays.
                 initial = focused(windows,budget,false,deadline);
                 if (initial == null) return refusal(id,sequence,started,TargetObservation.Status.TARGET_NOT_READY,budget);
                 if (!initial.allowed) return refusal(id,sequence,started,TargetObservation.Status.FOREIGN_WINDOW,budget);
                 ArrayList<TargetObservation.Node> nodes = new ArrayList<>();
                 if (includeNodes) traverse(initial.root,initial.id,id,nodes,budget,deadline);
                 automation.clearCache();
-                List<AccessibilityWindowInfo> finalWindows = automation.getWindows();
+                List<AccessibilityWindowInfo> finalWindows = windows();
                 Window last = null;
                 try {
                     last = focused(finalWindows,budget,true,deadline);
@@ -290,7 +296,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 throw new IllegalStateException("Observed window changed before text input");
             }
             automation.clearCache();
-            List<AccessibilityWindowInfo> windows = automation.getWindows();
+            List<AccessibilityWindowInfo> windows = windows();
             AccessibilityWindowInfo targetWindow = null;
             AccessibilityNodeInfo root = null;
             try {
@@ -379,7 +385,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
         }
         private FrameSafetyPolicy.Snapshot frameWindows(long deadline) {
             checkDeadline(deadline); automation.clearCache();
-            List<AccessibilityWindowInfo> windows = automation.getWindows();
+            List<AccessibilityWindowInfo> windows = windows();
             ArrayList<FrameSafetyPolicy.Window> identities = new ArrayList<>();
             try {
                 if (windows == null || windows.isEmpty() || windows.size() > 32) throw new IllegalStateException("Frame windows unavailable");

@@ -17,7 +17,10 @@ public final class DomainSkills {
         return List.of(
                 new JdDomainSkill(new JdVisualLocator(client)),
                 new QuarkDomainSkill(),
-                new CalendarDomainSkill(context));
+                new CalendarDomainSkill(context),
+                new ClockDomainSkill(context),
+                new FilesDomainSkill(context),
+                new CalculatorDomainSkill(client));
     }
 
     public static TaskPlan fixedPlan(List<DomainSkill> skills, TaskPlan planned) {
