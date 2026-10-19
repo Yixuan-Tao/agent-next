@@ -313,3 +313,19 @@ verify s2 -> false ... 挑好物逛京东
 
 真机仍在 s2 遇到“挑好物逛京东”广告，未进入搜索；
 自动化加购未 PASS。
+
+## 2026-10-19 s3 结果卡误点地址页
+
+`s1/s2` 已 PASS；`JdResultPolicy` 多点击价格节点/首卡后，
+s3 打开的是“选择地址 / address/delivery”，不是商品详情：
+
+```text
+verify s3 -> false ... 选择地址 id=/address/delivery?stamp=1
+```
+
+- 误点进入地址选择页；
+- 未进入商品详情/加购；
+- 已 force-stop JD/app，未下单/未支付。
+
+结论：自动化加购仍未 PASS；结果卡点击需要更精确的节点/坐标，
+不能再用盲点击。

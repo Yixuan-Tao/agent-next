@@ -731,7 +731,7 @@ public final class AgentRuntime {
             for (UiNode node : observation.nodes()) {
                 String popup = node.text() + " " + node.contentDescription();
                 if (popup.contains("别折腾了") || popup.contains("跳过广告")) {
-                    api.input().back(target, observation);
+                    api.input().tap(target, observation, new Point(495, 370));
                     Thread.sleep(1000L);
                     observation = api.observations().observe(
                             target, ObservationOptions.defaults());

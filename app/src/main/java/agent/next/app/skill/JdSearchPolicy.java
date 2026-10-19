@@ -29,8 +29,7 @@ public final class JdSearchPolicy implements LoopPolicy {
             }
             if (all.contains("挑好物逛京东") || all.contains("11.11主会场")) {
                 dismissedAd = true;
-                return Optional.of(new BackAction("jd.dismiss-ad",
-                        "close JD home ad", RiskClass.LOW));
+                return Optional.of(new TapPointAction(new Point(495, 370)));
             }
         }
         UiNode editable = null;

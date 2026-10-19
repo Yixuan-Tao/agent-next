@@ -9,38 +9,36 @@ import agent.next.device.UiNode;
 import java.util.Optional;
 
 /**
- * JD search-result card selection. Taps a visible price/title node's bounds,
- * falling back to the first-card area; never taps buy/checkout.
+ * JD search-result card selection. Tries a price node, then two scoped first-card
+ * points; never taps buy/checkout.
  */
 public final class JdResultPolicy implements LoopPolicy {
 
-    private boolean tapped;
+    private int taps;
 
     @Override
     public Optional<LoopAction> next(LoopContext context) {
-        if (tapped) {
-            return Optional.of(new WaitAction(800));
-        }
-        UiNode candidate = null;
-        for (UiNode node : context.observation().nodes()) {
-            String text = node.text();
-            if (text.contains("¥") || text.contains("￥")) {
-                if (node.bounds().top() > 200) {
-                    candidate = node;
-                    break;
+        if (taps == 0) {
+            for (UiNode node : context.observation().nodes()) {
+                String text = node.text();
+                if ((text.contains("¥") || text.contains("￥"))
+                        && node.bounds().top() > 200) {
+                    taps++;
+                    return Optional.of(new TapPointAction(new Point(
+                            node.bounds().centerX(), node.bounds().centerY())));
                 }
             }
         }
-        tapped = true;
-        if (candidate != null) {
-            return Optional.of(new TapPointAction(new Point(
-                    candidate.bounds().centerX(), candidate.bounds().centerY())));
+        if (taps == 0 || taps == 1) {
+            taps++;
+            int y = taps == 1 ? 220 : 300;
+            return Optional.of(new TapPointAction(new Point(180, y)));
         }
-        return Optional.of(new TapPointAction(new Point(180, 360)));
+        return Optional.of(new WaitAction(800));
     }
 
     @Override
     public boolean complete(LoopContext context) {
-        return tapped;
+        return taps >= 2;
     }
 }
