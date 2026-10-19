@@ -188,3 +188,34 @@ result: DONE · all subgoals verified actions=1 attempts=3
 - 购物车中商品：影视飓风“凉伴”Air 短袖，星夜黑 XL，数量 3，合计 ¥165.80。
 
 结论：**JD 首页 → 购物车导航 PASS**（不包含商品详情/加购）。
+
+## 2026-10-19 人工 JD 验证后：详情/加购可访问
+
+用户完成“京东验证”后，JD 商品详情页恢复：
+
+```text
+ProductDetailActivity
+nodes=136
+text="加入购物车" id=com.jd.lib.productdetail.feature:id/alr
+text="立即购买"   id=com.jd.lib.productdetail.feature:id/am_
+```
+
+人工链路验证：
+
+1. 详情页点“加入购物车”；
+2. 规格弹层选择 星夜黑 / XL / 数量1；
+3. 点“确定”；
+4. 打开购物车：
+
+```text
+购物车 (1)
+影视飓风“凉伴”Air 短袖，星夜黑 XL
+数量从 3 → 4
+合计 ¥224.40
+```
+
+- 加购成功；
+- 未结算/未支付；
+- 中途误点“立即购买”进入结算弹层，立即 Back 退出，没有提交订单。
+
+结论：**JD 详情页可访问、加购人工 PASS**；agent 自动化加购仍需把“加入购物车 + 规格确定”做成 prelude/policy。
