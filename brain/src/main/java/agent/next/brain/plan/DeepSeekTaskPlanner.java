@@ -120,7 +120,7 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
                 .append("可使用 verifierId：").append(request.allowedVerifiers()).append("。\n")
                 .append("生成 1..8 个顺序/依赖 subgoal；dependsOn 只能引用本计划中的 id。\n")
                 .append("每个 subgoal 必须给出 1..3 个 postconditions，描述该阶段完成时屏幕上应出现的可见证据；不要用最终汇报条件。\n")
-                .append("successCriteria 1..8 条，必须是页面上可观察/可验证的短文本；不要要求用户手填。\n")
+                .append("successCriteria 1..8 条，必须是页面上可观察/可验证的短文本；每条 successCriteria 必须原样出现在至少一个 subgoal 的 postconditions 中。\n")
                 .append("不要计划支付、下单、发送、删除、登录、验证码或权限授予；遇到时停在需要人确认的边界。\n")
                 .append("严禁输出坐标、像素、x/y、固定点击序列或原始设备操作。\n")
                 .append("如果目标有实质歧义，只输出 {\"clarification\":\"一个最小问题\"}，不要输出计划。\n")

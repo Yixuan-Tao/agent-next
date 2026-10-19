@@ -30,6 +30,9 @@ import agent.next.brain.skill.SkillModelRequest;
 import agent.next.brain.skill.SkillModelStep;
 import agent.next.brain.model.StageExtractRequest;
 import agent.next.brain.plan.DeepSeekTaskPlanner;
+import agent.next.brain.contract.PlanValidator;
+import agent.next.brain.contract.TaskContract;
+import agent.next.brain.contract.TaskContractFactory;
 import agent.next.brain.plan.PlanningRequest;
 import agent.next.brain.plan.PlanningResult;
 import agent.next.brain.plan.TaskPlan;
@@ -402,10 +405,16 @@ public final class AgentRuntime {
             domainSkills = DomainSkills.create(context, client);
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
             PlanningResult raw = planner.plan(request);
-            TaskPlan fixed = (!raw.needsClarification() && raw.plan() != null)
-                    ? DomainSkills.fixedPlan(domainSkills, raw.plan()) : null;
-            PlanningResult result = (fixed != null && fixed != raw.plan())
-                    ? PlanningResult.plan(fixed) : raw;
+            if (!raw.needsClarification() && raw.plan() != null) {
+                TaskContract contract = TaskContractFactory.from(request, raw.plan());
+                PlanValidator.Result validation = new PlanValidator().validate(
+                        contract, raw.plan(), request.allowedVerifiers());
+                if (!validation.valid()) {
+                    fail("计划校验失败: " + validation.errors());
+                    return;
+                }
+            }
+            PlanningResult result = raw;
             synchronized (this) {
                 if (result.needsClarification()) {
                     state = State.AWAITING_PLAN;

@@ -3,11 +3,14 @@ package agent.next.brain.contract;
 import agent.next.brain.AutonomyGrant;
 import agent.next.brain.AutonomyLevel;
 import agent.next.brain.Budget;
+import agent.next.brain.Condition;
 import agent.next.brain.Fallback;
 import agent.next.brain.RiskClass;
 import agent.next.brain.Subgoal;
 import agent.next.brain.SuccessCriterion;
 import agent.next.brain.TaskSpec;
+import agent.next.brain.plan.InstalledApp;
+import agent.next.brain.plan.PlanningRequest;
 import agent.next.brain.plan.TaskPlan;
 
 import java.util.List;
@@ -28,6 +31,7 @@ public final class TaskContractTest {
         unregisteredVerifier();
         disallowedTarget();
         primaryMismatch();
+        factoryCoverage();
         System.out.println("TaskContractTest: PASS (contract, coverage, verifier, app scope)");
     }
 
@@ -61,6 +65,26 @@ public final class TaskContractTest {
         PlanValidator.Result result = validator().validate(contract("visual"),
                 plan("com.example.other", "visual", "com.example.shop"), Set.of("visual"));
         check(!result.valid(), "first target must be primary");
+    }
+
+    private static void factoryCoverage() {
+        TaskSpec task = new TaskSpec("m2-task", "test plan", List.of(),
+                List.of(new SuccessCriterion("c1", "result visible", true)),
+                AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT),
+                Set.of("com.example.shop"), Set.of(), Budget.defaults());
+        Subgoal subgoal = new Subgoal("s1", "first", Set.of(), List.of(),
+                List.of(new Condition("c1", "result visible", true)),
+                new Fallback(Fallback.Strategy.RETRY, "retry"), RiskClass.LOW, true,
+                "com.example.shop", "visual");
+        TaskPlan plan = new TaskPlan(task, List.of(subgoal), List.of());
+        PlanningRequest request = new PlanningRequest("m2-task", "test plan", List.of(),
+                Set.of("com.example.shop"), List.of(new InstalledApp("com.example.shop", "Shop")),
+                "com.example.shop", Set.of("payment"), Set.of("visual"),
+                AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT));
+        TaskContract contract = TaskContractFactory.from(request, plan);
+        check(contract.requiredOutcomes().size() == 1, "factory outcome count");
+        check(new PlanValidator().validate(contract, plan, Set.of("visual")).valid(),
+                "factory contract validates coverage");
     }
 
     private static PlanValidator validator() {
