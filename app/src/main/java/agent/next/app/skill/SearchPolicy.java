@@ -15,7 +15,7 @@ import java.util.Optional;
  * JD search using observed controls; an optional vision-located search entry is
  * allowed when the home page exposes no searchable node. No fixed coordinates.
  */
-public final class JdSearchPolicy implements LoopPolicy {
+public final class SearchPolicy implements LoopPolicy {
 
     private final Point searchEntry;
     private final JdVisualLocator locator;
@@ -25,7 +25,7 @@ public final class JdSearchPolicy implements LoopPolicy {
     private boolean typed;
     private boolean submitted;
 
-    public JdSearchPolicy(Point searchEntry, JdVisualLocator locator, AppProfile profile) {
+    public SearchPolicy(Point searchEntry, JdVisualLocator locator, AppProfile profile) {
         this.searchEntry = searchEntry;
         this.locator = locator;
         this.profile = profile;

@@ -10,7 +10,7 @@ import java.util.Optional;
  * JD cart navigation is deterministic: the scoped prelude taps the textless tab,
  * then this policy only waits for JdCartVerifier. No model text-selector attempts.
  */
-public final class JdCartPolicy implements LoopPolicy {
+public final class CartWaitPolicy implements LoopPolicy {
 
     @Override
     public Optional<LoopAction> next(LoopContext context) {

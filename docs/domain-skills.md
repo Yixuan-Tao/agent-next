@@ -93,3 +93,17 @@ JD 的搜索入口/提交、结果卡、加购、确认、购物车、负面标�
 
 真机：profile 化后 JD target prepare/购物车 tab 仍工作；
 本轮 s3 verifier 有波动，未作为通过。
+
+## 通用 policy 抽取
+
+重命名/抽象：
+
+- `JdSearchPolicy` → `SearchPolicy(profile)`
+- `JdAddPolicy` → `AddToCartPolicy(profile)`
+- `JdCartPolicy` → `CartWaitPolicy`
+- `JdResultPolicy` → `ResultCardPolicy(candidates, detailMarkers)`
+
+`ResultCardPolicy` 现在持有多个视觉候选，并按顺序点击；一旦 observation 出现
+profile 的 detailMarkers（如“加入购物车/商品详情”）就停止。失败会尝试下一个候选。
+
+JD skill 通过这些通用 policy + `JdAppProfile` 运行。

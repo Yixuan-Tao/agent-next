@@ -1,3 +1,27 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 package agent.next.app.skill;
 
 import agent.next.brain.grounding.VisualCandidate;
@@ -109,5 +133,28 @@ public final class JdVisualLocator {
             }
         }
         return value;
+    }
+
+    public java.util.List<Point> points(Frame frame, String target,
+            Set<String> allowed, Set<String> forbidden, double minConfidence)
+            throws IOException {
+        java.util.List<Point> result = new java.util.ArrayList<>();
+        for (VisualCandidate candidate : candidates(frame, target, minConfidence)) {
+            if (candidate.confidence() < minConfidence) {
+                continue;
+            }
+            String label = candidate.label().toLowerCase();
+            boolean bad = forbidden.stream().anyMatch(label::contains);
+            boolean good = allowed.isEmpty()
+                    || allowed.stream().anyMatch(label::contains);
+            if (bad || !good) {
+                continue;
+            }
+            int px = (int) Math.round(candidate.x() * frame.width());
+            int py = (int) Math.round(candidate.y() * frame.height());
+            result.add(new Point(Math.max(0, Math.min(frame.width() - 1, px)),
+                    Math.max(0, Math.min(frame.height() - 1, py))));
+        }
+        return result;
     }
 }

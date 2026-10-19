@@ -60,13 +60,14 @@ public final class JdDomainSkill implements DomainSkill {
                 && subgoal.intent().contains("详情"))) {
             try {
                 Frame frame = context.api().observations().captureFrame(context.target());
-                Point result = locator.locate(frame,
+                java.util.List<Point> results = locator.points(frame,
                         "京东搜索结果中第一个真实商品卡片（不要广告、地址、筛选、购买按钮）",
                         JdAppProfile.PROFILE.resultCardLabels(),
                         JdAppProfile.PROFILE.resultCardForbidden(),
                         0.5);
-                Log.i(TAG, "JD result-card vision point=" + result);
-                return Optional.of(new RiskGuardPolicy(new JdResultPolicy(result),
+                Log.i(TAG, "JD result-card vision points=" + results);
+                return Optional.of(new RiskGuardPolicy(
+                        new ResultCardPolicy(results, JdAppProfile.PROFILE.detailMarkers()),
                         context.handoff()));
             } catch (Throwable failure) {
                 Log.w(TAG, "JD result locator unavailable: " + failure);
@@ -88,19 +89,19 @@ public final class JdDomainSkill implements DomainSkill {
                 Log.w(TAG, "JD search entry locator unavailable: " + failure);
             }
             Log.i(TAG, "JD search policy selected: " + subgoal.id());
-            return Optional.of(new RiskGuardPolicy(new JdSearchPolicy(entry, locator, JdAppProfile.PROFILE),
+            return Optional.of(new RiskGuardPolicy(new SearchPolicy(entry, locator, JdAppProfile.PROFILE),
                     context.handoff()));
         }
         if (subgoal.intent().contains("加入购物车")) {
             Log.i(TAG, "JD add-to-cart policy selected: " + subgoal.id());
-            return Optional.of(new RiskGuardPolicy(new JdAddPolicy(JdAppProfile.PROFILE), context.handoff()));
+            return Optional.of(new RiskGuardPolicy(new AddToCartPolicy(JdAppProfile.PROFILE), context.handoff()));
         }
         if ("jd.cart".equals(subgoal.verifierId())
                 || subgoal.intent().contains("购物车")) {
             Log.i(TAG, "JD cart policy selected: " + subgoal.id()
                     + " verifier=" + subgoal.verifierId());
             prepareJdCart(context.api(), context.target());
-            return Optional.of(new RiskGuardPolicy(new JdCartPolicy(), context.handoff()));
+            return Optional.of(new RiskGuardPolicy(new CartWaitPolicy(), context.handoff()));
         }
         return Optional.of(new RiskGuardPolicy(context.promptFallback(), context.handoff()));
     }

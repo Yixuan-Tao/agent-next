@@ -9,12 +9,12 @@ import agent.next.device.UiNode;
 import java.util.Optional;
 
 /** Deterministic add flow; labels come from AppProfile, never buy/checkout. */
-public final class JdAddPolicy implements LoopPolicy {
+public final class AddToCartPolicy implements LoopPolicy {
 
     private final AppProfile profile;
     private boolean confirmed;
 
-    public JdAddPolicy(AppProfile profile) {
+    public AddToCartPolicy(AppProfile profile) {
         this.profile = profile;
     }
 
