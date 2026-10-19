@@ -423,3 +423,15 @@ JD 搜索结果页的控件树也不包含商品卡（仅 header/filter/地址�
 - 搜索提交后等待 7000ms；
 - JD verifier 对“搜索页 search.feature editable”放宽为 s1 证据；
 - 但计划 s1/s2 文案变化会导致 s1 在首页/搜索页之间反复失败，自动加购仍未稳定。
+
+## 固定 JD 加购计划
+
+新增 `JdAddPlan`：当 goal 含“京东 + 加入购物车”时替换规划器 subgoals：
+
+1. 打开京东首页（jd.home）
+2. 搜索（visual）
+3. 打开第一款详情（jd.detail）
+4. 加入购物车（visual）
+
+`DomainSkill.fixedPlan` + `DomainSkills.fixedPlan`，AgentRuntime 在计划确认前替换。
+真机：s1 不再漂移；s2 仍会在搜索提交后停止，s3/s4 未执行。

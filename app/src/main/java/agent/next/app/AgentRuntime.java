@@ -400,7 +400,11 @@ public final class AgentRuntime {
             visualModel = new DeepSeekVisualModel(client);
             domainSkills = DomainSkills.create(context, client);
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
-            PlanningResult result = planner.plan(request);
+            PlanningResult raw = planner.plan(request);
+            TaskPlan fixed = (!raw.needsClarification() && raw.plan() != null)
+                    ? DomainSkills.fixedPlan(domainSkills, raw.plan()) : null;
+            PlanningResult result = (fixed != null && fixed != raw.plan())
+                    ? PlanningResult.plan(fixed) : raw;
             synchronized (this) {
                 if (result.needsClarification()) {
                     state = State.AWAITING_PLAN;
@@ -527,8 +531,9 @@ public final class AgentRuntime {
             verifiers.register("visual", routed);
             if (domainSkills != null) {
                 for (DomainSkill skill : domainSkills) {
-                    if (!skill.verifierId().isBlank()) {
-                        verifiers.register(skill.verifierId(), skill.verifier(visual));
+                    SubgoalVerifier domainVerifier = skill.verifier(visual);
+                    for (String verifierId : skill.verifierIds()) {
+                        verifiers.register(verifierId, domainVerifier);
                     }
                 }
             }

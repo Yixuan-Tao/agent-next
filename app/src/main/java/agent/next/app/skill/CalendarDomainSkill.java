@@ -48,8 +48,8 @@ public final class CalendarDomainSkill implements DomainSkill {
     }
 
     @Override
-    public String verifierId() {
-        return "calendar.event";
+    public java.util.Set<String> verifierIds() {
+        return java.util.Set.of("calendar.event");
     }
 
     @Override

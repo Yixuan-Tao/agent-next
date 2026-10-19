@@ -6,6 +6,7 @@ import agent.next.brain.Subgoal;
 import agent.next.brain.TaskSpec;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.brain.session.SubgoalVerifier;
+import agent.next.brain.plan.TaskPlan;
 import agent.next.device.Frame;
 import agent.next.device.NodeFlag;
 import agent.next.device.Observation;
@@ -104,14 +105,26 @@ public final class JdDomainSkill implements DomainSkill {
     }
 
     @Override
-    public String verifierId() {
-        return "jd.cart";
+    public TaskPlan fixedPlan(TaskPlan planned) {
+        return JdAddPlan.replace(planned);
+    }
+
+    @Override
+    public java.util.Set<String> verifierIds() {
+        return java.util.Set.of("jd.cart", "jd.home", "jd.detail");
     }
 
     @Override
     public SubgoalVerifier verifier(SubgoalVerifier fallback) {
         JdCartVerifier cart = new JdCartVerifier();
         return (task, subgoal, target, observation) -> {
+            if (PACKAGE.equals(target.packageName())
+                    && (subgoal.verifierId().equals("jd.home")
+                    || subgoal.intent().contains("首页"))) {
+                if (observation.nodes().size() > 50) {
+                    return new SubgoalVerifier.Verification(true, "JD home frame visible");
+                }
+            }
             if (PACKAGE.equals(target.packageName())
                     && task.goal().contains("搜索")) {
                 for (UiNode node : observation.nodes()) {
