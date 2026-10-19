@@ -6,6 +6,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
+import agent.next.brain.action.ActionExecutor;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
 import agent.next.app.skill.DomainSkill;
@@ -493,7 +494,9 @@ public final class AgentRuntime {
                         if (skill.matches(target.packageName(), task)) {
                             java.util.Optional<LoopPolicy> domain = skill.policy(
                                     new SkillContext(task, subgoal, target, attempt, api,
-                                            this::handoffToUser, fallback));
+                                            this::handoffToUser, fallback,
+                                            new ActionExecutor(api, new DefaultRiskGate(), human,
+                                                    runControl)));
                             if (domain.isPresent()) {
                                 return domain.get();
                             }

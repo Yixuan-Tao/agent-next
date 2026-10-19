@@ -52,6 +52,13 @@ public interface NodeSelector {
                 && node.text().contains(expected), "clickable text contains " + expected);
     }
 
+    static NodeSelector clickableContentDescriptionContains(String text) {
+        String expected = require(text);
+        return new Selector(node -> node.hasFlag(NodeFlag.CLICKABLE)
+                && node.contentDescription().contains(expected),
+                "clickable desc contains " + expected);
+    }
+
     static NodeSelector viewId(String viewId) {
         String expected = require(viewId);
         return new Selector(node -> expected.equals(node.viewId()), "viewId=" + expected);

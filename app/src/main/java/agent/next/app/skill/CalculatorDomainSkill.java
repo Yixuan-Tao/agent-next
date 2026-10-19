@@ -49,7 +49,7 @@ public final class CalculatorDomainSkill implements DomainSkill {
             return Optional.empty();
         }
         return Optional.of(new RiskGuardPolicy(
-                new CalculatorPolicy(locator, context.task(), context.subgoal()),
+                new CalculatorPolicy(context.executor(), context.task(), context.subgoal()),
                 context.handoff()));
     }
 

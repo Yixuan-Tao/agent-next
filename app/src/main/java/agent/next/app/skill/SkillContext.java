@@ -2,6 +2,7 @@ package agent.next.app.skill;
 
 import agent.next.brain.Subgoal;
 import agent.next.brain.TaskSpec;
+import agent.next.brain.action.ActionExecutor;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.device.TargetHandle;
 import agent.phone.capability.BlockingDeviceApi;
@@ -14,5 +15,6 @@ public record SkillContext(
         int attempt,
         BlockingDeviceApi api,
         RiskGuardPolicy.Handoff handoff,
-        LoopPolicy promptFallback) {
+        LoopPolicy promptFallback,
+        ActionExecutor executor) {
 }
