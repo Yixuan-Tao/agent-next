@@ -7,14 +7,10 @@ import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
 import agent.next.brain.loop.LoopPolicy;
-import agent.next.app.calendar.CalendarPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
 import agent.next.app.skill.DomainSkill;
 import agent.next.app.skill.DomainSkills;
 import agent.next.app.skill.SkillContext;
-import agent.next.app.skill.QuarkWeatherPolicy;
-import agent.next.app.calendar.CalendarStore;
-import agent.next.app.calendar.CalendarSubgoalVerifier;
 import agent.next.app.security.EncryptedEpisodicMemory;
 import agent.next.app.security.EncryptedModelConfigStore;
 import agent.next.brain.InMemoryWorkingMemory;
@@ -97,7 +93,6 @@ public final class AgentRuntime {
     private final ExecutorService previewWorker = Executors.newSingleThreadExecutor();
     private final InMemoryWorkingMemory memory = new InMemoryWorkingMemory();
     private final EncryptedEpisodicMemory episodic;
-    private final CalendarStore calendarStore;
     private final UiHumanGateway human = new UiHumanGateway();
     private volatile Listener listener;
     private volatile State state = State.IDLE;
@@ -115,7 +110,6 @@ public final class AgentRuntime {
     private AgentRuntime(Context context) {
         this.context = context.getApplicationContext();
         this.episodic = new EncryptedEpisodicMemory(this.context);
-        this.calendarStore = new CalendarStore(this.context);
     }
 
     public static AgentRuntime get(Context context) {
@@ -404,7 +398,7 @@ public final class AgentRuntime {
             client = new ChatCompletionClient(config.get(), new ModelCallBudget(80));
             skillModel = new DeepSeekSkillModel(client);
             visualModel = new DeepSeekVisualModel(client);
-            domainSkills = DomainSkills.create(client);
+            domainSkills = DomainSkills.create(context, client);
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
             PlanningResult result = planner.plan(request);
             synchronized (this) {
@@ -457,9 +451,7 @@ public final class AgentRuntime {
                             }
                         }
                     }
-                    if (!domainPrepared) {
-                        prepareAppEntry(packageName, opened, confirmed.task());
-                    }
+                    Log.i(TAG, "target prepared domain=" + domainPrepared + " " + packageName);
                     return opened;
                 }
 
@@ -491,13 +483,6 @@ public final class AgentRuntime {
             SessionPolicyFactory promptPolicies = new PromptSessionPolicyFactory(
                     loggingModel, frames, memory);
             SessionPolicyFactory policies = (task, subgoal, target, attempt) -> {
-                if ("com.android.calendar".equals(target.packageName())) {
-                    return new RiskGuardPolicy(new CalendarPolicy(calendarStore, task, subgoal), this::handoffToUser);
-                }
-                if ("com.quark.browser".equals(target.packageName())
-                        && task.goal().contains("天气")) {
-                    return new RiskGuardPolicy(new QuarkWeatherPolicy(task, subgoal), this::handoffToUser);
-                }
                 LoopPolicy fallback = promptPolicies.create(task, subgoal, target, attempt);
                 if (domainSkills != null) {
                     for (DomainSkill skill : domainSkills) {
@@ -537,20 +522,9 @@ public final class AgentRuntime {
                         + " act=" + observation.activityName() + " text=" + sample);
                 return verification;
             };
-            CalendarSubgoalVerifier calendarVerifier =
-                    new CalendarSubgoalVerifier(calendarStore);
-            SubgoalVerifier routed = (task, subgoal, target, observation) -> {
-                if ("com.android.calendar".equals(target.packageName())) {
-                    SubgoalVerifier.Verification verification = calendarVerifier.verify(
-                            task, subgoal, target, observation);
-                    Log.i(TAG, "verify calendar " + subgoal.id() + " -> "
-                            + verification.satisfied() + " (" + verification.evidence() + ")");
-                    return verification;
-                }
-                return visual.verify(task, subgoal, target, observation);
-            };
+            SubgoalVerifier routed = (task, subgoal, target, observation) ->
+                    visual.verify(task, subgoal, target, observation);
             verifiers.register("visual", routed);
-            verifiers.register("calendar.event", routed);
             if (domainSkills != null) {
                 for (DomainSkill skill : domainSkills) {
                     if (!skill.verifierId().isBlank()) {
@@ -583,42 +557,6 @@ public final class AgentRuntime {
             fail("执行失败: " + failure.getMessage());
         } finally {
             closeDevice();
-        }
-    }
-
-    private void prepareAppEntry(String packageName, TargetHandle target,
-            agent.next.brain.TaskSpec task) {
-        if (!"com.quark.browser".equals(packageName)) {
-            return;
-        }
-        try {
-            Observation observation = api.observations().observe(
-                    target, ObservationOptions.defaults());
-            for (UiNode node : observation.nodes()) {
-                if (node.hasFlag(NodeFlag.EDITABLE) && !node.hasFlag(NodeFlag.PASSWORD)) {
-                    return;
-                }
-            }
-            UiNode entry = null;
-            for (UiNode node : observation.nodes()) {
-                if (node.hasFlag(NodeFlag.CLICKABLE)
-                        && (node.text().contains("把问题和任务告诉我")
-                        || node.text().contains("搜索"))) {
-                    entry = node;
-                    break;
-                }
-            }
-            if (entry == null) {
-                Log.i(TAG, "Quark entry not found");
-                return;
-            }
-            Point point = new Point(entry.bounds().centerX(), entry.bounds().centerY());
-            api.input().tap(target, observation, point);
-            Thread.sleep(800L);
-            api.observations().observe(target, ObservationOptions.defaults());
-            Log.i(TAG, "Quark search entry opened");
-        } catch (Throwable failure) {
-            Log.w(TAG, "Quark entry prelude failed: " + failure);
         }
     }
 

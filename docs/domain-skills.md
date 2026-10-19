@@ -54,3 +54,23 @@ DONE · all subgoals verified actions=0 attempts=4
 - JD 自动加购（s2/s3 仍不稳定）；
 - Quark/Calendar 仍是 core 内联，尚未迁入 domain skill；
 - domain skill 目前是 Java 实现，下一步可改为 AppProfile 声明式配置。
+
+## 全量 domain skill 抽取
+
+- JD → `JdDomainSkill`
+- Quark 天气 → `QuarkDomainSkill`
+- Calendar → `CalendarDomainSkill`
+
+`AgentRuntime` 现在没有任何：
+- `Jd*` import/字段；
+- `com.jingdong` / `com.quark` / `com.android.calendar` 判断；
+- `CalendarStore` / `CalendarPolicy` / `QuarkWeatherPolicy` 直接引用。
+
+核心只通过 `DomainSkills.create(context, client)` 和 `DomainSkill` 接口路由。
+
+真机回归：
+
+```text
+JD cart: DONE · all subgoals verified actions=0 attempts=3
+target prepared domain=true com.jingdong.app.mall
+```
