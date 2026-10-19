@@ -15,7 +15,6 @@ public final class DomainSkills {
 
     public static List<DomainSkill> create(Context context, ChatCompletionClient client) {
         return List.of(
-                new JdDomainSkill(new JdVisualLocator(client)),
                 new QuarkDomainSkill(),
                 new CalendarDomainSkill(context),
                 new ClockDomainSkill(context),
