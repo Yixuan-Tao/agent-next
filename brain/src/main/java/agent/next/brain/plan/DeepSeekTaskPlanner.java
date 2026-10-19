@@ -128,8 +128,12 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
                 .append("{\"task\":{\"successCriteria\":[\"...\"]},")
                 .append("\"subgoals\":[{\"id\":\"s1\",\"intent\":\"...\",\"dependsOn\":[],")
                 .append("\"postconditions\":[\"页面证据\"],\"targetPackage\":\"...\",\"verifierId\":\"visual\",\"required\":true}],")
-                .append("\"assumptions\":[\"...\"]}\n")
-                .append("用户目标：").append(request.goal()).append('\n');
+                .append("\"assumptions\":[\"...\"]}\n");
+        if (request.goal().contains("加入购物车")) {
+            prompt.append("目标包含加入购物车时，必须单独生成一个“加入购物车”子目标，")
+                    .append("排在打开商品详情之后，不要合并进详情子目标。\n");
+        }
+        prompt.append("用户目标：").append(request.goal()).append('\n');
         if (!request.constraints().isEmpty()) {
             prompt.append("用户约束：").append(request.constraints()).append('\n');
         }

@@ -260,3 +260,15 @@ text="立即购买"   id=com.jd.lib.productdetail.feature:id/am_
 
 真机任务仍在 s2 搜索页，模型 SetText/Tap 与 policy 混用，
 没有进入详情/加购；自动化加购仍未 PASS。
+
+## 2026-10-19 规划器要求独立加购子目标
+
+planner prompt 增加：目标含“加入购物车”时必须单独生成加购子目标。
+真机计划已出现 3 个 subgoal：
+
+1. 搜索并查看结果；
+2. 打开第一款详情；
+3. 加入购物车 (jd.cart)。
+
+但执行仍在 s1 搜索阶段反复 verify false；最后一次 UI 回到“尚未生成计划”，
+没有进入详情/加购。自动化加购仍未 PASS。

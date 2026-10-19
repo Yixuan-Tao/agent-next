@@ -484,16 +484,19 @@ public final class AgentRuntime {
                         && task.goal().contains("天气")) {
                     return new RiskGuardPolicy(new QuarkWeatherPolicy(task, subgoal), this::handoffToUser);
                 }
+                if ("com.jingdong.app.mall".equals(target.packageName())) {
+                    Log.i(TAG, "JD policy candidate " + subgoal.id()
+                            + " verifier=" + subgoal.verifierId()
+                            + " intent=" + subgoal.intent());
+                }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && (subgoal.intent().contains("输入")
-                        || subgoal.intent().contains("提交")
-                        || subgoal.intent().contains("搜索"))) {
+                        || subgoal.intent().contains("提交"))) {
                     prepareJdSearchEntry(target);
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && task.goal().contains("搜索")
                         && !subgoal.intent().contains("打开")
-                        && !subgoal.intent().contains("首页")
                         && !subgoal.intent().contains("启动")
                         && (subgoal.intent().contains("搜索")
                         || subgoal.intent().contains("输入"))) {
