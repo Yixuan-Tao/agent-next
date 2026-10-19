@@ -149,3 +149,23 @@ flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
 - release 的 model config 需要通过 Settings document picker 导入（本次未完成文件选择）。
 
 结论：**release APK 安装/启动/设置页 PASS**；release 的 config 导入和任务执行仍待完成。
+
+## Release 端到端 PASS（Android 16 平板）
+
+```text
+package flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]  # 非 debuggable
+Settings: model config 加密文件可用；导入并加密成功
+Shizuku: 始终允许
+JD 首页任务:
+state: RUNNING · 执行中
+result: DONE · all subgoals verified actions=2 attempts=4
+```
+
+- release APK 通过文件管理器安装；
+- 首次 planning 触发 Shizuku 授权，允许后正常；
+- Settings document picker 导入 config 成功；
+- JD 首页任务 DONE，无支付/下单；
+- 前台服务/通知正常。
+
+结论：**release 安装、启动、config 导入、Shizuku、planner/execute/DONE 全链路通过**（当前仅 Android 16 平板）。
+Android 13 手机与 Chain B 仍未验收。

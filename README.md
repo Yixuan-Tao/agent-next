@@ -68,6 +68,7 @@ QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
 - Product UI/plan review smoke：真实模型四段计划、确认按钮、SessionRunner 接线 PASS；s2 加入 bounded scroll fallback 后 verifier 2/2 通过，DONE actions=1 attempts=2；详见 [docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；
 - Chain A PASS：Quark 天气结果 + 降雨信息视觉 verifier 2/2，calendar domain skill 创建“带伞”明天 09:00 提醒，DONE actions=3 attempts=6；详见 [docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；
 - 20min foreground soak PASS：13:05 start → 13:10/13:15 前台服务存活 → 13:25 定时停止，进程未崩溃；不是完整 agent 并发；详见 [docs/foreground-soak.md](docs/foreground-soak.md)；
+- Release end-to-end PASS：文件管理器安装/非 debuggable/config 导入/Shizuku/JD 首页 DONE actions=2 attempts=4；Android 13 待验；
 - Release verification：`tools/verify-release.sh` PASS（签名/SDK/launcher/exported/checksum）；
 - Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `c3f6884b1bd09504d2c6a82f0e8dec6032f3ec0d18971467c49e0083138a9293`；隐私说明与 release notes 草案已写；
 - Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
