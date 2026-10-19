@@ -219,3 +219,14 @@ text="立即购买"   id=com.jd.lib.productdetail.feature:id/am_
 - 中途误点“立即购买”进入结算弹层，立即 Back 退出，没有提交订单。
 
 结论：**JD 详情页可访问、加购人工 PASS**；agent 自动化加购仍需把“加入购物车 + 规格确定”做成 prelude/policy。
+
+## 2026-10-19 自动化加购 policy（已编译，未验证）
+
+新增：
+
+- `TapPointAction`：按 accessibility node bounds 点击；
+- `JdAddPolicy`：详情页只点“加入购物车”，规格弹层只点“确定”；
+  `complete()` 在确认点击后返回 true；绝不点“立即购买/结算”。
+
+已编译并安装新 release。尚未跑完整 planner→detail→add 任务，
+不能宣称自动化加购 PASS。

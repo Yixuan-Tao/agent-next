@@ -8,6 +8,7 @@ import android.util.Log;
 import agent.next.brain.DefaultRiskGate;
 import agent.next.app.calendar.CalendarPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
+import agent.next.app.skill.JdAddPolicy;
 import agent.next.app.skill.JdCartPolicy;
 import agent.next.app.skill.JdCartVerifier;
 import agent.next.app.skill.QuarkWeatherPolicy;
@@ -486,6 +487,11 @@ public final class AgentRuntime {
                         && (subgoal.intent().contains("输入")
                         || subgoal.intent().contains("提交"))) {
                     prepareJdSearchEntry(target);
+                }
+                if ("com.jingdong.app.mall".equals(target.packageName())
+                        && subgoal.intent().contains("加入购物车")) {
+                    Log.i(TAG, "JD add-to-cart policy selected: " + subgoal.id());
+                    return new RiskGuardPolicy(new JdAddPolicy(), this::handoffToUser);
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && ("jd.cart".equals(subgoal.verifierId())
