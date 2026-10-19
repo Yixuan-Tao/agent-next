@@ -230,3 +230,17 @@ text="立即购买"   id=com.jd.lib.productdetail.feature:id/am_
 
 已编译并安装新 release。尚未跑完整 planner→detail→add 任务，
 不能宣称自动化加购 PASS。
+
+## 2026-10-19 自动化加购尝试
+
+任务：搜索短袖 → 打开第一款 → 加入购物车。
+
+发现并修复：
+
+- cart 目标预打开逻辑误匹配“加入购物车”，导致 s1 先打开购物车；
+  已排除 `加入购物车`；
+- JD 搜索 prelude 只在 intent 含“输入/提交”时触发，planner 的“搜索”措辞未触发；
+  已扩展到包含“搜索”。
+
+本轮任务仍停在 s2 搜索页（模型 SetText/Tap 未成功），
+因此 **自动化加购仍未 PASS**。人工加购已 PASS（数量 3→4）。

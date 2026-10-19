@@ -485,7 +485,8 @@ public final class AgentRuntime {
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
                         && (subgoal.intent().contains("输入")
-                        || subgoal.intent().contains("提交"))) {
+                        || subgoal.intent().contains("提交")
+                        || subgoal.intent().contains("搜索"))) {
                     prepareJdSearchEntry(target);
                 }
                 if ("com.jingdong.app.mall".equals(target.packageName())
@@ -583,7 +584,7 @@ public final class AgentRuntime {
             agent.next.brain.TaskSpec task) {
         if ("com.jingdong.app.mall".equals(packageName)) {
             prepareJdHome(target);
-            if (task.goal().contains("购物车")) {
+            if (task.goal().contains("购物车") && !task.goal().contains("加入购物车")) {
                 prepareJdCart(target);
             }
             return;
