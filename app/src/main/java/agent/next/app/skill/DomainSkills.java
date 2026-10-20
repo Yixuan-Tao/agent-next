@@ -13,6 +13,7 @@ public final class DomainSkills {
     public static List<DomainSkill> create(ChatCompletionClient client) {
         return List.of(
                 new QuarkDomainSkill(),
+                new FilesGuiSkill(),
                 new CalculatorDomainSkill(client));
     }
 }

@@ -22,6 +22,8 @@ sh "$ROOT/tools/test-capability-adapter.sh"
 echo "== host: Shizuku adapter =="
 sh "$ROOT/tools/test-shizuku-adapter.sh"
 
+echo "== files GUI parameter regression =="
+sh "$ROOT/tools/test-files-gui.sh"
 echo "== known-defect regressions =="
 sh "$ROOT/tools/test-known-defects.sh"
 
