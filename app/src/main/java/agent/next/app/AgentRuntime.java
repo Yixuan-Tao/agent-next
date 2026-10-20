@@ -57,6 +57,7 @@ import agent.next.device.Observation;
 import agent.next.device.NodeFlag;
 import agent.next.device.Point;
 import agent.next.device.ObservationOptions;
+import agent.next.device.ObservationStatus;
 import agent.next.device.TargetHandle;
 import android.view.Surface;
 import agent.next.device.UiNode;
@@ -476,11 +477,17 @@ public final class AgentRuntime {
                 public TargetHandle open(String packageName) throws DeviceException {
                     TargetHandle opened = delegate.open(packageName);
                     activeTarget = opened;
+                    Observation settled = null;
                     try {
                         Thread.sleep(1200L);
-                        api.observations().observe(opened, ObservationOptions.defaults());
+                        settled = api.observations().observe(opened,
+                                ObservationOptions.defaults());
                     } catch (Throwable waitFailure) {
                         Log.w(TAG, "target settle failed: " + waitFailure);
+                    }
+                    if (settled != null && settled.status() == ObservationStatus.FOREIGN_WINDOW) {
+                        throw new DeviceException(DeviceException.Code.REJECTED,
+                                "target opened a permission/foreign window; complete it manually");
                     }
                     boolean domainPrepared = false;
                     if (domainSkills != null) {
