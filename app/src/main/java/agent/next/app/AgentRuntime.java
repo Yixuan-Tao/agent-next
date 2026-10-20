@@ -7,6 +7,7 @@ import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
 import agent.next.brain.action.ActionExecutor;
+import agent.next.brain.loop.BoundedReplanPolicy;
 import agent.next.brain.loop.LoopPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
 import agent.next.app.skill.DomainSkill;
@@ -111,6 +112,7 @@ public final class AgentRuntime {
     private DisplayHandle display;
     private TaskPlan plan;
     private TaskContract contract;
+    private PlanningRequest planningRequest;
     private ChatCompletionClient client;
     private DeepSeekSkillModel skillModel;
     private DeepSeekVisualModel visualModel;
@@ -438,6 +440,7 @@ public final class AgentRuntime {
                 }
             }
             contract = validatedContract;
+            planningRequest = request;
             PlanningResult result = raw;
             synchronized (this) {
                 if (result.needsClarification()) {
@@ -573,8 +576,28 @@ public final class AgentRuntime {
                     }
                 }
             }
+            TaskContract activeContract = contract;
+            PlanningRequest baseRequest = planningRequest;
+            BoundedReplanPolicy replanPolicy = (activeContract == null || baseRequest == null)
+                    ? null
+                    : new BoundedReplanPolicy(activeContract, baseRequest.allowedVerifiers(), 1,
+                            context -> {
+                                PlanningRequest replanRequest = new PlanningRequest(
+                                        baseRequest.taskId(),
+                                        baseRequest.goal() + "\n当前子目标："
+                                                + context.current().map(Subgoal::id)
+                                                        .orElse("unknown")
+                                                + "\n失败原因：" + context.fastResult().detail(),
+                                        baseRequest.constraints(), baseRequest.allowedApps(),
+                                        baseRequest.installedApps(), baseRequest.primaryPackage(),
+                                        baseRequest.deniedActions(),
+                                        baseRequest.allowedVerifiers(), baseRequest.autonomy());
+                                return new DeepSeekTaskPlanner(client).plan(replanRequest);
+                            });
             SessionRunner runner = new SessionRunner(api, confirmed, binder, policies,
-                    slow -> new SlowLoopDecision.Stop("v1 stops on slow loop"),
+                    slow -> replanPolicy == null
+                            ? new SlowLoopDecision.Stop("no contract for replan")
+                            : replanPolicy.decide(slow),
                     verifiers, new DefaultRiskGate(), human, runControl, memory, episodic,
                     ObservationOptions.defaults(), 20, 6,
                     (task, subgoal, target, observation) -> extractStage(task, target, observation));
