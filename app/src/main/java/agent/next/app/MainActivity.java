@@ -44,6 +44,8 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
     private static final String CLOCK = "com.android.deskclock";
     private static final String NOTES = "com.miui.notes";
     private static final String FILES = "com.android.fileexplorer";
+    private static final String GOOGLE_FILES = "com.google.android.apps.nbu.files";
+    private static final String GOOGLE_CLOCK = "com.google.android.deskclock";
     private static final String CALCULATOR = "com.miui.calculator";
     private static final String CONTACTS = "com.android.contacts";
     private static final String WEATHER = "com.miui.weather2";
@@ -207,8 +209,10 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         addIfInstalled(GOOGLE_ASSISTANT, "Google Assistant");
         addIfInstalled(SETTINGS, "设置");
         addIfInstalled(CLOCK, "时钟");
+        addIfInstalled(GOOGLE_CLOCK, "Google 时钟");
         addIfInstalled(NOTES, "备忘录");
         addIfInstalled(FILES, "文件管理");
+        addIfInstalled(GOOGLE_FILES, "Google 文件");
         addIfInstalled(CALCULATOR, "计算器");
         addIfInstalled(CONTACTS, "联系人");
         addIfInstalled(WEATHER, "天气");

@@ -12,6 +12,8 @@ public final class FolderNameTest {
         check(FolderName.parse("新建文件夹").isEmpty(), "missing name must not default");
         check("agent-demo".equals(FolderName.parse("新建名为agent-demo的文件夹").orElse(null)),
                 "ASCII folder name");
+        check("agent-demo".equals(FolderName.parse("create folder named agent-demo").orElse(null)),
+                "English folder name");
         System.out.println("FolderNameTest: PASS (Unicode, missing, ASCII)");
     }
 

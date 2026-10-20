@@ -8,7 +8,9 @@ import java.util.regex.Pattern;
 public final class FolderName {
 
     private static final Pattern PATTERN = Pattern.compile(
-            "(?:名为|文件夹名[为是:：]?|文件夹\\s*[「\"']?)([\\p{L}\\p{N}_-]{1,40})");
+            "(?:名为|文件夹名[为是:：]?|named|folder\\s+named)\\s*[「\"']?"
+                    + "([\\p{L}\\p{N}_-]{1,40})",
+            Pattern.CASE_INSENSITIVE);
 
     private FolderName() {
     }

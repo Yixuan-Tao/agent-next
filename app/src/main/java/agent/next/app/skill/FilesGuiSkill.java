@@ -14,8 +14,10 @@ public final class FilesGuiSkill implements DomainSkill {
 
     @Override
     public boolean matches(String packageName, TaskSpec task) {
+        String goal = task.goal();
         return PACKAGE.equals(packageName)
-                && (task.goal().contains("文件夹") || task.goal().contains("目录"));
+                && (goal.contains("文件夹") || goal.contains("目录")
+                        || goal.toLowerCase(java.util.Locale.ROOT).contains("folder"));
     }
 
     @Override
