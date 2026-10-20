@@ -671,6 +671,7 @@ public final class AgentRuntime {
     }
 
     private void closeDevice() {
+        Log.i(TAG, "closeDevice", new Exception("closeDevice caller"));
         TargetHandle target = activeTarget;
         activeTarget = null;
         if (api != null && target != null) {

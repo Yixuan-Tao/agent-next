@@ -1,5 +1,6 @@
 package agent.phone.capability;
 
+import android.util.Log;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceCapabilities;
 import agent.next.device.DeviceException;
@@ -172,6 +173,7 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
 
     @Override
     public void close() {
+        Log.i("AgentNextRuntime", "BlockingDeviceApi.close", new Exception("close caller"));
         synchronized (monitor) {
             if (closed) {
                 return;
