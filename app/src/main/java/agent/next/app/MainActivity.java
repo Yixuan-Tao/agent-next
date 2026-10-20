@@ -270,8 +270,7 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
         AgentTaskService.update(this, state + " · " + detail);
         if (state == AgentRuntime.State.DONE || state == AgentRuntime.State.PARTIAL
                 || state == AgentRuntime.State.STOPPED
-                || state == AgentRuntime.State.FAILED || state == AgentRuntime.State.NEED_USER
-                || state == AgentRuntime.State.AWAITING_PLAN) {
+                || state == AgentRuntime.State.FAILED || state == AgentRuntime.State.NEED_USER) {
             AgentTaskService.stop(this);
         }
         append("state: " + state + " · " + detail);
