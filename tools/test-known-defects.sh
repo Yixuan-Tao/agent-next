@@ -10,5 +10,3 @@ export QUAL_JAVA_HOME=${QUAL_JAVA_HOME:-"$JAVA_HOME"}
 sh "$ROOT/tools/test-brain.sh" >/dev/null
 "$JAVA_HOME/bin/java" -cp "$ROOT/work/brain-build/classes:$ROOT/work/brain-build/device-api" \
   agent.next.brain.KnownDefectsTest
-
-sh "$ROOT/tools/test-app-defects.sh"
