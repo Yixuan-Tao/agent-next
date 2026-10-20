@@ -411,7 +411,7 @@ public final class AgentRuntime {
             client = new ChatCompletionClient(config.get(), new ModelCallBudget(80));
             skillModel = new DeepSeekSkillModel(client);
             visualModel = new DeepSeekVisualModel(client);
-            domainSkills = DomainSkills.create(context, client);
+            domainSkills = DomainSkills.create(client);
             java.util.Optional<String> clarification = TaskClarification.detect(
                     request.goal(), LocalDate.now(), ZoneId.systemDefault());
             if (clarification.isPresent()) {

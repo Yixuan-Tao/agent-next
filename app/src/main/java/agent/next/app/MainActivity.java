@@ -248,7 +248,7 @@ public final class MainActivity extends Activity implements AgentRuntime.Listene
                 installed,
                 primaryPackage,
                 Set.of("payment", "place_order", "send", "delete"),
-                Set.of("visual", "calendar.event", "jd.cart"),
+                Set.of("visual"),
                 AutonomyGrant.of(AutonomyLevel.A3_CONFIRM_COMMIT));
         planView.setText("规划中…");
         runButton.setEnabled(false);

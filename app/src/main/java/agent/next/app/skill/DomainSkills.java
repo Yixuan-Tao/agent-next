@@ -1,7 +1,5 @@
 package agent.next.app.skill;
 
-import android.content.Context;
-
 import agent.next.brain.model.ChatCompletionClient;
 
 import java.util.List;
@@ -12,12 +10,9 @@ public final class DomainSkills {
     private DomainSkills() {
     }
 
-    public static List<DomainSkill> create(Context context, ChatCompletionClient client) {
+    public static List<DomainSkill> create(ChatCompletionClient client) {
         return List.of(
                 new QuarkDomainSkill(),
-                new CalendarDomainSkill(context),
-                new ClockDomainSkill(context),
-                new FilesDomainSkill(context),
                 new CalculatorDomainSkill(client));
     }
 }
