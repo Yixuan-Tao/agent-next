@@ -286,17 +286,20 @@ public final class FastLoop {
             event(TaskEvent.EventType.EFFECT, effect.kind().name(),
                     Map.of("detail", effect.detail()));
 
-            if (effect.kind() == Effect.EffectKind.NO_CHANGE
-                    || effect.kind() == Effect.EffectKind.LOADING) {
-                noEffect++;
-                noProgress++;
-            } else {
-                noEffect = 0;
-                noProgress = 0;
-            }
-
             LoopContext afterContext = new LoopContext(task, subgoal, after, actions,
                     noEffect, noProgress, workingMemory);
+            boolean changed = effect.kind() != Effect.EffectKind.NO_CHANGE
+                    && effect.kind() != Effect.EffectKind.LOADING;
+            if (!changed) {
+                noEffect++;
+                noProgress++;
+            } else if (policy.madeProgress(afterContext)) {
+                noEffect = 0;
+                noProgress = 0;
+            } else {
+                noEffect = 0;
+                noProgress++;
+            }
             if (policy.complete(afterContext)) {
                 graph.complete(subgoal.id());
                 event(TaskEvent.EventType.COMPLETION, "subgoal complete: " + subgoal.id(), Map.of());

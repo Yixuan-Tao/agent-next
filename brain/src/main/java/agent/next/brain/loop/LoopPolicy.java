@@ -14,4 +14,9 @@ public interface LoopPolicy {
     default boolean complete(LoopContext context) {
         return false;
     }
+
+    /** Semantic progress hook; default trusts a changed/navigated effect. */
+    default boolean madeProgress(LoopContext context) {
+        return true;
+    }
 }

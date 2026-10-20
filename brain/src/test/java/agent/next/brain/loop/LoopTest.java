@@ -54,6 +54,7 @@ public final class LoopTest {
         rejectedActionRetries();
         unstableObservationBlocksAction();
         committedActionUnknownNeedsUser();
+        semanticNoProgressEscalates();
         handoffRiskSignal();
         System.out.println("LoopTest: PASS (fast loop, effect, slow-loop signal, risk)");
     }
@@ -97,6 +98,16 @@ public final class LoopTest {
         check(result.status() == LoopResult.Status.NEED_USER, "unknown side effect needs user");
         check(result.actions() == 1, "committed action is counted once: " + result.actions());
         check(api.taps() == 1, "committed action is not replayed");
+    }
+
+    private static void semanticNoProgressEscalates() {
+        LoopFakeDevice api = new LoopFakeDevice(10);
+        LoopResult result = loop(api, graph(), task(10), new SemanticNoProgressPolicy(),
+                new FakeHumanGateway(), new InMemoryWorkingMemory(), new InMemoryEpisodicMemory());
+        check(result.status() == LoopResult.Status.SLOW_LOOP, "semantic no-progress escalates");
+        check(result.reason().orElseThrow() == SlowLoopReason.NO_PROGRESS,
+                "semantic no-progress reason");
+        check(api.taps() == 3, "three changed but non-progress actions");
     }
 
     private static void noEffectEscalates() {
@@ -270,6 +281,20 @@ public final class LoopTest {
                 }
             }
             return Optional.empty();
+        }
+    }
+
+    static final class SemanticNoProgressPolicy implements LoopPolicy {
+
+        
+        public Optional<LoopAction> next(LoopContext context) {
+            return Optional.of(new TapAction("next", "tap next",
+                    NodeSelector.clickableTextContains("next"), RiskClass.LOW));
+        }
+
+        
+        public boolean madeProgress(LoopContext context) {
+            return false;
         }
     }
 
