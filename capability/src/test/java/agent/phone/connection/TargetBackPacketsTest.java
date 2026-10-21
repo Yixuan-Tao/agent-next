@@ -4,7 +4,7 @@ import android.os.Bundle;
 
 public final class TargetBackPacketsTest {
     public static void main(String[] args) {
-        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,720,1280,240,1,
+        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,1080,1920,360,1,
                 DisplaySession.Status.ACTIVE);
         TargetBack valid = new TargetBack(4,6,3000,"observation");
         TargetBack decoded = TargetBackPackets.decode(TargetBackPackets.encode(valid),display,"observation");

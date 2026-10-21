@@ -1,137 +1,46 @@
-# Domain skills 与通用 Agent 边界
+# GUI skill 与通用执行边界
 
-## 原则
+状态：2026-10-20，按 [纯 GUI Beta](pure-gui-beta.md) 更新。当前 `DomainSkill` 是迁移起点，以下目标约束尚未全部落实到代码。
 
-- 核心 runtime 只依赖 `DomainSkill` 接口；
-- 具体 App 的 policy/verifier/prelude 放在 domain skill；
-- 没有 domain skill 时，仍走通用 `PromptSkillPolicy` + 控件/视觉 fallback；
-- domain skill 不能获得额外设备权限，所有动作仍走 `DeviceApi` / `InputController`。
+## 产品定位
 
-## 结构
+Skill 用于复用经过验证的 GUI 操作：搜索、填写字段、滚动查找、选择选项、保存草稿和重新打开核验。它是可选可靠性层；没有 App 专用 skill 时，通用策略仍须运行。
 
-```text
-AgentRuntime
-  -> DomainSkills.create(client)       // composition root
-  -> DomainSkill.matches(...)           // profile selection
-  -> DomainSkill.prepareTarget(...)     // app-specific target prep
-  -> DomainSkill.policy(SkillContext)   // app-specific policy
-  -> DomainSkill.verifier(fallback)     // app-specific verifier
-  -> PromptSkillPolicy / VisualSubgoalVerifier (fallback)
-  -> DeviceApi / Shizuku
-```
+App profile 可提供 view ID、文本/描述、页面条件与候选线索；不能把固定坐标序列当作通用能力。策略输出语义目标，受信任定位层结合当前观察解析控件或视觉候选。
 
-新增文件：
+## 当前实现与迁移
 
-- `DomainSkill`
-- `DomainSkills`
-- `SkillContext`
-- `JdDomainSkill`
+| 当前接口 / 路径 | 迁移目标 |
+|---|---|
+| `DomainSkills.create` 注册 Java domain 实现 | 仅注册纯 GUI skill，保留无 skill 的通用 fallback |
+| `DomainSkill.prepareTarget` 可直接调用设备 | 提出受治理的准备动作，无独立输入通道 |
+| `SkillContext` 暴露 `BlockingDeviceApi` | 仅提供任务/观察/阶段数据和语义动作能力 |
+| `fixedPlan` 可替换整份计划 | skill 仅实现分配的子目标，不删除其他用户要求 |
+| CalendarContract / MediaStore / AlarmClock | 退出产品路由，保留历史参考，重新通过 GUI 验收 |
+| JD prelude 和计算器连续点击 | 内部步骤纳入统一风险、取消、预算和回执 |
+| 页面标题/节点数量判定完成 | 按指定对象及属性提供条件证据，任务级独立核验 |
 
-`AgentRuntime` 已移除所有 `com.jingdong` 判断和 `Jd*` import。
+当前 registry 仍包含上述直接接口路径，不能因文档更新就宣称已经禁用。
 
-## JD skill 包含
-
-- JD home/Babel 恢复；
-- 搜索入口/提交；
-- 搜索结果卡视觉 grounding；
-- 详情加购 policy；
-- 购物车 policy/verifier。
-
-这些都是 JD 适配器，不在 core。
-
-## 真机验证
-
-JD 购物车任务：
+## 目标执行契约
 
 ```text
-DONE · all subgoals verified actions=0 attempts=4
+TaskContract / 当前子目标 / 观察
+  → 通用策略或匹配 GUI skill → ActionProposal
+  → 受信任定位 → GroundedAction
+  → ActionExecutor（取消、风险、确认、预算）
+  → GUI 输入 → 新观察 → 条件证据
 ```
 
-说明 domain skill 路由/目标准备/verifier 在解耦后仍工作。
+- Skill 不持有 `DeviceApi`、shell、业务 provider 或任意执行回调；坐标仅在受信任层流转。
+- 适用性同时检查任务意图、参数和页面前置条件，不能仅凭包名把任何任务变成固定操作。
+- 准备步骤、候选重试、返回和组合动作均使用统一执行器。
+- 风险自报不可信；LOW 不能绕过承诺确认或凭据接管。
+- 恢复后重新观察；副作用结果未知时先核验，不能重放。
+- verifier 不执行动作，不修改目标，不把“购物车页面存在”当成“指定商品已加购”。
 
-## 仍未完成
+## 验收与历史证据
 
-- JD 自动加购（s2/s3 仍不稳定）；
-- Quark/Calendar 仍是 core 内联，尚未迁入 domain skill；
-- domain skill 目前是 Java 实现，下一步可改为 AppProfile 声明式配置。
+开发集验证纯 GUI 场景；通用保留集禁用对应 App 专用 profile/policy/workflow，单独统计。历史 `DONE actions=0` 可能是页面或旧结果本来已存在，不能证明本轮完成了创建或加购。
 
-## 全量 domain skill 抽取
-
-- JD → `JdDomainSkill`
-- Quark 天气 → `QuarkDomainSkill`
-- Calendar → `CalendarDomainSkill`
-
-`AgentRuntime` 现在没有任何：
-- `Jd*` import/字段；
-- `com.jingdong` / `com.quark` / `com.android.calendar` 判断；
-- `CalendarStore` / `CalendarPolicy` / `QuarkWeatherPolicy` 直接引用。
-
-核心只通过 `DomainSkills.create(context, client)` 和 `DomainSkill` 接口路由。
-
-真机回归：
-
-```text
-JD cart: DONE · all subgoals verified actions=0 attempts=3
-target prepared domain=true com.jingdong.app.mall
-```
-
-## AppProfile 声明式标签
-
-新增：
-
-- `AppProfile`
-- `JdAppProfile.PROFILE`
-
-JD 的搜索入口/提交、结果卡、加购、确认、购物车、负面标签、详情标记、verifier id
-都移到 profile；policy 不再直接写这些集合。
-
-搜索/加购 policy 已接收 profile：
-
-- `JdSearchPolicy(..., AppProfile)`
-- `JdAddPolicy(AppProfile)`
-- JD visual locator 使用 profile 的 allow/forbid 标签。
-
-真机：profile 化后 JD target prepare/购物车 tab 仍工作；
-本轮 s3 verifier 有波动，未作为通过。
-
-## 通用 policy 抽取
-
-重命名/抽象：
-
-- `JdSearchPolicy` → `SearchPolicy(profile)`
-- `JdAddPolicy` → `AddToCartPolicy(profile)`
-- `JdCartPolicy` → `CartWaitPolicy`
-- `JdResultPolicy` → `ResultCardPolicy(candidates, detailMarkers)`
-
-`ResultCardPolicy` 现在持有多个视觉候选，并按顺序点击；一旦 observation 出现
-profile 的 detailMarkers（如“加入购物车/商品详情”）就停止。失败会尝试下一个候选。
-
-JD skill 通过这些通用 policy + `JdAppProfile` 运行。
-
-## 视觉 prompt 进入 profile
-
-`AppProfile` 新增：
-
-- `searchEntryPrompt`
-- `searchSubmitPrompt`
-- `resultCardPrompt`
-
-`SearchPolicy` 和 JD domain skill 不再硬编码视觉 prompt。
-
-## 仍待修
-
-- JD cart s2 verifier 波动：视觉选中的购物车 tab 有时未打开购物车；
-- 结果卡候选点击后的详情校验；
-- 自动加购端到端。
-
-## 购物车候选重试
-
-`prepareJdCart` 不再只点一个视觉点：
-
-- 获取多个购物车 tab 候选；
-- 逐个点击；
-- 每次重新 observe；
-- 只有出现 `cart.feature` / 合计 / 去结算才停止；
-- 都不行则放弃，不盲点。
-
-仍待真机验证 s2 cart verifier。
+历史记录：[Chain B](chain-b-attempt-2026-10-19.md)、[日历 domain](calendar-domain-skill-2026-10-19.md)、[日历/目录任务集](agent-task-suite-2026-10-20.md)、[计算器探索](calculator-visual-2026-10-20.md)。直接接口结果不进入纯 GUI 成绩。社区 registry 和自生成 skill 上线不属于本期。

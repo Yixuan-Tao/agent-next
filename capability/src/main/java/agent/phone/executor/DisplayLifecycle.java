@@ -1,5 +1,6 @@
 package agent.phone.executor;
 
+import agent.next.device.DisplaySpec;
 import java.util.UUID;
 
 /** Serialized ownership contract; Android allocation and inspection live in the adapter. */
@@ -108,9 +109,11 @@ public final class DisplayLifecycle {
     }
 
     private void requireInfo(Info info, Info expected) throws Exception {
+        DisplaySpec spec = DisplaySpec.standard();
         if (info == null || info.displayId <= 0 || info.ownerUid != 2000
                 || info.uniqueId == null || info.uniqueId.isEmpty() || !"agent-phone".equals(info.name)
-                || info.width != 720 || info.height != 1280 || info.densityDpi != 240
+                || info.width != spec.width() || info.height != spec.height()
+                || info.densityDpi != spec.densityDpi()
                 || info.flags != factory.expectedFlags()
                 || expected != null && (info.displayId != expected.displayId
                 || !info.uniqueId.equals(expected.uniqueId))) {

@@ -197,7 +197,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
         }
         @Override public TargetObservation read(String id,long sequence,long started,long deadline,boolean includeNodes)
                 throws Exception {
-            ObservationBudget budget = new ObservationBudget();
+            ObservationBudget budget = new ObservationBudget(SystemClock::elapsedRealtimeNanos,deadline);
             List<AccessibilityWindowInfo> windows = null;
             Window initial = null;
             try {
@@ -221,6 +221,8 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 checkDeadline(deadline);
                 return new TargetObservation(target,id,sequence,started,SystemClock.elapsedRealtimeNanos(),
                         TargetObservation.Status.READY,initial.id,initial.bounds,budget.lookups(),budget.truncated,nodes);
+            } catch (TargetLifecycle.RequestTimeoutException timeout) {
+                throw timeout;
             } catch (IllegalStateException | IllegalArgumentException transientWindowChange) {
                 // Window transitions can momentarily expose two focused windows, a display
                 // mismatch, a root that changes under traversal, or window bounds outside the
@@ -231,37 +233,53 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
         }
         @Override public FrameEvidence.Capture capture(String frameId,long sequence,long started,long deadline,String observationId)
                 throws Exception {
-            checkDeadline(deadline);
-            FrameSafetyPolicy.Snapshot initial = frameWindows(deadline);
-            Bitmap bitmap = null;
-            try {
-                // This persistent UiAutomation was constructed with display.displayId; there is no default-display fallback.
-                bitmap = automation.takeScreenshot();
+            IllegalStateException lastTransient = null;
+            for (int attempt = 0; attempt < 3; attempt++) {
                 checkDeadline(deadline);
-                if (bitmap == null || bitmap.getWidth() != FrameEvidence.WIDTH || bitmap.getHeight() != FrameEvidence.HEIGHT) {
-                    throw new IllegalStateException("Screenshot dimensions are not confirmed");
-                }
-                FrameSafetyPolicy.requireSame(initial,frameWindows(deadline));
-                requireNonBlack(bitmap,deadline);
-                CappedPng output = new CappedPng();
-                if (!bitmap.compress(Bitmap.CompressFormat.PNG,100,output)) throw new IllegalStateException("PNG encoding failed");
-                checkDeadline(deadline);
-                // Encoding may be slow: do not export a frame after an intervening window or overlay change.
-                FrameSafetyPolicy.requireSame(initial,frameWindows(deadline));
-                byte[] png = output.bytes();
-                return new FrameEvidence.Capture(new FrameEvidence(target,frameId,sequence,started,
-                        SystemClock.elapsedRealtimeNanos(),observationId,initial.focusedWindowId,
-                        FrameEvidence.WIDTH,FrameEvidence.HEIGHT,png.length),png);
-            } finally { if (bitmap != null) bitmap.recycle(); }
+                Bitmap bitmap = null;
+                try {
+                    FrameSafetyPolicy.Snapshot initial = captureWindows(deadline);
+                    // This persistent UiAutomation was constructed with display.displayId; there is no default-display fallback.
+                    bitmap = automation.takeScreenshot();
+                    checkDeadline(deadline);
+                    if (bitmap == null || bitmap.getWidth() != FrameEvidence.WIDTH || bitmap.getHeight() != FrameEvidence.HEIGHT) {
+                        throw new IllegalStateException("Screenshot dimensions are not confirmed");
+                    }
+                    FrameSafetyPolicy.requireSame(initial,captureWindows(deadline));
+                    requireNonBlack(bitmap,deadline);
+                    CappedPng output = new CappedPng();
+                    if (!bitmap.compress(Bitmap.CompressFormat.PNG,100,output)) throw new IllegalStateException("PNG encoding failed");
+                    checkDeadline(deadline);
+                    // Encoding may be slow: do not export a frame after an intervening window or overlay change.
+                    FrameSafetyPolicy.requireSame(initial,captureWindows(deadline));
+                    byte[] png = output.bytes();
+                    return new FrameEvidence.Capture(new FrameEvidence(target,frameId,sequence,started,
+                            SystemClock.elapsedRealtimeNanos(),observationId,initial.focusedWindowId,
+                            FrameEvidence.WIDTH,FrameEvidence.HEIGHT,png.length),png);
+                } catch (IllegalStateException transientFrame) {
+                    lastTransient = transientFrame;
+                    if (attempt == 2 || SystemClock.elapsedRealtimeNanos() + 100_000_000L >= deadline) {
+                        throw transientFrame;
+                    }
+                    SystemClock.sleep(100);
+                } finally { if (bitmap != null) bitmap.recycle(); }
+            }
+            throw lastTransient == null ? new IllegalStateException("Frame capture failed") : lastTransient;
         }
         @Override public TargetTap tap(String observationId,int x,int y,int expectedWindowId,long deadline)
                 throws Exception {
-            checkDeadline(deadline);
-            FrameSafetyPolicy.Snapshot before = frameWindows(deadline);
-            if (before.focusedWindowId != expectedWindowId) {
-                throw new IllegalStateException("Observed window changed before the tap");
+            FrameSafetyPolicy.Snapshot before;
+            try {
+                checkDeadline(deadline);
+                before = frameWindows(deadline);
+                if (before.focusedWindowId != expectedWindowId) {
+                    throw new IllegalStateException("Observed window changed before the tap");
+                }
+                FrameSafetyPolicy.requirePoint(before,x,y);
+                checkDeadline(deadline);
+            } catch (IllegalStateException changed) {
+                throw new TargetTap.StaleException(display.displayId,observationId,changed);
             }
-            checkDeadline(deadline);
             if (!input.tap(display.displayId,target.uid,x,y)) {
                 throw new IllegalStateException("Tap injection was refused");
             }
@@ -272,6 +290,8 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                 int durationMs,int expectedWindowId,long deadline) throws Exception {
             checkDeadline(deadline);
             FrameSafetyPolicy.Snapshot before = frameWindows(deadline);
+            FrameSafetyPolicy.requirePoint(before,startX,startY);
+            FrameSafetyPolicy.requirePoint(before,endX,endY);
             if (before.focusedWindowId != expectedWindowId) {
                 throw new IllegalStateException("Observed window changed before the swipe");
             }
@@ -393,6 +413,12 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             }
         }
         private FrameSafetyPolicy.Snapshot frameWindows(long deadline) {
+            return frameWindows(deadline, false);
+        }
+        private FrameSafetyPolicy.Snapshot captureWindows(long deadline) {
+            return frameWindows(deadline, true);
+        }
+        private FrameSafetyPolicy.Snapshot frameWindows(long deadline, boolean capture) {
             checkDeadline(deadline); clearCacheSafe();
             List<AccessibilityWindowInfo> windows = windows();
             ArrayList<FrameSafetyPolicy.Window> identities = new ArrayList<>();
@@ -418,7 +444,8 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                         }
                     } finally { recycle(root); }
                 }
-                return FrameSafetyPolicy.validate(target,identities);
+                return capture ? FrameSafetyPolicy.validateForCapture(target,identities)
+                        : FrameSafetyPolicy.validate(target,identities);
             } finally { recycleWindows(windows); }
         }
         private static void requireNonBlack(Bitmap bitmap,long deadline) {
@@ -483,6 +510,7 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
             stack.addLast(new Frame(root,-1,false));
             try {
                 while (!stack.isEmpty()) {
+                    if (!budget.hasTraversalTime()) break;
                     checkDeadline(deadline);
                     Frame frame = stack.peekLast();
                     if (!frame.recorded) {
@@ -492,8 +520,18 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
                             throw new IllegalStateException("Observed node identity changed");
                         }
                         TargetObservation.Node record = nodeRecord(node,id,nodes.size(),frame.parent,windowId);
-                        if (!budget.record(record.estimatedBytes())) break;
-                        nodes.add(record); frame.index = record.index; frame.count = node.getChildCount(); frame.recorded = true;
+                        // Retain browser context even when the WebView is only a layout ancestor.
+                        if (ObservationBudget.shouldRecord(node == root || record.className.endsWith("WebView"),
+                                record.visible, record.clickable,
+                                record.editable, record.scrollable, record.focused, record.password,
+                                record.text, record.description)) {
+                            if (!budget.record(record.estimatedBytes())) break;
+                            nodes.add(record);
+                            frame.index = record.index;
+                        } else {
+                            frame.index = frame.parent;
+                        }
+                        frame.count = node.getChildCount(); frame.recorded = true;
                         if (frame.count < 0) throw new IllegalStateException("Invalid child count");
                     }
                     if (frame.next >= frame.count) { pop(stack); continue; }
@@ -518,9 +556,8 @@ final class AndroidTargetObserver implements TargetLifecycle.Platform {
         }
         private static TargetObservation.Bounds toBounds(Rect b) { return new TargetObservation.Bounds(b.left,b.top,b.right,b.bottom); }
         private static void checkDeadline(long deadline) {
-            if (SystemClock.elapsedRealtimeNanos() >= deadline || Thread.currentThread().isInterrupted()) {
-                throw new IllegalStateException("Observer deadline expired");
-            }
+            if (Thread.currentThread().isInterrupted()) throw new IllegalStateException("Observer interrupted");
+            if (SystemClock.elapsedRealtimeNanos() >= deadline) throw new TargetLifecycle.RequestTimeoutException();
         }
         @SuppressWarnings("deprecation") private static void recycle(AccessibilityNodeInfo node) { if (node != null) node.recycle(); }
         @SuppressWarnings("deprecation") private static void recycleWindows(List<AccessibilityWindowInfo> windows) {

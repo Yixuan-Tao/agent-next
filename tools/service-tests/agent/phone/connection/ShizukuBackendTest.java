@@ -144,6 +144,12 @@ public final class ShizukuBackendTest {
         TargetTap tap = remote.tapTarget(target,"observation",100,200);
         check(tap.displayId == 7 && tap.windowId == 6 && tap.x == 100 && tap.y == 200
                 && "observation".equals(tap.observationId),"production adapter decodes tap receipt");
+        shell.staleTap = true;
+        try { remote.tapTarget(target,"observation",100,200); throw new AssertionError("expected stale tap"); }
+        catch (ConnectionCoordinator.Failure failure) {
+            check(failure.reason == ConnectionState.Reason.STALE_INPUT,"pre-input window change is retryable");
+        }
+        shell.staleTap = false;
         check(target.token.equals(shell.lastToken) && target.generation == shell.lastGeneration,"tap uses target credentials");
         TargetText text = remote.setTextTarget(target,"observation","ref:0","hello");
         check(text.displayId == 7 && text.windowId == 6 && "ref:0".equals(text.ref) && text.textLength == 5
@@ -223,6 +229,15 @@ public final class ShizukuBackendTest {
         check(launched.target.sameIdentity(target) && shell.launches == 1 && shell.observes == 0,"launch observation decoded");
         check(remote.readTarget(target,false).target.sameIdentity(target) && shell.observes == 1
                 && target.token.equals(shell.lastToken) && target.generation == shell.lastGeneration,"target credentials forwarded");
+        shell.observeFailure = true;
+        try {
+            remote.readTarget(target,false);
+            throw new AssertionError("expected target service failure");
+        } catch (ConnectionCoordinator.Failure failure) {
+            check(failure.reason == ConnectionState.Reason.FAILURE,
+                    "target service exceptions must not be misreported as malformed response packets");
+        }
+        shell.observeFailure = false;
         shell.targetReply = TargetPackets.encode(target); shell.targetReply.putInt("target_uid",2000);
         malformed(() -> remote.bindTarget(display,"task",allowed,"com.example.first"));
         shell.targetReply = TargetPackets.encode(target); shell.targetReply.putString("package_name","com.other.app");
@@ -250,15 +265,15 @@ public final class ShizukuBackendTest {
 
     private static TargetObservation fakeObservation(TargetSession target) {
         return new TargetObservation(target,"observation",1,100,200,TargetObservation.Status.READY,6,
-                new TargetObservation.Bounds(0,0,720,1280),2,false,java.util.Collections.emptyList());
+                new TargetObservation.Bounds(0,0,1080,1920),2,false,java.util.Collections.emptyList());
     }
 
     private static Bundle displayPacket() {
         Bundle packet = new Bundle(); packet.putString("session_token", "service-token");
         packet.putLong("generation", 3L); packet.putInt("display_id", 7);
         packet.putString("unique_id", "virtual:test"); packet.putString("status", "ACTIVE");
-        packet.putInt("owner_uid", 2000); packet.putInt("width", 720); packet.putInt("height", 1280);
-        packet.putInt("density_dpi", 240); packet.putInt("flags", 24456); return packet;
+        packet.putInt("owner_uid", 2000); packet.putInt("width", 1080); packet.putInt("height", 1920);
+        packet.putInt("density_dpi", 360); packet.putInt("flags", 24456); return packet;
     }
 
     private static void fixedPacketsMatchActualThirteenOneFiveTypes() throws Exception {
@@ -266,7 +281,7 @@ public final class ShizukuBackendTest {
         assertAddPacket(add);
         rikka.shizuku.Shizuku.UserServiceArgs reference = new rikka.shizuku.Shizuku.UserServiceArgs(
                 new ComponentName("agent.next.app", "agent.phone.executor.ShellService"))
-                .tag("agent.next.connection.v13").version(13).processNameSuffix("agent_next_shell")
+                .tag("agent.next.connection.v15").version(17).processNameSuffix("agent_next_shell")
                 .debuggable(false).daemon(false);
         java.lang.reflect.Method forAdd = reference.getClass().getDeclaredMethod("forAdd");
         forAdd.setAccessible(true);
@@ -277,7 +292,7 @@ public final class ShizukuBackendTest {
             samePacket((Bundle) forRemove.invoke(reference, remove), UserServiceProtocol.remove(remove));
         }
         add.putString("shizuku:user-service-arg-tag", "forged");
-        check("agent.next.connection.v13".equals(UserServiceProtocol.add().get("shizuku:user-service-arg-tag")),
+        check("agent.next.connection.v15".equals(UserServiceProtocol.add().get("shizuku:user-service-arg-tag")),
                 "packets are fresh and cannot mutate subsequent requests");
         for (boolean remove : new boolean[] {true, false}) assertRemovePacket(UserServiceProtocol.remove(remove), remove);
     }
@@ -308,11 +323,11 @@ public final class ShizukuBackendTest {
         check("agent.next.app".equals(component.getPackageName())
                 && "agent.phone.executor.ShellService".equals(component.getClassName()), "fixed service component");
         check(Boolean.FALSE.equals(add.get("shizuku:user-service-arg-debuggable")), "debug false is a Boolean");
-        check(Integer.valueOf(13).equals(add.get("shizuku:user-service-arg-version-code")), "version is Integer 13");
+        check(Integer.valueOf(17).equals(add.get("shizuku:user-service-arg-version-code")), "version is Integer 17");
         check(Boolean.FALSE.equals(add.get("shizuku:user-service-arg-daemon")), "daemon false is explicit");
         check(Boolean.FALSE.equals(add.get("shizuku:user-service-arg-use-32-bit-app-process")), "32-bit flag false");
         check("agent_next_shell".equals(add.get("shizuku:user-service-arg-process-name")), "fixed process suffix");
-        check("agent.next.connection.v13".equals(add.get("shizuku:user-service-arg-tag")), "stable tag");
+        check("agent.next.connection.v15".equals(add.get("shizuku:user-service-arg-tag")), "stable tag");
     }
 
     private static void assertRemovePacket(Bundle packet, boolean remove) {
@@ -521,10 +536,13 @@ public final class ShizukuBackendTest {
         android.os.SharedMemory frameMemory;
         boolean malformedFrame;
         boolean malformedTap;
+        boolean staleTap;
         boolean malformedText;
+        boolean observeFailure;
         int frameCalls;
         @Override public Bundle tapTarget(String token,long generation,String observationId,int x,int y) {
             lastToken = token; lastGeneration = generation;
+            if (staleTap) return TargetTapPackets.stale(new TargetTap.StaleException(7,observationId,null));
             Bundle packet = TargetTapPackets.encode(new TargetTap(7,6,x,y,1000,observationId));
             if (malformedTap) packet.putString("unexpected","value");
             return packet;
@@ -544,14 +562,14 @@ public final class ShizukuBackendTest {
             lastToken = token; lastGeneration = generation;
             return TargetBackPackets.encode(new TargetBack(7,6,1000,observationId));
         }
-        @Override public Bundle startPreviewMirror(String token,long generation,android.view.Surface surface) {
+        @Override public Bundle startPreviewMirror(String token,long generation,android.view.Surface surface,int channel) {
             lastToken = token; lastGeneration = generation;
             Bundle packet = new Bundle();
             packet.putBoolean("ok",true);
             packet.putInt("display_id",7);
             return packet;
         }
-        @Override public void stopPreviewMirror(String token,long generation) {
+        @Override public void stopPreviewMirror(String token,long generation,int channel) {
             lastToken = token; lastGeneration = generation;
         }
         @Override public void userTap(String token,long generation,int x,int y) {
@@ -571,16 +589,13 @@ public final class ShizukuBackendTest {
         @Override public Bundle captureTarget(String token,long generation) {
             lastToken = token; lastGeneration = generation; frameCalls++;
             try {
-                byte[] png = new byte[33];
-                byte[] header = {(byte)137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82};
-                System.arraycopy(header,0,png,0,header.length);
-                png[18]=2; png[19]=(byte)208; png[22]=5; png[24]=8; png[25]=6;
+                byte[] png = FrameEvidenceTest.png();
                 frameMemory = android.os.SharedMemory.create("test-frame",png.length);
                 java.nio.ByteBuffer write = frameMemory.mapReadWrite();
                 try { write.put(png); } finally { android.os.SharedMemory.unmap(write); }
                 check(frameMemory.setProtect(android.system.OsConstants.PROT_READ),"seal fixture");
                 Bundle packet = FramePackets.encode(new FrameEvidence(target,"frame",1,100,200,
-                        "frame-observation",6,720,1280,png.length),frameMemory);
+                        "frame-observation",6,1080,1920,png.length),frameMemory);
                 if (malformedFrame) packet.putString("unexpected","value");
                 return packet;
             } catch (Exception failure) { throw new IllegalStateException(failure); }
@@ -620,7 +635,7 @@ public final class ShizukuBackendTest {
                 String[] allowedPackages,String selectedPackage) {
             taskId = requestedTaskId; allowed = allowedPackages.clone(); lastToken = displayToken; lastGeneration = displayGeneration;
             if (targetReply != null) return targetReply;
-            DisplaySession owned = new DisplaySession(displayToken,displayGeneration,7,"virtual:test",2000,720,1280,240,
+            DisplaySession owned = new DisplaySession(displayToken,displayGeneration,7,"virtual:test",2000,1080,1920,360,
                     24456,DisplaySession.Status.ACTIVE);
             target = new TargetSession(owned,taskId,"target-" + taskId,4,selectedPackage,10123,selectedPackage + ".Main");
             return TargetPackets.encode(target);
@@ -630,6 +645,7 @@ public final class ShizukuBackendTest {
             return observationReply == null ? ObservationPackets.encode(fakeObservation(target)) : observationReply;
         }
         @Override public Bundle observeTarget(String token,long generation) {
+            if (observeFailure) throw new IllegalStateException("Target operation failed; disconnect to clean up");
             lastToken = token; lastGeneration = generation; observes++;
             return observationReply == null ? ObservationPackets.encode(fakeObservation(target)) : observationReply;
         }

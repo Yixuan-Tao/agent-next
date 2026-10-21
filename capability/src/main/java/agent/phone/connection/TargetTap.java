@@ -2,6 +2,16 @@ package agent.phone.connection;
 
 /** Receipt for one tap that was accepted against a specific observation and window. */
 public final class TargetTap {
+    /** The live window check failed before any touch event was injected. */
+    public static final class StaleException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+        public final int displayId;
+        public final String observationId;
+        public StaleException(int displayId,String observationId,Throwable cause) {
+            super("Target window changed before input",cause);
+            this.displayId = displayId; this.observationId = observationId;
+        }
+    }
     public final int displayId, windowId, x, y;
     public final long atNanos;
     public final String observationId;

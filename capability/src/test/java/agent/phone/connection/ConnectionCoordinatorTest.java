@@ -17,9 +17,13 @@ public final class ConnectionCoordinatorTest {
     private ConnectionCoordinatorTest() { }
 
     public static void main(String[] args) throws Exception {
+        stickyCheckKeepsHealthySessionUsable();
+        connectDuringInspectionIsNotLost();
+        blockedMirrorDoesNotBlockCoordinator();
         frameCaptureClearsOnNextOperationAndRejectsReplay();
         cancelledFrameCaptureNeverPublishes();
         targetBindingObservationAndRelease();
+        staleTapKeepsAuthorizedSession();
         cancelledTargetReadNeverPublishes();
         replacingOwnerCancelsInFlightDisplayBeforePublishingToNewOwner();
         displayResultsRespectCancellationAndOwnership();
@@ -33,6 +37,64 @@ public final class ConnectionCoordinatorTest {
         blockedCleanupRemainsUnconfirmedAndDoesNotAccumulateRetries();
         repeatedCancellationAfterCleanupTimeoutKeepsAnEffectiveDeadline();
         System.out.println("ConnectionCoordinatorTest: PASS (blocked RPC, cleanup, deadlines, generations, reconnect)");
+    }
+
+    private static void blockedMirrorDoesNotBlockCoordinator() throws Exception {
+        ExecutorService mirror = Executors.newSingleThreadExecutor();
+        try (Fixture f = new Fixture()) {
+            f.engine.connect(); f.until(() -> f.state.status == Status.CONNECTED);
+            f.engine.createDisplay(); f.until(() -> f.state.display != null && f.state.canUseDisplay);
+            f.backend.service.blockMirror = true;
+            java.util.concurrent.Callable<Boolean> call =
+                    f.engine.prepareStartPreviewMirror(new android.view.Surface(),1);
+            mirror.submit(call);
+            check(f.backend.service.mirrorStarted.await(1, TimeUnit.SECONDS), "mirror RPC started");
+            f.engine.disconnect();
+            f.until(() -> f.state.status == Status.DISCONNECTED);
+            check(!f.engine.prepareStartPreviewMirror(new android.view.Surface(),1).call(),
+                    "cancelled mirror session cannot dispatch a new RPC");
+            f.backend.service.release.countDown();
+        } finally {
+            mirror.shutdownNow();
+        }
+    }
+
+    private static void connectDuringInspectionIsNotLost() throws Exception {
+        try (Fixture f = new Fixture()) {
+            f.engine.check();
+            f.engine.connect();
+            f.until(() -> f.state.status == Status.CONNECTED);
+            check(f.state.capabilities != null, "connect requested during inspection must bind");
+        }
+    }
+
+    private static void stickyCheckKeepsHealthySessionUsable() throws Exception {
+        try (Fixture f = new Fixture()) {
+            f.engine.connect(); f.until(() -> f.state.status == Status.CONNECTED);
+            f.engine.createDisplay(); f.until(() -> f.state.display != null && f.state.canUseDisplay);
+            DisplaySession display = f.state.display;
+            f.engine.checkIfDisconnected();
+            check(f.state.status == Status.CONNECTED && f.state.canUseDisplay,
+                    "a delayed binder-received callback must not invalidate a healthy session");
+            check(f.state.display.sameIdentity(display), "sticky check preserves display identity");
+        }
+    }
+
+    private static void staleTapKeepsAuthorizedSession() throws Exception {
+        try (Fixture f = new Fixture()) {
+            f.engine.connect(); f.until(() -> f.state.status == Status.CONNECTED);
+            f.engine.createDisplay(); f.until(() -> f.state.display != null && f.state.canUseDisplay);
+            f.engine.bindTarget("tap-task",new String[] {"com.example.reader"},"com.example.reader");
+            f.until(() -> f.state.target != null && f.state.canUseDisplay);
+            f.engine.observeTarget(); f.until(() -> f.state.observation != null && f.state.canUseDisplay);
+            TargetSession target = f.state.target;
+            f.backend.service.staleTap = true;
+            f.engine.tap(100,100);
+            f.until(() -> f.state.reason == Reason.STALE_INPUT);
+            check(f.state.status == Status.CONNECTED && f.state.canUseDisplay
+                    && f.state.target.sameIdentity(target) && f.state.observation == null,
+                    "pre-input rejection discards stale evidence while retaining the authorized target");
+        }
     }
 
     private static void frameCaptureClearsOnNextOperationAndRejectsReplay() throws Exception {
@@ -456,8 +518,10 @@ public final class ConnectionCoordinatorTest {
     }
 
     private static final class FakeService implements ConnectionCoordinator.Service {
+        final CountDownLatch mirrorStarted = new CountDownLatch(1);
+        volatile boolean blockMirror;
         final CountDownLatch frameStarted = new CountDownLatch(1);
-        volatile boolean blockFrame,replayFrame;
+        volatile boolean blockFrame,replayFrame,staleTap;
         long frameSequence;
         @Override public FrameEvidence.Capture readFrame(TargetSession target) throws Exception {
             frameStarted.countDown();
@@ -465,9 +529,10 @@ public final class ConnectionCoordinatorTest {
             byte[] png = framePng();
             long next = replayFrame ? frameSequence : ++frameSequence;
             return new FrameEvidence.Capture(new FrameEvidence(target,"frame-" + next,next,100,200,
-                    "frame-observation",6,720,1280,png.length),png);
+                    "frame-observation",6,1080,1920,png.length),png);
         }
-        @Override public TargetTap tapTarget(TargetSession target,String observationId,int x,int y) {
+        @Override public TargetTap tapTarget(TargetSession target,String observationId,int x,int y) throws ConnectionCoordinator.Failure {
+            if (staleTap) throw new ConnectionCoordinator.Failure(Reason.STALE_INPUT,null);
             return new TargetTap(target.display.displayId,6,x,y,1000,observationId);
         }
         @Override public TargetText setTextTarget(TargetSession target,String observationId,String ref,String text) {
@@ -481,8 +546,11 @@ public final class ConnectionCoordinatorTest {
             return new TargetBack(target.display.displayId,6,1000,observationId);
         }
         @Override public int moveTargetToDisplay(TargetSession target,int displayId) { return 42; }
-        @Override public void startPreviewMirror(DisplaySession display,android.view.Surface surface) { }
-        @Override public void stopPreviewMirror(DisplaySession display) { }
+        @Override public void startPreviewMirror(DisplaySession display,android.view.Surface surface,int channel) throws Exception {
+            mirrorStarted.countDown();
+            if (blockMirror) release.await();
+        }
+        @Override public void stopPreviewMirror(DisplaySession display,int channel) { }
         @Override public void userTap(TargetSession target,int x,int y) { }
         @Override public void userSwipe(TargetSession target,int x1,int y1,int x2,int y2,int durationMs) { }
         final CountDownLatch targetStarted = new CountDownLatch(1);
@@ -496,7 +564,7 @@ public final class ConnectionCoordinatorTest {
             targetStarted.countDown();
             if (blockTarget) release.await();
             return new TargetObservation(target,"observation",1,100,200,TargetObservation.Status.READY,6,
-                    new TargetObservation.Bounds(0,0,720,1280),2,false,java.util.Collections.emptyList());
+                    new TargetObservation.Bounds(0,0,1080,1920),2,false,java.util.Collections.emptyList());
         }
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
@@ -521,7 +589,7 @@ public final class ConnectionCoordinatorTest {
         }
         private DisplaySession display(DisplaySession.Status status) {
             return new DisplaySession(wrongDisplayIdentity ? "other" : "session-token", 1, 7,
-                    "virtual:test", 2000, 720, 1280, 240, 24456, status);
+                    "virtual:test", 2000, 1080, 1920, 360, 24456, status);
         }
         @Override public Capabilities read() throws Exception {
             reads.incrementAndGet();
@@ -537,8 +605,8 @@ public final class ConnectionCoordinatorTest {
         byte[] png = new byte[33];
         byte[] header = {(byte)137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82};
         System.arraycopy(header,0,png,0,header.length);
-        png[18] = 2; png[19] = (byte)208; // 720
-        png[22] = 5; // 1280
+        png[18] = 4; png[19] = 56; // 1080
+        png[22] = 7; png[23] = (byte)128; // 1920
         png[24] = 8; png[25] = 6;
         return png;
     }

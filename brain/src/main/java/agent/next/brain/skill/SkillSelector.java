@@ -12,7 +12,8 @@ import java.util.Objects;
  */
 public sealed interface SkillSelector extends NodeSelector
         permits SkillSelector.ViewIdContains, SkillSelector.TextContains,
-        SkillSelector.ClickableTextContains, SkillSelector.Editable {
+        SkillSelector.ClickableTextContains, SkillSelector.ClickableContentDescriptionContains,
+        SkillSelector.Editable, SkillSelector.WebTextContains {
 
     record ViewIdContains(String value) implements SkillSelector {
         public ViewIdContains {
@@ -74,6 +75,44 @@ public sealed interface SkillSelector extends NodeSelector
         }
     }
 
+    record WebTextContains(String value) implements SkillSelector {
+        public WebTextContains {
+            value = Checks.text(value, "web text");
+            if (value.length() > 120) {
+                throw new IllegalArgumentException("web text exceeds 120 characters");
+            }
+        }
+
+        @Override
+        public boolean matches(UiNode node) {
+            return node.hasFlag(NodeFlag.VISIBLE_TO_USER) && node.hasFlag(NodeFlag.ENABLED)
+                    && !node.hasFlag(NodeFlag.PASSWORD) && !node.hasFlag(NodeFlag.EDITABLE)
+                    && !node.textTruncated() && !node.text().isBlank()
+                    && node.text().contains(value);
+        }
+
+        @Override
+        public String description() {
+            return "web text contains " + value;
+        }
+    }
+
+    record ClickableContentDescriptionContains(String value) implements SkillSelector {
+        public ClickableContentDescriptionContains {
+            value = Checks.text(value, "contentDescription");
+        }
+
+        @Override
+        public boolean matches(UiNode node) {
+            return node.hasFlag(NodeFlag.CLICKABLE) && node.contentDescription().contains(value);
+        }
+
+        @Override
+        public String description() {
+            return "clickable contentDescription contains " + value;
+        }
+    }
+
     static SkillSelector viewIdContains(String value) {
         return new ViewIdContains(Objects.requireNonNull(value, "value"));
     }
@@ -88,5 +127,9 @@ public sealed interface SkillSelector extends NodeSelector
 
     static SkillSelector editable() {
         return new Editable();
+    }
+
+    static SkillSelector clickableContentDescriptionContains(String value) {
+        return new ClickableContentDescriptionContains(Objects.requireNonNull(value, "value"));
     }
 }

@@ -4,6 +4,11 @@ import agent.next.brain.ActionDescriptor;
 import agent.next.device.NodeBounds;
 import agent.next.device.ObservationRef;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -43,6 +48,29 @@ public record GroundedAction(
     }
 
     public record None() implements GroundedTarget {
+    }
+
+    /** Length-delimited fields prevent ambiguous concatenation in approval bindings. */
+    static String fingerprint(List<String> fields) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (String field : fields) {
+                byte[] bytes = field.getBytes(StandardCharsets.UTF_8);
+                digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+                digest.update(bytes);
+            }
+            byte[] hash = digest.digest();
+            char[] hex = new char[hash.length * 2];
+            String digits = "0123456789abcdef";
+            for (int i = 0; i < hash.length; i++) {
+                int value = hash[i] & 0xff;
+                hex[i * 2] = digits.charAt(value >>> 4);
+                hex[i * 2 + 1] = digits.charAt(value & 0x0f);
+            }
+            return new String(hex);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is required by the Java runtime", impossible);
+        }
     }
 
     private static String text(String value, String name) {

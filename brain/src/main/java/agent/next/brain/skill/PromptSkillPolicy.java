@@ -12,6 +12,8 @@ import agent.next.device.Frame;
 import agent.next.device.Observation;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -74,7 +76,7 @@ public final class PromptSkillPolicy implements LoopPolicy {
         }
         SkillModelRequest request = new SkillModelRequest(
                 skill.id(), prompt, context.observation(),
-                context.observation().packageName(), parameters,
+                context.observation().packageName(), requestParameters(context),
                 skill.permissions().capabilities(), step, captureFrame());
         SkillModelStep proposal;
         try {
@@ -147,6 +149,18 @@ public final class PromptSkillPolicy implements LoopPolicy {
         } catch (DeviceException | RuntimeException unavailable) {
             return null;
         }
+    }
+
+    private Map<String, String> requestParameters(LoopContext context) {
+        Map<String, String> result = new LinkedHashMap<>(parameters);
+        // Copy only the latest task-local execution feedback, never arbitrary scratch memory.
+        for (String key : List.of("last.action", "last.action.kind", "last.action.description",
+                "last.result", "last.effect", "last.failure")) {
+            result.remove(key);
+            context.memory().get(key).ifPresent(value ->
+                    result.put(key, value.length() <= 400 ? value : value.substring(0, 400)));
+        }
+        return Map.copyOf(result);
     }
 
     private boolean riskAllowed(SkillModelStep proposal) {

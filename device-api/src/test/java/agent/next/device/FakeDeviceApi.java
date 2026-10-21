@@ -146,13 +146,13 @@ public final class FakeDeviceApi implements DeviceApi {
             if (spec == null) {
                 throw rejected("display spec is required");
             }
-            if (spec.width() != 720 || spec.height() != 1280 || spec.densityDpi() != 240) {
-                throw rejected("fake supports only the standard 720x1280/240 display");
+            if (spec.width() != 1080 || spec.height() != 1920 || spec.densityDpi() != 360) {
+                throw rejected("fake supports only the standard 1080x1920/360 display");
             }
             int displayId = nextDisplayId++;
             DisplayHandle handle = new DisplayHandle("fake-display-" + displayId, 1);
             DisplayInfo info = new DisplayInfo(displayId, "fake:display:" + displayId,
-                    "agent-phone", 720, 1280, 240, 2000, 1);
+                    "agent-phone", 1080, 1920, 360, 2000, 1);
             displays.put(handle.token(), new FakeDisplay(handle, info));
             return handle;
         }
@@ -233,7 +233,7 @@ public final class FakeDeviceApi implements DeviceApi {
             List<UiNode> nodes = new ArrayList<>();
             nodes.add(node(id + ":0", 0, -1, 1000, "android:id/root",
                     "android.widget.FrameLayout", "", "",
-                    new NodeBounds(0, 0, 720, 1280), EnumSet.of(NodeFlag.VISIBLE_TO_USER)));
+                    new NodeBounds(0, 0, 1080, 1920), EnumSet.of(NodeFlag.VISIBLE_TO_USER)));
             nodes.add(node(id + ":1", 1, 0, 1000, "com.example.shop:id/search",
                     "android.widget.EditText", "", "Search",
                     new NodeBounds(20, 100, 700, 160),
@@ -260,7 +260,7 @@ public final class FakeDeviceApi implements DeviceApi {
                     Instant.now(),
                     nodes.size(),
                     false,
-                    new NodeBounds(0, 0, 720, 1280),
+                    new NodeBounds(0, 0, 1080, 1920),
                     nodes);
             observations.put(id, new FakeObservation(observation, found.handle.token()));
             return observation;
@@ -271,7 +271,7 @@ public final class FakeDeviceApi implements DeviceApi {
             ensureOpen();
             target(target);
             byte[] png = new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
-            return new Frame(720, 1280, png, Instant.now(), nextFrameSequence++);
+            return new Frame(1080, 1920, png, Instant.now(), nextFrameSequence++);
         }
     }
 

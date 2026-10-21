@@ -19,9 +19,11 @@ import java.util.Set;
 public final class GuiRiskClassifier {
 
     private static final Set<String> PAYMENT = Set.of(
-            "支付", "付款", "立即支付", "确认支付", "下单", "提交订单", "结算", "购买",
-            "转账", "充值", "订购", "订阅", "pay", "checkout", "place order", "buy",
-            "purchase", "subscribe");
+            "支付", "付款", "立即支付", "确认支付", "下单", "提交订单",
+            "转账", "充值", "订购", "订阅", "pay", "place order", "subscribe");
+    /** Navigating into checkout is reversible; only the actual commitment stays a payment action. */
+    private static final Set<String> PAYMENT_NAVIGATION = Set.of(
+            "去结算", "结算", "去购买", "立即购买", "购买", "checkout", "buy", "purchase");
     private static final Set<String> MESSAGE = Set.of(
             "发送", "发表", "评论", "回复", "投稿", "提交评价", "send", "post",
             "reply", "message", "email");
@@ -40,12 +42,15 @@ public final class GuiRiskClassifier {
     }
 
     public static Category category(ActionDescriptor action) {
-        String text = (action.id() + " " + action.description()).toLowerCase(Locale.ROOT);
+        String text = semanticText(action);
         if (containsAny(text, CREDENTIAL)) {
             return Category.CREDENTIAL;
         }
         if (containsAny(text, PAYMENT)) {
             return Category.PAYMENT;
+        }
+        if (containsAny(text, PAYMENT_NAVIGATION)) {
+            return Category.NONE;
         }
         if (containsAny(text, MESSAGE)) {
             return Category.MESSAGE;
@@ -61,7 +66,7 @@ public final class GuiRiskClassifier {
 
     /** Returns a descriptor whose kind/risk/flags are at least as strict as the input. */
     public static ActionDescriptor raise(ActionDescriptor action) {
-        String text = (action.id() + " " + action.description()).toLowerCase(Locale.ROOT);
+        String text = semanticText(action);
         ActionKind kind = action.kind();
         RiskClass risk = action.risk();
         Set<ActionFlag> flags = action.flags().isEmpty()
@@ -112,6 +117,12 @@ public final class GuiRiskClassifier {
             }
         }
         return false;
+    }
+
+    private static String semanticText(ActionDescriptor action) {
+        return (action.id() + " " + action.description())
+                .replaceAll("([a-z])([A-Z])", "$1 $2")
+                .replace('_', ' ').replace('-', ' ').toLowerCase(Locale.ROOT);
     }
 
     private static RiskClass stronger(RiskClass current, RiskClass proposed) {

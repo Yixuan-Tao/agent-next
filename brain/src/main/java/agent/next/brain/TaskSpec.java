@@ -19,7 +19,16 @@ public record TaskSpec(
         AutonomyGrant autonomy,
         Set<String> allowedApps,
         Set<String> deniedActions,
-        Budget budget) {
+        Budget budget,
+        boolean handoffOnVerifiedCompletion) {
+
+    /** Backward-compatible constructor for tasks that complete without a handoff. */
+    public TaskSpec(String id, String goal, List<String> constraints,
+            List<SuccessCriterion> successCriteria, AutonomyGrant autonomy,
+            Set<String> allowedApps, Set<String> deniedActions, Budget budget) {
+        this(id, goal, constraints, successCriteria, autonomy, allowedApps,
+                deniedActions, budget, false);
+    }
 
     public TaskSpec {
         id = Preconditions.requireText(id, "id");

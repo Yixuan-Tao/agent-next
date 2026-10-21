@@ -6,58 +6,44 @@ import android.os.Looper;
 import android.util.Log;
 
 import agent.next.brain.DefaultRiskGate;
-import agent.next.brain.action.ActionExecutor;
-import agent.next.brain.loop.BoundedReplanPolicy;
-import agent.next.brain.loop.LoopPolicy;
 import agent.next.app.skill.RiskGuardPolicy;
-import agent.next.app.skill.DomainSkill;
-import agent.next.app.skill.DomainSkills;
-import agent.next.app.skill.SkillContext;
+import agent.next.app.skill.BrowserResultVerifier;
+import agent.next.app.skill.BrowserTaskPlan;
 import agent.next.app.security.EncryptedEpisodicMemory;
 import agent.next.app.security.EncryptedModelConfigStore;
 import agent.next.brain.InMemoryWorkingMemory;
 import agent.next.brain.loop.LoopStoppedException;
-import agent.next.brain.Subgoal;
 import agent.next.brain.TaskSpec;
-import agent.next.brain.loop.LoopControl;
-import agent.next.brain.loop.SlowLoopDecision;
+import agent.next.brain.loop.TaskExecutionControl;
 import agent.next.brain.model.ChatCompletionClient;
-import agent.next.brain.model.DeepSeekSkillModel;
 import agent.next.brain.model.DeepSeekVisualModel;
+import agent.next.brain.model.DeepSeekReactiveModel;
+import agent.next.brain.action.VisualTapResolver;
+import agent.next.brain.reactive.ReactiveDecision;
+import agent.next.brain.reactive.ReactiveSessionRunner;
 import agent.next.brain.model.ModelCallBudget;
 import agent.next.brain.model.ModelConfig;
-import agent.next.brain.skill.SkillModel;
-import agent.next.brain.skill.SkillModelRequest;
-import agent.next.brain.skill.SkillModelStep;
 import agent.next.brain.model.StageExtractRequest;
 import agent.next.brain.plan.DeepSeekTaskPlanner;
-import agent.next.brain.contract.PlanValidator;
 import agent.next.brain.contract.TaskClarification;
 import agent.next.brain.contract.TaskContract;
-import agent.next.brain.contract.TaskContractFactory;
 import agent.next.brain.contract.TaskReport;
 import agent.next.brain.contract.TaskReportBuilder;
 import agent.next.brain.plan.PlanningRequest;
 import agent.next.brain.plan.PlanningResult;
 import agent.next.brain.plan.TaskPlan;
 import agent.next.brain.session.DeviceTargetBinder;
-import agent.next.brain.session.PromptSessionPolicyFactory;
-import agent.next.brain.session.SessionPolicyFactory;
+import agent.next.brain.session.AutomaticTaskFlow;
 import agent.next.brain.session.SessionResult;
-import agent.next.brain.session.SessionRunner;
 import agent.next.brain.session.SubgoalVerifier;
 import agent.next.brain.session.TargetBinder;
 import agent.next.brain.session.TargetFrameSource;
-import agent.next.brain.session.VerifierRegistry;
 import agent.next.brain.session.VisualSubgoalVerifier;
 import agent.next.device.DeviceException;
 import agent.next.device.DisplayHandle;
 import agent.next.device.Frame;
 import agent.next.device.Observation;
-import agent.next.device.NodeFlag;
-import agent.next.device.Point;
 import agent.next.device.ObservationOptions;
-import agent.next.device.ObservationStatus;
 import agent.next.device.TargetHandle;
 import android.view.Surface;
 import agent.next.device.UiNode;
@@ -72,7 +58,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Process-wide task runtime: device, plan review, session, stop, and UI callbacks. */
+/** Process-wide task runtime: natural-language tasks, execution, stop, and UI callbacks. */
 public final class AgentRuntime {
 
     private static final String TAG = "AgentNextRuntime";
@@ -81,7 +67,7 @@ public final class AgentRuntime {
     public enum State {
         IDLE,
         PLANNING,
-        AWAITING_PLAN,
+        NEEDS_INPUT,
         RUNNING,
         STOPPING,
         DONE,
@@ -94,7 +80,7 @@ public final class AgentRuntime {
     public interface Listener {
         void onState(State state, String detail);
 
-        void onPlan(PlanningResult result);
+        void onClarification(String question);
 
         void onSessionResult(SessionResult result);
     }
@@ -111,15 +97,16 @@ public final class AgentRuntime {
     private volatile String detail = "";
     private BlockingDeviceApi api;
     private DisplayHandle display;
-    private TaskPlan plan;
+    private volatile String clarificationQuestion = "";
     private TaskContract contract;
     private PlanningRequest planningRequest;
     private ChatCompletionClient client;
-    private DeepSeekSkillModel skillModel;
     private DeepSeekVisualModel visualModel;
-    private java.util.List<DomainSkill> domainSkills;
-    private RuntimeControl control;
+    private TaskExecutionControl control;
     private TargetHandle activeTarget;
+    private volatile boolean demoMonitoringEnabled;
+    private volatile DemoFramePublisher demoFrames;
+    private final Object monitoringLock = new Object();
 
     private AgentRuntime(Context context) {
         this.context = context.getApplicationContext();
@@ -150,6 +137,61 @@ public final class AgentRuntime {
 
     public void setListener(Listener listener) {
         this.listener = listener;
+        if (listener != null) {
+            State snapshot = state;
+            String message = detail;
+            main.post(() -> {
+                if (this.listener == listener) {
+                    listener.onState(snapshot, message);
+                    if (snapshot == State.NEEDS_INPUT && !clarificationQuestion.isBlank()) {
+                        listener.onClarification(clarificationQuestion);
+                    }
+                }
+            });
+        }
+    }
+
+    public boolean demoMonitoringEnabled() {
+        return demoMonitoringEnabled;
+    }
+
+    public void setDemoMonitoringEnabled(boolean enabled) {
+        if ((context.getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) {
+            return;
+        }
+        demoMonitoringEnabled = enabled;
+        previewWorker.execute(() -> {
+            if (enabled) {
+                startMonitoring();
+            } else {
+                stopMonitoring();
+            }
+        });
+    }
+
+    private void startMonitoring() {
+        synchronized (monitoringLock) {
+            if (!demoMonitoringEnabled || demoFrames != null || api == null || display == null) {
+                return;
+            }
+            try {
+                demoFrames = new DemoFramePublisher(context, api, display);
+                demoFrames.update(state.name(), detail);
+            } catch (DeviceException | RuntimeException failure) {
+                Log.w(TAG, "read-only monitor unavailable", failure);
+            }
+        }
+    }
+
+    private void stopMonitoring() {
+        synchronized (monitoringLock) {
+            DemoFramePublisher previous = demoFrames;
+            demoFrames = null;
+            if (previous != null) {
+                previous.close();
+            }
+        }
     }
 
     public void setConfirmationPresenter(UiHumanGateway.Presenter presenter) {
@@ -172,38 +214,70 @@ public final class AgentRuntime {
         return activeTarget;
     }
 
-    public void plan(PlanningRequest request) {
+    public void startTask(PlanningRequest request) {
+        TaskExecutionControl taskControl;
         synchronized (this) {
-            if (state == State.PLANNING || state == State.RUNNING || state == State.STOPPING) {
-                postState(State.FAILED, "已有任务进行中");
+            if (state == State.PLANNING || state == State.RUNNING || state == State.STOPPING
+                    || handoffLatch != null) {
                 return;
             }
+            contract = null;
+            planningRequest = request;
+            clarificationQuestion = "";
+            taskControl = new TaskExecutionControl();
+            control = taskControl;
             state = State.PLANNING;
-            detail = "规划中";
+            detail = "正在理解任务";
         }
-        postState(State.PLANNING, "规划中");
-        worker.execute(() -> doPlan(request));
+        AgentTaskService.start(context);
+        postState(State.PLANNING, "正在理解任务");
+        worker.execute(() -> prepareAndRun(request, taskControl));
     }
 
-    public void runPlan() {
-        TaskPlan current;
+    public void answerClarification(String answer) {
+        PlanningRequest request;
         synchronized (this) {
-            if (state != State.AWAITING_PLAN || plan == null) {
-                return;
-            }
-            current = plan;
-            state = State.RUNNING;
-            detail = "执行中";
-            control = new RuntimeControl();
+            if (state != State.NEEDS_INPUT || planningRequest == null || answer == null || answer.isBlank()) return;
+            request = planningRequest;
         }
-        postState(State.RUNNING, "执行中");
-        worker.execute(() -> doRun(current));
+        startTask(new PlanningRequest(request.taskId(),
+                request.goal() + "\n用户补充信息：" + answer.trim(), request.constraints(),
+                request.allowedApps(), request.installedApps(), request.primaryPackage(),
+                request.deniedActions(), request.allowedVerifiers(), request.autonomy()));
+    }
+
+    public boolean waitingForHandoff() { return handoffLatch != null; }
+
+    public boolean isPaused() {
+        TaskExecutionControl current = control;
+        return current != null && current.paused();
+    }
+
+    public boolean isUserPaused() {
+        TaskExecutionControl current = control;
+        return current != null && current.pausedBy("user");
+    }
+
+    public void pauseTask() {
+        TaskExecutionControl current = control;
+        if (current != null && (state == State.RUNNING || state == State.PLANNING)) {
+            current.pause("user");
+            postState(state, "已暂停");
+        }
+    }
+
+    public void resumeTask() {
+        TaskExecutionControl current = control;
+        if (current != null) {
+            current.resume("user");
+            postState(state, current.paused() ? "正在接管，任务保持暂停" : "正在继续任务");
+        }
     }
 
     private volatile java.util.concurrent.CountDownLatch handoffLatch;
     private volatile boolean handoffApproved;
 
-    /** Moves the target to the main screen and waits for the user to finish verification. */
+    /** Requests help without switching the user's screen. Takeover is a separate user action. */
     public boolean handoffToUser(String reason) {
         BlockingDeviceApi currentApi = api;
         TargetHandle target = activeTarget;
@@ -217,10 +291,9 @@ public final class AgentRuntime {
             handoffLatch = latch;
             handoffApproved = false;
             Log.i(TAG, "handoff requested: " + reason);
+            postState(State.NEED_USER, "需要你处理：" + reason);
             AgentTaskService.start(context);
             AgentTaskService.handoff(context, reason);
-            currentApi.tasks().moveToMain(target);
-            Log.i(TAG, "handoff: target moved to main");
             if (!latch.await(15, java.util.concurrent.TimeUnit.MINUTES)) {
                 return false;
             }
@@ -228,15 +301,20 @@ public final class AgentRuntime {
                 Log.i(TAG, "handoff: not approved");
                 return false;
             }
+            // Returning control must first confirm the interactive mirror is gone and the
+            // target is muted again; otherwise the agent would resume audibly.
+            currentApi.stopPreview(currentDisplay);
             currentApi.tasks().moveToPrivate(target, currentDisplay);
             currentApi.observations().observe(target, ObservationOptions.defaults());
-            Log.i(TAG, "handoff: returned to private display");
+            Log.i(TAG, "handoff: returned to private display, audio muted");
+            postState(State.RUNNING, "正在重新观察页面");
             return true;
         } catch (Throwable failure) {
             Log.w(TAG, "handoff failed: " + failure);
             return false;
         } finally {
             handoffLatch = null;
+            AgentTaskService.finishHandoff(context);
         }
     }
 
@@ -255,11 +333,17 @@ public final class AgentRuntime {
             handoffApproved = false;
             latch.countDown();
         }
-        RuntimeControl current = control;
+        TaskExecutionControl current = control;
         if (current != null) {
             current.stop();
         }
         postState(State.STOPPING, "正在停止");
+        worker.execute(() -> {
+            if (state == State.STOPPING) {
+                postState(State.STOPPED, "用户停止任务");
+                retainDeviceForTakeover();
+            }
+        });
     }
 
     @FunctionalInterface
@@ -268,8 +352,8 @@ public final class AgentRuntime {
     }
 
     public void pauseForUser() {
-        RuntimeControl current = control;
-        if (current != null) {
+        TaskExecutionControl current = control;
+        if (current != null && (state == State.RUNNING || state == State.PLANNING || handoffLatch != null)) {
             current.pause("preview");
             detail = "用户接管，agent 已暂停";
             postState(state, detail);
@@ -277,10 +361,10 @@ public final class AgentRuntime {
     }
 
     public void resumeAfterUser() {
-        RuntimeControl current = control;
-        if (current != null) {
-            current.resume();
-            detail = "agent 恢复执行";
+        TaskExecutionControl current = control;
+        if (current != null && current.pausedBy("preview")) {
+            current.resume("preview");
+            detail = current.paused() ? "已暂停" : "正在继续任务";
             postState(state, detail);
         }
     }
@@ -295,6 +379,7 @@ public final class AgentRuntime {
         }
         previewWorker.execute(() -> {
             try {
+                currentApi.awaitIdleForPreview();
                 currentApi.startPreview(currentDisplay, surface);
                 finish(callback, true, "preview mirror started");
             } catch (Throwable failure) {
@@ -303,16 +388,89 @@ public final class AgentRuntime {
         });
     }
 
-    public void stopPreview() {
+    /** Opens a passive view of the private display without pausing or taking input ownership. */
+    public void startReadOnlyPreview(Surface surface, PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        DisplayHandle currentDisplay = display;
+        if (currentApi == null || currentDisplay == null || surface == null
+                || !surface.isValid()) {
+            finish(callback, false, "没有可预览的私有 display");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.awaitIdleForPreview();
+                currentApi.startPhoneReadOnlyMirror(currentDisplay, surface);
+                finish(callback, true, "只读预览已打开，Agent继续运行");
+            } catch (Throwable failure) {
+                finish(callback, false, "只读预览启动失败：" + failure.getMessage());
+            }
+        });
+    }
+
+    public void stopReadOnlyPreview(PreviewCallback callback) {
         BlockingDeviceApi currentApi = api;
         DisplayHandle currentDisplay = display;
         if (currentApi == null || currentDisplay == null) {
+            finish(callback, true, "没有活动的只读预览");
+            return;
+        }
+        previewWorker.execute(() -> {
+            try {
+                currentApi.stopPhoneReadOnlyMirror(currentDisplay);
+                finish(callback, true, "只读预览已关闭，Agent保持运行");
+            } catch (Throwable failure) {
+                finish(callback, false, "只读预览关闭失败：" + failure.getMessage());
+            }
+        });
+    }
+
+    public void stopPreview() {
+        stopPreview(null);
+    }
+
+    /** Stops the interactive mirror and reports only after re-muting was confirmed. */
+    public void stopPreview(PreviewCallback callback) {
+        BlockingDeviceApi currentApi = api;
+        DisplayHandle currentDisplay = display;
+        if (currentApi == null || currentDisplay == null) {
+            finish(callback, true, "no active preview");
             return;
         }
         previewWorker.execute(() -> {
             try {
                 currentApi.stopPreview(currentDisplay);
-            } catch (Throwable ignored) {
+                if (state == State.RUNNING || state == State.NEEDS_INPUT
+                        || state == State.DONE && canPreview()) {
+                    startMonitoring();
+                }
+                finish(callback, true, "preview stopped; target audio muted");
+            } catch (Throwable failure) {
+                Log.w(TAG, "preview stop unconfirmed: " + failure.getMessage());
+                finish(callback, false, "preview stop/mute unconfirmed: " + failure.getMessage());
+            }
+        });
+    }
+
+    /** Stops any active task and releases the retained screen after queued task work has ended. */
+    public void releaseRetainedScreen(PreviewCallback callback) {
+        TaskExecutionControl current = control;
+        if (current != null && (state == State.PLANNING || state == State.RUNNING
+                || state == State.STOPPING || handoffLatch != null)) {
+            stop();
+        }
+        worker.execute(() -> {
+            try {
+                BlockingDeviceApi currentApi = api;
+                DisplayHandle currentDisplay = display;
+                if (currentApi != null && currentDisplay != null) {
+                    currentApi.stopPreview(currentDisplay);
+                }
+                closeDevice();
+                finish(callback, true, "保留画面已释放");
+            } catch (Throwable failure) {
+                Log.w(TAG, "retained screen release unconfirmed: " + failure.getMessage());
+                finish(callback, false, "释放画面失败：" + failure.getMessage());
             }
         });
     }
@@ -394,78 +552,85 @@ public final class AgentRuntime {
     }
 
     public void close() {
+        TaskExecutionControl current = control;
+        if (current != null) current.stop();
         worker.execute(this::closeDevice);
         state = State.IDLE;
         detail = "";
-        plan = null;
+        clarificationQuestion = "";
         control = null;
     }
 
-    private void doPlan(PlanningRequest request) {
+    private void prepareAndRun(PlanningRequest request, TaskExecutionControl taskControl) {
         try {
-            ensureDevice();
+            memory.clear();
+            taskControl.checkpoint();
+            if (activeTarget != null) closeDevice();
             Optional<ModelConfig> config = EncryptedModelConfigStore.load(context);
             if (config.isEmpty()) {
-                fail("缺少加密 model config（请导入 model-config.json 以迁移）");
+                fail("请先在设置中配置模型连接");
                 return;
             }
             client = new ChatCompletionClient(config.get(), new ModelCallBudget(80));
-            skillModel = new DeepSeekSkillModel(client);
             visualModel = new DeepSeekVisualModel(client);
-            domainSkills = DomainSkills.create(client);
-            java.util.Optional<String> clarification = TaskClarification.detect(
-                    request.goal(), LocalDate.now(), ZoneId.systemDefault());
-            if (clarification.isPresent()) {
-                PlanningResult result = PlanningResult.clarify(clarification.get());
-                synchronized (this) {
-                    state = State.AWAITING_PLAN;
-                    detail = "需要澄清";
-                }
-                postState(state, detail);
-                Listener current = listener;
-                if (current != null) {
-                    main.post(() -> current.onPlan(result));
-                }
-                return;
-            }
             DeepSeekTaskPlanner planner = new DeepSeekTaskPlanner(client);
-            PlanningResult raw = planner.plan(request);
-            TaskContract validatedContract = null;
-            if (!raw.needsClarification() && raw.plan() != null) {
-                validatedContract = TaskContractFactory.from(request, raw.plan());
-                PlanValidator.Result validation = new PlanValidator().validate(
-                        validatedContract, raw.plan(), request.allowedVerifiers());
-                if (!validation.valid()) {
-                    fail("计划校验失败: " + validation.errors());
-                    return;
-                }
-            }
-            contract = validatedContract;
-            planningRequest = request;
-            PlanningResult result = raw;
-            synchronized (this) {
-                if (result.needsClarification()) {
-                    state = State.AWAITING_PLAN;
-                    detail = "需要澄清";
-                } else {
-                    plan = result.plan();
-                    state = State.AWAITING_PLAN;
-                    detail = "等待确认计划";
-                }
-            }
-            postState(state, detail);
-            Listener current = listener;
-            if (current != null) {
-                main.post(() -> current.onPlan(result));
+            AutomaticTaskFlow flow = new AutomaticTaskFlow(candidate -> {
+                Optional<String> missing = TaskClarification.detect(candidate.goal(),
+                        LocalDate.now(), ZoneId.systemDefault());
+                return missing.isPresent() ? PlanningResult.clarify(missing.orElseThrow())
+                        : planner.planReactive(candidate);
+            });
+            flow.run(request, taskControl, question -> {
+                clarificationQuestion = question;
+                postState(State.NEEDS_INPUT, question);
+                Listener current = listener;
+                if (current != null) main.post(() -> {
+                    if (listener == current && state == State.NEEDS_INPUT) current.onClarification(question);
+                });
+            }, (prepared, validated) -> {
+                taskControl.checkpoint();
+                contract = validated;
+                publishProgress("正在连接设备");
+                ensureDevice();
+                taskControl.checkpoint();
+                postState(State.RUNNING, "正在观察当前页面");
+                doRun(prepared);
+            });
+        } catch (LoopStoppedException stopped) {
+            if (control == taskControl) {
+                postState(State.STOPPED, stopped.getMessage());
+                retainDeviceForTakeover();
             }
         } catch (Throwable failure) {
-            Log.e(TAG, "planning failed", failure);
-            fail("规划失败: " + failure.getMessage());
+            Log.e(TAG, "task preparation failed", failure);
+            if (control == taskControl) fail("无法开始任务：" + failure.getMessage());
         }
     }
 
+    private void publishProgress(String message) {
+        if (!isPaused() && state != State.STOPPING && state != State.STOPPED && handoffLatch == null) {
+            postState(state, message);
+        }
+    }
+
+    private void publishDecisionProgress(ReactiveDecision decision) {
+        if (decision instanceof ReactiveDecision.Act act) {
+            if (!act.progress().isBlank()) publishProgress(act.progress());
+            else if (act.proposal() instanceof agent.next.brain.action.ActionProposal.SetText) publishProgress("正在填写信息");
+            else if (act.proposal() instanceof agent.next.brain.action.ActionProposal.Swipe) publishProgress("正在浏览页面");
+            else if (act.proposal() instanceof agent.next.brain.action.ActionProposal.Wait) publishProgress("正在等待页面加载");
+            else publishProgress("正在操作当前页面");
+        } else if (decision instanceof ReactiveDecision.OpenApp) publishProgress("正在打开目标应用");
+        else if (decision instanceof ReactiveDecision.Done || decision instanceof ReactiveDecision.CheckResult) publishProgress("正在核验任务结果");
+    }
+
     private void doRun(TaskPlan confirmed) {
-        RuntimeControl runControl = control;
+        TaskExecutionControl runControl = control;
+        String originalGoal = planningRequest == null ? confirmed.task().goal()
+                : planningRequest.goal();
+        boolean scopedBrowser = BrowserTaskPlan.supportsGoal(originalGoal)
+                && confirmed.subgoals().stream()
+                        .allMatch(s -> s.targetPackage().equals("com.quark.browser"));
         try {
             if (runControl == null) {
                 fail("运行时控制未初始化");
@@ -477,29 +642,7 @@ public final class AgentRuntime {
                 public TargetHandle open(String packageName) throws DeviceException {
                     TargetHandle opened = delegate.open(packageName);
                     activeTarget = opened;
-                    Observation settled = null;
-                    try {
-                        Thread.sleep(1200L);
-                        settled = api.observations().observe(opened,
-                                ObservationOptions.defaults());
-                    } catch (Throwable waitFailure) {
-                        Log.w(TAG, "target settle failed: " + waitFailure);
-                    }
-                    if (settled != null && settled.status() == ObservationStatus.FOREIGN_WINDOW) {
-                        throw new DeviceException(DeviceException.Code.REJECTED,
-                                "target opened a permission/foreign window; complete it manually");
-                    }
-                    boolean domainPrepared = false;
-                    if (domainSkills != null) {
-                        for (DomainSkill skill : domainSkills) {
-                            if (skill.matches(packageName, confirmed.task())) {
-                                skill.prepareTarget(packageName, opened, confirmed.task(), api);
-                                domainPrepared = true;
-                                break;
-                            }
-                        }
-                    }
-                    Log.i(TAG, "target prepared domain=" + domainPrepared + " " + packageName);
+                    Log.i(TAG, "reactive target opened " + packageName);
                     return opened;
                 }
 
@@ -515,100 +658,52 @@ public final class AgentRuntime {
                 }
             };
             TargetFrameSource frames = target -> api.observations().captureFrame(target);
-            SkillModel loggingModel = request -> {
-                SkillModelStep step = skillModel.next(request);
-                String extra = "";
-                if (step instanceof SkillModelStep.SetText setText) {
-                    extra = " text=" + setText.text() + " selector="
-                            + setText.selector().description();
-                } else if (step instanceof SkillModelStep.Tap tap) {
-                    extra = " selector=" + tap.selector().description();
+            SubgoalVerifier visual = new VisualSubgoalVerifier(visualModel, frames);
+            BrowserResultVerifier browserFinal = scopedBrowser
+                    ? new BrowserResultVerifier(originalGoal, visualModel) : null;
+            SubgoalVerifier finalVerifier = (task, outcome, target, observation) -> {
+                publishProgress("正在核验任务结果");
+                SubgoalVerifier.Verification checked = visual.verify(task, outcome, target, observation);
+                if (checked.satisfied() && browserFinal != null) {
+                    extractStage(task, target, observation, browserFinal);
+                    return new SubgoalVerifier.Verification(browserFinal.satisfied(), browserFinal.evidence());
                 }
-                Log.i(TAG, "skill step=" + request.step() + " -> "
-                        + (step == null ? "null" : step.getClass().getSimpleName()) + extra);
-                return step;
+                return checked;
             };
-            SessionPolicyFactory promptPolicies = new PromptSessionPolicyFactory(
-                    loggingModel, frames, memory);
-            SessionPolicyFactory policies = (task, subgoal, target, attempt) -> {
-                LoopPolicy fallback = promptPolicies.create(task, subgoal, target, attempt);
-                if (domainSkills != null) {
-                    for (DomainSkill skill : domainSkills) {
-                        if (skill.matches(target.packageName(), task)) {
-                            java.util.Optional<LoopPolicy> domain = skill.policy(
-                                    new SkillContext(task, subgoal, target, attempt, api,
-                                            this::handoffToUser, fallback,
-                                            new ActionExecutor(api, new DefaultRiskGate(), human,
-                                                    runControl)));
-                            if (domain.isPresent()) {
-                                return domain.get();
-                            }
-                        }
-                    }
-                }
-                return new RiskGuardPolicy(fallback, this::handoffToUser);
-            };
-            VerifierRegistry verifiers = new VerifierRegistry();
-            SubgoalVerifier visualDelegate = new VisualSubgoalVerifier(visualModel, frames);
-            SubgoalVerifier visual = (task, subgoal, target, observation) -> {
-                SubgoalVerifier.Verification verification =
-                        visualDelegate.verify(task, subgoal, target, observation);
-                StringBuilder sample = new StringBuilder();
-                for (var node : observation.nodes()) {
-                    if (sample.length() > 200) {
-                        break;
-                    }
-                    if (!node.text().isBlank()) {
-                        sample.append(node.text()).append(" | ");
-                    } else if (!node.viewId().isBlank()) {
-                        sample.append("id=").append(node.viewId()).append(" | ");
-                    } else if (!node.contentDescription().isBlank()) {
-                        sample.append("desc=").append(node.contentDescription()).append(" | ");
-                    }
-                }
-                Log.i(TAG, "verify " + subgoal.id() + " -> " + verification.satisfied()
-                        + " (" + verification.evidence() + ") nodes="
-                        + observation.nodes().size() + " pkg=" + observation.packageName()
-                        + " act=" + observation.activityName() + " text=" + sample);
-                return verification;
-            };
-            SubgoalVerifier routed = (task, subgoal, target, observation) ->
-                    visual.verify(task, subgoal, target, observation);
-            verifiers.register("visual", routed);
-            if (domainSkills != null) {
-                for (DomainSkill skill : domainSkills) {
-                    SubgoalVerifier domainVerifier = skill.verifier(visual);
-                    for (String verifierId : skill.verifierIds()) {
-                        verifiers.register(verifierId, domainVerifier);
-                    }
+            DeepSeekReactiveModel actionModel = new DeepSeekReactiveModel(client);
+            VisualTapResolver visualTapResolver = new ReactiveVisualTapLocator(client);
+            ReactiveSessionRunner runner =
+                    new ReactiveSessionRunner(api, confirmed.task(),
+                            confirmed.subgoals().get(0).targetPackage(), binder,
+                            request -> {
+                                var boundary = RiskGuardPolicy.handoffReason(request.observation());
+                                if (boundary.isPresent()) {
+                                    var decision = new ReactiveDecision.NeedUser(boundary.orElseThrow());
+                                    publishDecisionProgress(decision);
+                                    return decision;
+                                }
+                                publishProgress("正在观察页面并决定下一步");
+                                var decision = actionModel.next(request);
+                                publishDecisionProgress(decision);
+                                return decision;
+                            }, frames,
+                            finalVerifier, new DefaultRiskGate(), human, runControl,
+                            this::handoffToUser, event -> Log.i(TAG, event), true, visualTapResolver);
+            SessionResult result = runner.run();
+            if (runControl.stopped()) {
+                result = SessionResult.stopped("用户已停止任务", result.actions(), result.attempts(), "task", null);
+            }
+            if (result.status() == SessionResult.Status.DONE && browserFinal != null) {
+                if (!browserFinal.satisfied()) {
+                    result = SessionResult.partial("最终页面未核验：" + browserFinal.evidence(),
+                            result.actions(), result.attempts(), "", null);
+                } else {
+                    result = new SessionResult(SessionResult.Status.DONE,
+                            "标题：" + browserFinal.title()
+                                    + "；证据：" + browserFinal.evidence(),
+                            result.actions(), result.attempts(), "", null);
                 }
             }
-            TaskContract activeContract = contract;
-            PlanningRequest baseRequest = planningRequest;
-            BoundedReplanPolicy replanPolicy = (activeContract == null || baseRequest == null)
-                    ? null
-                    : new BoundedReplanPolicy(activeContract, baseRequest.allowedVerifiers(), 1,
-                            context -> {
-                                PlanningRequest replanRequest = new PlanningRequest(
-                                        baseRequest.taskId(),
-                                        baseRequest.goal() + "\n当前子目标："
-                                                + context.current().map(Subgoal::id)
-                                                        .orElse("unknown")
-                                                + "\n失败原因：" + context.fastResult().detail(),
-                                        baseRequest.constraints(), baseRequest.allowedApps(),
-                                        baseRequest.installedApps(), baseRequest.primaryPackage(),
-                                        baseRequest.deniedActions(),
-                                        baseRequest.allowedVerifiers(), baseRequest.autonomy());
-                                return new DeepSeekTaskPlanner(client).plan(replanRequest);
-                            });
-            SessionRunner runner = new SessionRunner(api, confirmed, binder, policies,
-                    slow -> replanPolicy == null
-                            ? new SlowLoopDecision.Stop("no contract for replan")
-                            : replanPolicy.decide(slow),
-                    verifiers, new DefaultRiskGate(), human, runControl, memory, episodic,
-                    ObservationOptions.defaults(), 20, 6,
-                    (task, subgoal, target, observation) -> extractStage(task, target, observation));
-            SessionResult result = runner.run();
             if (contract != null) {
                 TaskReport report = TaskReportBuilder.from(contract, confirmed, result);
                 if (result.status() == SessionResult.Status.DONE && !report.done()) {
@@ -626,7 +721,7 @@ public final class AgentRuntime {
                     case STOPPED -> State.STOPPED;
                     default -> State.FAILED;
                 };
-                detail = finalResult.status().name() + " · " + finalResult.detail();
+                detail = finalResult.detail();
             }
             postState(state, detail);
             Listener current = listener;
@@ -637,12 +732,16 @@ public final class AgentRuntime {
             Log.e(TAG, "session failed", failure);
             fail("执行失败: " + failure.getMessage());
         } finally {
-            closeDevice();
+            retainDeviceForTakeover();
         }
     }
 
     private agent.next.brain.model.StageData extractStage(TaskSpec task, TargetHandle target,
-            Observation observation) throws DeviceException {
+            Observation observation, BrowserResultVerifier browserFinal) throws DeviceException {
+        if (browserFinal != null) {
+            browserFinal.invalidate("未获得新的最终页面证据");
+            memory.put("stage.last.entity.title", "");
+        }
         Frame frame = api.observations().captureFrame(target);
         List<String> text = new ArrayList<>();
         for (UiNode node : observation.nodes()) {
@@ -652,7 +751,22 @@ public final class AgentRuntime {
             }
         }
         try {
-            return visualModel.extract(new StageExtractRequest(task.goal(), frame, text));
+            String extractionTask = task.goal();
+            if (browserFinal != null) {
+                extractionTask += "\n以本次截图为准：只有实际内容正文页才把完整真实页面标题写入"
+                        + " entities.title；首页、搜索建议或搜索结果列表不要返回 title。"
+                        + "禁止根据任务目标、搜索词或界面树推测标题。";
+            }
+            var data = visualModel.extract(new StageExtractRequest(extractionTask, frame, text));
+            if (browserFinal != null) {
+                browserFinal.check(frame, data);
+                if (!browserFinal.satisfied()) {
+                    var entities = new java.util.LinkedHashMap<>(data.entities());
+                    entities.remove("title");
+                    return new agent.next.brain.model.StageData(data.summary(), entities);
+                }
+            }
+            return data;
         } catch (java.io.IOException failure) {
             throw new DeviceException(DeviceException.Code.INTERNAL,
                     "stage extraction failed", failure);
@@ -662,16 +776,23 @@ public final class AgentRuntime {
     private void ensureDevice() throws DeviceException {
         if (api == null) {
             api = new BlockingDeviceApi(
-                    listener -> new ShizukuConnectionDriver(context, listener), 60_000L);
+                    listener -> new ShizukuConnectionDriver(context, next -> {
+                        Log.i(TAG, "device=" + next.status + "/" + next.reason
+                                + " display=" + next.displayOperation
+                                + " target=" + next.targetOperation);
+                        listener.onStateChanged(next);
+                    }), 60_000L);
             api.connect();
         }
         if (display == null) {
             display = api.displays().create(agent.next.device.DisplaySpec.standard());
         }
+        startMonitoring();
     }
 
     private void closeDevice() {
         Log.i(TAG, "closeDevice", new Exception("closeDevice caller"));
+        stopMonitoring();
         TargetHandle target = activeTarget;
         activeTarget = null;
         if (api != null && target != null) {
@@ -691,6 +812,23 @@ public final class AgentRuntime {
         }
         api = null;
         display = null;
+        // Keep foreground protection until mirror output and device cleanup have finished.
+        // A newer queued plan may already have started the service again.
+        main.post(() -> {
+            switch (state) {
+                case IDLE, DONE, PARTIAL, STOPPED, FAILED, NEED_USER -> AgentTaskService.stop(context);
+                default -> { }
+            }
+        });
+    }
+
+    private void retainDeviceForTakeover() {
+        stopMonitoring();
+        if (api != null && display != null && activeTarget != null) {
+            AgentTaskService.update(context, "任务已结束，画面已保留；点开即可查看并接管");
+            return;
+        }
+        closeDevice();
     }
 
     private void fail(String message) {
@@ -699,47 +837,23 @@ public final class AgentRuntime {
             detail = message;
         }
         postState(State.FAILED, message);
-        closeDevice();
+        retainDeviceForTakeover();
     }
 
     private void postState(State next, String message) {
+        state = next;
+        detail = message;
+        DemoFramePublisher monitor = demoFrames;
+        if (monitor != null) {
+            monitor.update(next.name(), message);
+        }
+        if (next != State.IDLE) {
+            AgentTaskService.update(context, message);
+        }
         Listener current = listener;
         if (current != null) {
             main.post(() -> current.onState(next, message));
         }
     }
 
-    private static final class RuntimeControl implements LoopControl {
-        private boolean stopped;
-        private boolean paused;
-
-        @Override
-        public synchronized void checkpoint() throws LoopStoppedException {
-            while (paused && !stopped) {
-                try {
-                    wait();
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new LoopStoppedException("agent interrupted");
-                }
-            }
-            if (stopped) {
-                throw new LoopStoppedException("user stopped the task");
-            }
-        }
-
-        synchronized void pause(String reason) {
-            paused = true;
-        }
-
-        synchronized void resume() {
-            paused = false;
-            notifyAll();
-        }
-
-        synchronized void stop() {
-            stopped = true;
-            notifyAll();
-        }
-    }
 }

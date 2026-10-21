@@ -14,8 +14,8 @@ import static rikka.shizuku.ShizukuApiConstants.USER_SERVICE_ARG_REMOVE;
 final class UserServiceProtocol {
     static final String DEFAULT_PACKAGE = "agent.next.app";
     private static final String SERVICE_CLASS = "agent.phone.executor.ShellService";
-    private static final String TAG = "agent.next.connection.v13";
-    private static final int VERSION = 13;
+    private static final String TAG = "agent.next.connection.v15";
+    private static final int VERSION = 17;
     private static final String PROCESS_SUFFIX = "agent_next_shell";
 
     private UserServiceProtocol() { }

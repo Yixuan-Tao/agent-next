@@ -21,11 +21,11 @@ final class SlowLoopSignalsTest {
     private static void thresholdsAndPriority() {
         Budget budget = Budget.defaults();
         check(signals(0, 0).trigger(budget).isEmpty(), "fresh task");
-        check(signals(1, 0).trigger(budget).isEmpty(), "one no-effect is not enough");
-        check(signals(2, 0).trigger(budget).orElseThrow() == SlowLoopReason.NO_EFFECT, "two no-effect");
-        check(signals(0, 2).trigger(budget).isEmpty(), "two no-progress is not enough");
-        check(signals(0, 3).trigger(budget).orElseThrow() == SlowLoopReason.NO_PROGRESS, "three no-progress");
-        check(signals(2, 3).trigger(budget).orElseThrow() == SlowLoopReason.NO_EFFECT,
+        check(signals(3, 0).trigger(budget).isEmpty(), "three no-effect is not enough");
+        check(signals(4, 0).trigger(budget).orElseThrow() == SlowLoopReason.NO_EFFECT, "four no-effect");
+        check(signals(0, 4).trigger(budget).isEmpty(), "four no-progress is not enough");
+        check(signals(0, 5).trigger(budget).orElseThrow() == SlowLoopReason.NO_PROGRESS, "five no-progress");
+        check(signals(4, 5).trigger(budget).orElseThrow() == SlowLoopReason.NO_EFFECT,
                 "no-effect outranks no-progress");
     }
 

@@ -1,29 +1,22 @@
-# Settings / privacy surface（Android 16 平板）
+# 设置与隐私入口
 
-状态：已实现并真机打开；release 中不导出
+更新：2026-10-20。`SettingsActivity` 已实现；正式入口为 `MainActivity` → “设置与隐私”，release 不导出该 Activity。
 
-## 内容
+## 当前功能
 
-`SettingsActivity`：
+- 通过系统文件选择器导入模型 JSON（`base_url`、`model`、`api_key`），最大 65,536 bytes；校验后保存加密私有副本。
+- 显示加密配置是否可用，不显示 key。
+- 显示 episodic memory 数量，并可清除事件。
+- 展示本地加密和数据使用的基础说明。
 
-- 显示 model config 是否为加密文件可用（不显示 key）；
-- 显示 episodic memory 事件数；
-- “清除 episodic memory”按钮；
-- 隐私说明：
-  - API key 使用 AndroidKeyStore AES-GCM；
-  - episodic 只存结构化事件，不存原始截图/完整 UI 树；
-  - 停止/失败不会补发或自动支付；
-  - 当前无云端账号、分析 SDK、社区 registry。
+导入只删除 app 私有目录中待迁移的旧明文配置，不会删除选择器中的外部源文件。用户需自行管理源文件及任何导出副本。
 
-## 真机
+## 待完成的产品行为
 
-- debug 入口（debug manifest `exported=true`）打开正常；
-- 显示 `episodic memory: 163 events`；
-- 点击清除后 `episodic.enc` 变为约 35 bytes（空数组密文），界面刷新。
+[纯 GUI Beta](pure-gui-beta.md) 要求按任务隔离与删除、事件三十天保留、暂停检查点二十四小时、级联清理及恢复状态展示。这些不能由现有“清除 episodic memory”按钮代替。
 
-## 限制
+当前 UI 中的简短隐私文案不是完整安全保证。模型请求、runtime 日志和 debug 截图的实际数据流与迁移要求见 [隐私说明](privacy.md)。
 
-- 没有“导入 model config”UI；仍通过 adb/文件导入 plaintext 后自动迁移；
-- 没有按任务删除/保留策略；
-- 没有独立的隐私政策页面/导出审计；
-- release `SettingsActivity` 不导出，需从 MainActivity 进入。
+## 历史设备记录
+
+Android 16 上曾验证设置页打开、事件计数和清除加密事件文件。它只证明该入口行为，不代表新版保留策略、跨任务隔离与凭据采集控制通过。设备测试需从 MainActivity 进入；debug-only 直接入口不作为 release 能力。

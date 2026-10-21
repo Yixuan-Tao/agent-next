@@ -1,6 +1,6 @@
 # Capability status
 
-Updated: 2026-10-20  
+Updated: 2026-10-21
 Scope: internal Beta, pure-GUI execution is the only accepted product path.  
 Source of truth for current status; historical docs under `docs/` record earlier prototypes and
 direct-write experiments.
@@ -16,6 +16,7 @@ Status legend:
 
 | Area | Status | Evidence / gap |
 |---|---|---|
+| Task-level reactive loop (default App entry) | implemented / host coverage; device acceptance pending | `ReactiveSessionRunner`, `DeepSeekReactiveModel`, outcome-only planning; current-node selection, observed clickable ancestor, failure feedback/deduplication, independent Done and cross-app CheckResult. See `reactive-agent-2026-10-21.md`; historical device success does not establish new-loop reliability. |
 | Shizuku connection, private display, target, observation, frame | implemented / host pass / device pass (Android 16) | `tools/test-service.sh`, `test-shizuku-adapter.sh`, `test-capability-adapter.sh`; Android 13 phone not connected |
 | Directed tap / setText / back / swipe, task move | implemented / host pass / device pass (Android 16) | capability adapter smoke; Android 13 pending |
 | Preview mirror + user touch takeover | implemented / host pass / device pass (Android 16) | preview/touch smoke docs; Android 13 pending |

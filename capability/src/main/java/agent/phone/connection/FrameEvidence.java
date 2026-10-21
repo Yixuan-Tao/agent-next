@@ -1,8 +1,13 @@
 package agent.phone.connection;
 
+import agent.next.device.DisplaySpec;
+
 /** Immutable provenance for one newly sampled authorized display image. */
 public final class FrameEvidence {
-    public static final int WIDTH = 720, HEIGHT = 1280, MAX_PNG_BYTES = 4 * 1024 * 1024;
+    private static final DisplaySpec STANDARD_DISPLAY = DisplaySpec.standard();
+    public static final int WIDTH = STANDARD_DISPLAY.width();
+    public static final int HEIGHT = STANDARD_DISPLAY.height();
+    public static final int MAX_PNG_BYTES = 9 * 1024 * 1024;
     public final TargetSession target;
     public final String frameId, observationId;
     public final long sequence, startedNanos, endedNanos;

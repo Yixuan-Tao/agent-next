@@ -22,6 +22,8 @@ public final class FakeConnectionDriver implements ConnectionDriver {
     private int lastTapX = -1;
     private int lastTapY = -1;
     private int lastSwipeDuration = -1;
+    public boolean intermediateLaunchState;
+    public volatile boolean launchFinished;
 
     public void attach(Listener listener) {
         this.listener = listener;
@@ -36,7 +38,7 @@ public final class FakeConnectionDriver implements ConnectionDriver {
     @Override
     public void createDisplay() {
         display = new DisplaySession("display-1", 1, 101, "fake:display:101",
-                2000, 720, 1280, 240, 0, DisplaySession.Status.ACTIVE);
+                2000, 1080, 1920, 360, 0, DisplaySession.Status.ACTIVE);
         target = null;
         observation = null;
         frame = null;
@@ -85,6 +87,20 @@ public final class FakeConnectionDriver implements ConnectionDriver {
 
     @Override
     public void launchTarget() {
+        if (intermediateLaunchState) {
+            // A refresh emitted before the queued launch starts must not satisfy the adapter wait.
+            emit(ConnectionState.Status.CONNECTED, ConnectionState.Reason.AVAILABLE,
+                    ConnectionState.DisplayOperation.NONE, ConnectionState.TargetOperation.NONE);
+            new Thread(() -> {
+                try { Thread.sleep(40); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+                observation = observation();
+                launchFinished = true;
+                emit(ConnectionState.Status.CONNECTED, ConnectionState.Reason.AVAILABLE,
+                        ConnectionState.DisplayOperation.NONE, ConnectionState.TargetOperation.NONE);
+            }).start();
+            return;
+        }
         observation = observation();
         emit(ConnectionState.Status.CONNECTED, ConnectionState.Reason.AVAILABLE,
                 ConnectionState.DisplayOperation.NONE, ConnectionState.TargetOperation.NONE);
@@ -140,18 +156,24 @@ public final class FakeConnectionDriver implements ConnectionDriver {
     }
 
     @Override
-    public boolean startPreviewMirror(android.view.Surface surface) {
+    public boolean startPreviewMirror(android.view.Surface surface,int channel) {
         if (surface == null || !surface.isValid()) {
             return false;
         }
         previewStarted = true;
+        lastPreviewUserControl = channel == agent.phone.capability.AndroidPreviewController.MIRROR_INTERACTIVE;
         return true;
     }
 
     @Override
-    public void stopPreviewMirror() {
+    public boolean stopPreviewMirror(int channel) {
+        if (rejectPreviewStop) return false;
         previewStarted = false;
+        return true;
     }
+
+    public boolean rejectPreviewStop;
+    public boolean lastPreviewUserControl;
 
     @Override
     public boolean userTap(int x, int y) {
@@ -216,7 +238,7 @@ public final class FakeConnectionDriver implements ConnectionDriver {
 
     private TargetObservation observation() {
         String id = "obs-" + (++observationSequence);
-        TargetObservation.Bounds bounds = new TargetObservation.Bounds(0, 0, 720, 1280);
+        TargetObservation.Bounds bounds = new TargetObservation.Bounds(0, 0, 1080, 1920);
         List<TargetObservation.Node> nodes = new ArrayList<>();
         nodes.add(new TargetObservation.Node(id + ":0", 0, 1000, -1, bounds,
                 "", "", "android:id/root", "android.widget.FrameLayout",
@@ -243,7 +265,7 @@ public final class FakeConnectionDriver implements ConnectionDriver {
         long now = System.nanoTime();
         FrameEvidence evidence = new FrameEvidence(target, "frame-" + (++frameSequence),
                 frameSequence, now, now, observation == null ? "obs-1" : observation.observationId,
-                1000, 720, 1280, png.length);
+                1000, 1080, 1920, png.length);
         return new FrameEvidence.Capture(evidence, png);
     }
 
@@ -258,8 +280,8 @@ public final class FakeConnectionDriver implements ConnectionDriver {
         png[13] = 'H';
         png[14] = 'D';
         png[15] = 'R';
-        putInt(png, 16, 720);
-        putInt(png, 20, 1280);
+        putInt(png, 16, 1080);
+        putInt(png, 20, 1920);
         png[24] = 8;
         png[25] = 2;
         return png;

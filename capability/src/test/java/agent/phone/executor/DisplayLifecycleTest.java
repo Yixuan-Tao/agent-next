@@ -71,7 +71,7 @@ public final class DisplayLifecycleTest {
     private static DisplayLifecycle.Info info(int fault) {
         return fault == 6 ? null : new DisplayLifecycle.Info(fault == 0 ? 0 : 7,
                 fault == 1 ? "reused" : "virtual:test", fault == 2 ? 1000 : 2000,
-                fault == 3 ? 1 : 720, 1280, 240, fault == 4 ? 0 : 42,
+                fault == 3 ? 1 : 1080, 1920, 360, fault == 4 ? 0 : 42,
                 fault == 5 ? "other" : "agent-phone");
     }
     private static final class Factory implements DisplayLifecycle.Factory {

@@ -79,6 +79,15 @@ public final class ModelConfig {
         return baseUrl + "/chat/completions";
     }
 
+    /** DeepSeek's strict function-call mode is currently exposed on the beta endpoint. */
+    public String strictToolEndpoint() {
+        String apiRoot = baseUrl.replaceFirst("/v1$", "").replaceFirst("/beta$", "");
+        if (apiRoot.matches("https://api\\.deepseek\\.com(?::[0-9]+)?")) {
+            return apiRoot + "/beta/chat/completions";
+        }
+        return endpoint();
+    }
+
     @Override
     public String toString() {
         return "ModelConfig{baseUrl='" + baseUrl + "', model='" + model

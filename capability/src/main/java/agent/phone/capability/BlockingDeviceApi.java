@@ -1,6 +1,5 @@
 package agent.phone.capability;
 
-import android.util.Log;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceCapabilities;
 import agent.next.device.DeviceException;
@@ -69,6 +68,8 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
     private int targetDisplayId = -1;
     private final Object inputOwnership = new Object();
     private boolean previewActive;
+    private boolean readOnlyMirrorActive;
+    private boolean phoneReadOnlyMirrorActive;
     private boolean agentInputInFlight;
     private boolean userInputInFlight;
 
@@ -173,7 +174,6 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
 
     @Override
     public void close() {
-        Log.i("AgentNextRuntime", "BlockingDeviceApi.close", new Exception("close caller"));
         synchronized (monitor) {
             if (closed) {
                 return;
@@ -195,7 +195,7 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
             if (spec.width() != DisplaySpec.standard().width()
                     || spec.height() != DisplaySpec.standard().height()
                     || spec.densityDpi() != DisplaySpec.standard().densityDpi()) {
-                throw rejected("capability supports only 720x1280/240 display");
+                throw rejected("capability supports only 1080x1920/360 display");
             }
             ConnectionState before = snapshot();
             if (before != null && before.display != null
@@ -294,6 +294,7 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
             ConnectionState launched = await(launchSequence,
                     next -> next.targetOperation == ConnectionState.TargetOperation.NONE
                             && next.target != null
+                            && next.observation != null
                             && next.status == ConnectionState.Status.CONNECTED,
                     false, "launch target");
             if (!bound.target.sameIdentity(launched.target)) {
@@ -353,10 +354,14 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
             driver.captureTarget();
             ConnectionState after = await(sequence,
                     next -> next.targetOperation == ConnectionState.TargetOperation.NONE
-                            && next.frame != null
-                            && next.frame.evidence.sequence != previousSequence
+                            && ((next.frame != null
+                            && next.frame.evidence.sequence != previousSequence)
+                            || next.reason == ConnectionState.Reason.DENIED)
                             && next.status == ConnectionState.Status.CONNECTED,
                     false, "capture frame");
+            if (after.reason == ConnectionState.Reason.DENIED) {
+                throw mapState(after, "capture frame");
+            }
             FrameEvidence.Capture capture = after.frame;
             return new Frame(capture.evidence.width, capture.evidence.height,
                     capture.png(), Instant.now(), capture.evidence.sequence);
@@ -514,9 +519,10 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
     }
 
     private void awaitInput(long minimumSequence, String operation) throws DeviceException {
-        await(minimumSequence, next -> next.targetOperation == ConnectionState.TargetOperation.NONE
+        ConnectionState after = await(minimumSequence, next -> next.targetOperation == ConnectionState.TargetOperation.NONE
                 && next.status == ConnectionState.Status.CONNECTED
                 && next.target != null, false, operation);
+        if (after.reason == ConnectionState.Reason.STALE_INPUT) throw mapState(after,operation);
     }
 
     private ConnectionState await(long minimumSequence, Predicate<ConnectionState> condition,
@@ -547,6 +553,24 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
                 }
             }
         }
+    }
+
+    /** Waits for in-flight agent/device work to finish before opening the user preview. */
+    public void awaitIdleForPreview() throws DeviceException {
+        long sequence;
+        synchronized (monitor) {
+            ensureOpen();
+            if (state == null) {
+                throw new DeviceException(DeviceException.Code.UNAVAILABLE,
+                        "device state is unavailable");
+            }
+            if (state.canUseDisplay) {
+                return;
+            }
+            sequence = stateSequence;
+        }
+        await(sequence, next -> next.canUseDisplay, false,
+                "wait for device idle before preview");
     }
 
     private static boolean failure(ConnectionState state, boolean allowDisconnected) {
@@ -590,6 +614,7 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
     }
 
     private static DeviceException.Code mapReason(ConnectionState.Reason reason) {
+        if (reason == ConnectionState.Reason.STALE_INPUT) return DeviceException.Code.STALE;
         if (reason == ConnectionState.Reason.TIMEOUT) {
             return DeviceException.Code.TIMEOUT;
         }
@@ -627,18 +652,19 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
     public void startPreview(DisplayHandle display, Surface surface) throws DeviceException {
         activeDisplay(display);
         requireReady();
+        requirePreviewMirror();
         if (surface == null || !surface.isValid()) {
             throw rejected("preview surface is invalid");
         }
         synchronized (inputOwnership) {
-            if (agentInputInFlight) {
-                throw rejected("agent input is in flight");
+            if (agentInputInFlight || previewActive) {
+                throw rejected("input or interactive preview is active");
             }
-        }
-        if (!driver.startPreviewMirror(surface)) {
-            throw rejected("preview mirror was rejected");
-        }
-        synchronized (inputOwnership) {
+            if (!driver.startPreviewMirror(surface,MIRROR_INTERACTIVE)) {
+                // A timeout may have left a remote mirror unowned; a confirmed stop clears it.
+                driver.stopPreviewMirror(MIRROR_INTERACTIVE);
+                throw rejected("preview mirror was rejected");
+            }
             previewActive = true;
         }
     }
@@ -646,12 +672,73 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
     @Override
     public void stopPreview(DisplayHandle display) throws DeviceException {
         activeDisplay(display);
-        try {
-            driver.stopPreviewMirror();
-        } finally {
-            synchronized (inputOwnership) {
-                previewActive = false;
+        synchronized (inputOwnership) {
+            if (!previewActive) {
+                return;
             }
+            if (!driver.stopPreviewMirror(MIRROR_INTERACTIVE)) throw busy("preview stop is unconfirmed");
+            previewActive = false;
+        }
+    }
+
+    @Override
+    public void startReadOnlyMirror(DisplayHandle display, Surface surface) throws DeviceException {
+        activeDisplay(display);
+        requireReady();
+        requirePreviewMirror();
+        if (surface == null || !surface.isValid()) {
+            throw rejected("monitor surface is invalid");
+        }
+        synchronized (inputOwnership) {
+            if (readOnlyMirrorActive) {
+                throw rejected("read-only mirror is already active");
+            }
+            if (!driver.startPreviewMirror(surface,MIRROR_DESKTOP_READ_ONLY)) {
+                // A timeout may have left a remote mirror unowned; a confirmed stop clears it.
+                driver.stopPreviewMirror(MIRROR_DESKTOP_READ_ONLY);
+                throw rejected("read-only mirror was rejected");
+            }
+            readOnlyMirrorActive = true;
+        }
+    }
+
+    @Override
+    public void stopReadOnlyMirror(DisplayHandle display) throws DeviceException {
+        activeDisplay(display);
+        synchronized (inputOwnership) {
+            if (!readOnlyMirrorActive) {
+                return;
+            }
+            if (!driver.stopPreviewMirror(MIRROR_DESKTOP_READ_ONLY)) throw busy("read-only mirror stop is unconfirmed");
+            readOnlyMirrorActive = false;
+        }
+    }
+
+    @Override
+    public void startPhoneReadOnlyMirror(DisplayHandle display, Surface surface) throws DeviceException {
+        activeDisplay(display);
+        requireReady();
+        requirePreviewMirror();
+        if (surface == null || !surface.isValid()) throw rejected("phone preview surface is invalid");
+        synchronized (inputOwnership) {
+            if (phoneReadOnlyMirrorActive) throw rejected("phone read-only mirror is already active");
+            if (!driver.startPreviewMirror(surface,MIRROR_PHONE_READ_ONLY)) {
+                driver.stopPreviewMirror(MIRROR_PHONE_READ_ONLY);
+                throw rejected("phone read-only mirror was rejected");
+            }
+            phoneReadOnlyMirrorActive = true;
+        }
+    }
+
+    @Override
+    public void stopPhoneReadOnlyMirror(DisplayHandle display) throws DeviceException {
+        activeDisplay(display);
+        synchronized (inputOwnership) {
+            if (!phoneReadOnlyMirrorActive) return;
+            if (!driver.stopPreviewMirror(MIRROR_PHONE_READ_ONLY)) {
+                throw busy("phone read-only mirror stop is unconfirmed");
+            }
+            phoneReadOnlyMirrorActive = false;
         }
     }
 
@@ -664,6 +751,13 @@ public final class BlockingDeviceApi implements DeviceApi, AndroidPreviewControl
                 throw rejected("agent input already in flight");
             }
             agentInputInFlight = true;
+        }
+    }
+
+    private void requirePreviewMirror() throws DeviceException {
+        ConnectionState connected = requireConnected();
+        if (!connected.capabilities.previewMirror) {
+            throw rejected("preview mirroring is unsupported by this Android version");
         }
     }
 

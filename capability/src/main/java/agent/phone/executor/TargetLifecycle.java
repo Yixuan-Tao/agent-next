@@ -15,6 +15,10 @@ import java.util.UUID;
 
 /** One target and observer at a time; uncertain cleanup blocks new ownership. */
 public final class TargetLifecycle {
+    public static final class RequestTimeoutException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+        public RequestTimeoutException() { super("Target request deadline expired"); }
+    }
     public interface Guard { DisplayLifecycle.Session current(String token,long generation) throws Exception; }
     public interface Observer {
         void open() throws Exception;
@@ -50,6 +54,7 @@ public final class TargetLifecycle {
     private final Guard guard;
     private final Platform platform;
     private final UserInput userInput;
+    private final TargetAudioIsolation audio;
     private Observer observer;
     private TargetSession target;
     private long generation,sequence,frameSequence;
@@ -57,12 +62,15 @@ public final class TargetLifecycle {
     private int lastObservationWindow = -1;
     private Set<String> lastEditableRefs = Collections.emptySet();
     private boolean invalid;
-    public TargetLifecycle(Guard guard,Platform platform) { this(guard,platform,NO_USER_INPUT); }
+    public TargetLifecycle(Guard guard,Platform platform,TargetAudioIsolation audio) {
+        this(guard,platform,NO_USER_INPUT,audio);
+    }
 
-    public TargetLifecycle(Guard guard,Platform platform,UserInput userInput) {
+    public TargetLifecycle(Guard guard,Platform platform,UserInput userInput,TargetAudioIsolation audio) {
         this.guard = guard;
         this.platform = platform;
         this.userInput = userInput;
+        this.audio = java.util.Objects.requireNonNull(audio,"audio");
     }
 
     public synchronized TargetSession bind(String taskId,String displayToken,long displayGeneration,String[] allowed,String selected) throws Exception {
@@ -90,6 +98,7 @@ public final class TargetLifecycle {
         try {
             check(expected);
             if (platform.foregroundTarget(expected.packageName)) return refused(expected,id,nextSequence,started);
+            audio.bind(expected.uid);
             if (observer == null) { observer = platform.allocate(expected); observer.open(); }
             check(expected);
             if (platform.foregroundTarget(expected.packageName)) return refused(expected,id,nextSequence,started);
@@ -117,11 +126,23 @@ public final class TargetLifecycle {
             }
             lastEditableRefs = editables;
             return result;
+        } catch (RequestTimeoutException timeout) {
+            // Observing performs no input. Discard all old input evidence, validate ownership,
+            // and let the caller retry on this observer rather than destroying the session.
+            lastObservationId = null; lastObservationWindow = -1; lastEditableRefs = Collections.emptySet();
+            try {
+                check(expected);
+                if (platform.foregroundTarget(expected.packageName)) return refused(expected,id,nextSequence,started);
+                return new TargetObservation(expected,id,nextSequence,started,platform.nowNanos(),
+                        TargetObservation.Status.TARGET_NOT_READY,-1,null,0,true,Collections.emptyList());
+            } catch (Exception failure) { invalid = true; throw failure; }
         } catch (Exception failure) { invalid = true; throw failure; }
     }
     private TargetObservation refused(TargetSession expected,String id,long sequence,long started) throws Exception {
         lastObservationId = null; lastObservationWindow = -1; lastEditableRefs = Collections.emptySet();
         check(expected);
+        // A foreground target means the user opened it themselves: hand sound back before refusing.
+        audio.mainScreen(true);
         return new TargetObservation(expected,id,sequence,started,platform.nowNanos(),
                 TargetObservation.Status.FOREGROUND_CONFLICT,-1,null,0,false,Collections.emptyList());
     }
@@ -150,6 +171,11 @@ public final class TargetLifecycle {
             // A frame is evidence of the same window; it does not invalidate the node observation
             // that authorizes one action, but the tap still re-checks the live window.
             return result;
+        } catch (FrameSafetyPolicy.RejectedException rejected) {
+            // A safety refusal exports no pixels and performs no input. Drop any prior action
+            // evidence, then allow a fresh observation to retry after a transient window change.
+            lastObservationId = null; lastObservationWindow = -1; lastEditableRefs = Collections.emptySet();
+            throw rejected;
         } catch (Exception failure) { invalid = true; throw failure; }
     }
     public synchronized void userTap(String token,long generation,int x,int y) throws Exception {
@@ -201,7 +227,28 @@ public final class TargetLifecycle {
             try { observer.close(); } catch (Exception failure) { observer = null; invalid = true; throw failure; }
             observer = null;
         }
-        int root = TargetTaskMover.move(target,displayId);
+        if (displayId != 0) audio.mainScreen(false);
+        int root;
+        try {
+            root = TargetTaskMover.move(target,displayId);
+        } catch (Exception failure) {
+            // The task may still be on the user's main screen; do not leave it silent there.
+            invalid = true;
+            if (displayId != 0) {
+                try { audio.mainScreen(true); }
+                catch (Exception restore) { failure.addSuppressed(restore); }
+            }
+            throw failure;
+        }
+        if (displayId == 0) {
+            try {
+                audio.mainScreen(true);
+            } catch (Exception failure) {
+                // Target is on the user's main screen but still muted: require cleanup, do not continue.
+                invalid = true;
+                throw failure;
+            }
+        }
         lastObservationId = null;
         lastObservationWindow = -1;
         lastEditableRefs = Collections.emptySet();
@@ -233,6 +280,16 @@ public final class TargetLifecycle {
             // One observation authorizes at most one action; the client must re-observe.
             lastObservationId = null; lastObservationWindow = -1; lastEditableRefs = Collections.emptySet();
             return receipt;
+        } catch (TargetTap.StaleException changed) {
+            lastObservationId = null; lastObservationWindow = -1; lastEditableRefs = Collections.emptySet();
+            try {
+                check(expected);
+                if (changed.displayId != expected.display.displayId || !observationId.equals(changed.observationId)
+                        || platform.foregroundTarget(expected.packageName)) {
+                    throw new IllegalStateException("Stale tap ownership is not confirmed");
+                }
+            } catch (Exception failure) { invalid = true; throw failure; }
+            throw changed;
         } catch (Exception failure) { invalid = true; throw failure; }
     }
     public synchronized TargetText setText(String token,long generation,String observationId,String ref,String text) throws Exception {
@@ -341,13 +398,15 @@ public final class TargetLifecycle {
         }
     }
     private void checkDeadline(long deadline) {
-        if (Thread.currentThread().isInterrupted() || platform.nowNanos() >= deadline) {
-            throw new IllegalStateException("Target request deadline expired");
-        }
+        if (Thread.currentThread().isInterrupted()) throw new IllegalStateException("Target request interrupted");
+        if (platform.nowNanos() >= deadline) throw new RequestTimeoutException();
     }
     public synchronized void close() throws Exception {
         invalid = true;
+        // Muting is released only after the observer teardown is confirmed: an unconfirmed target
+        // must not become unexpectedly audible while it may still be attached to the agent.
         if (observer != null) observer.close();
+        audio.close();
         observer = null; target = null; invalid = false;
         lastObservationId = null; lastObservationWindow = -1; lastEditableRefs = Collections.emptySet();
     }

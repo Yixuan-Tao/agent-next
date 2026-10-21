@@ -1,6 +1,6 @@
 # Internal Beta release APK
 
-状态：**已生成并签名**（未在第二台手机安装验证）
+状态：**0.1 原型的构建、签名与历史安装记录**。下文状态、证书和校验结果属于当时产物，不等于当前设备或源码状态。下一版本按 [纯 GUI Beta](pure-gui-beta.md) 验收；新版完成前不能将本记录视为发布通过。版本介绍见 [release notes](beta-release-notes.md)。
 
 ## 构建
 

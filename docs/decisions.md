@@ -1,6 +1,6 @@
 # 新项目决策记录
 
-状态：**已定稿（2026-10-19）**。本文件是新项目边界决策的权威记录；与设计提案冲突时，以本文件为准。
+状态：**已确认；2026-10-21 增补 D12（目标 App 音频隔离）**。D1–D10 保留原决策，D11 明确当前业务执行与验收边界，D12 记录音频隔离契约与验证边界。本文件记录目标约束，不代表所有约束已实现；与早期设计提案冲突时，以本文件为准。
 适用范围：`agent-next` 仓库及后续 `brain/`、`app/`。
 相关：[Loop 重设计](loop-redesign.md)、[新项目保留清单](new-project-retention.md)、[capability 契约](device-capability.md)。
 
@@ -18,6 +18,8 @@
 | D8 | testkit 发布 | 内部保留，不随产品发布 |
 | D9 | Skill 层 | **可选加速层**；无坐标/原始设备权限；社区/自生成需验证与信任门 |
 | D10 | Beta 平台底线 | **Android 13 / API 33**；目标 API 36；低于 33 需重新评估 |
+| D11 | 默认执行与验收 | **全部通过 GUI**；直接业务写入退出产品路由；通用能力用无专用 skill 保留集独立验收 |
+| D12 | 目标 App 音频隔离 | **按 UID 默认静音**；仅用户接管恢复；只读监看保持静音；失败阻止启动；不承诺按窗口/焦点隔离 |
 
 ## D1 默认自主级别：A3
 
@@ -233,14 +235,82 @@
 **复审触发**
 
 - 第二台手机低于 API 33；或 Android 13 mirror/服务类型无法满足 Beta 验收。
+## D11 纯 GUI 内部 Beta
+
+日期：2026-10-20。状态：已确认，迁移与验收尚未完成。产品终点、接口和 M0–M6 路线见 [纯 GUI Beta 说明](pure-gui-beta.md)。
+
+**决策**
+
+- 默认日常执行与正式验收均通过 GUI 完成业务任务；不设“验收纯 GUI、日常仍走直接业务写入”的双重口径。
+- 允许界面观察、截图、控件定位、点击、`setText`、滚动、返回、App 启动与基础设施查询。
+- CalendarContract、MediaStore、AlarmClock、私有业务 API 和直接完成业务的 deep link 退出产品执行路由；历史实现保留为参考。
+- 外部测试 oracle 可独立读取最终数据，但不得向执行中的 agent 提供这些数据。
+- GUI skill 是可选加速层，遵守 D9；所有准备动作、候选重试与组合动作均须经过统一执行器。
+- 任务必需结果不得被 skill 或重规划删除；全部通过任务级核验才可报告 DONE。
+- 默认 A3、凭据人工、主屏接管确认、记忆与平台边界继续遵循 D1–D10。
+
+**理由**
+
+最终目标是验证和交付通用手机界面操作能力。日历/provider 写入虽可完成特定业务，却不能证明 GUI 泛化；混合口径会掩盖通用执行、恢复和验证中的缺口。
+
+**实施与验收约束**
+
+- 当前 runtime 仍注册直接业务写入，必须迁移后重新验收；历史 PASS 不自动升级。
+- 24 个开发任务 + 12 个无 App 专用 skill 的保留任务，两台设备各三轮。每台开发集自主完成率 ≥80%、保留集 ≥60%；人工辅助单列。
+- 误报完成、未经确认提交、停止后新派发输入在验收中必须为零；故障与真实二十分钟并发测试通过。
+- 保留集用于针对性修复后转为开发数据，替换新保留集；不得挑选容易任务来降低门槛。
+- 本期仅内部 Beta，不包含社区 skill 上线、iOS 或公开商店发布。
+
+**对早期记录的影响**
+
+直接接口日历/目录/闹钟记录继续保留为历史证据，不能计入纯 GUI 成绩；早期设计中的 domain verifier 仍可用于 GUI 可见结果验证，agent 不得借此读取隐藏业务数据。测试端 oracle 与 agent 运行时 verifier 必须分离。
+
+## D12 目标 App 音频隔离
+
+日期：2026-10-21。状态：已实现并在 Redmi Pad Pro / Android 16 上完成路由验证；第二设备、真实第三方播放路径与 Beta 验收未完成。实现与证据见[音频隔离验证记录](device-audio-isolation-2026-10-21.md)。
+
+**决策**
+
+- Agent 在私有屏操作目标 App 时，该 App **默认静音**：按目标 UID 注册 loopback 音频策略，把播放路由到本地丢弃缓冲，不修改全局音量、系统静音或其他 App 路由。
+- 只有**用户明确接管**才恢复声音：交互预览接管，或显式把目标移到主屏由用户控制。电脑只读监看不恢复声音。
+- 交还 Agent、停止镜像、移回私有屏或释放目标后必须重新静音；策略生命周期与 target 所有权同源。
+- 隔离建立失败时**阻止目标启动**，不静默降级为有声执行；释放失败保留所有权以便重试。
+- 音频只在本地短暂缓冲后丢弃，不保存、不上传；日志不记录音频内容；app 不申请麦克风权限。
+- 按 UID 隔离不等于按 display/窗口隔离：同一 UID 的其他窗口、通知音和后台播放会一起静音；不承诺完整音频焦点隔离。
+- 依赖 Shizuku shell 权限与 Android 隐藏音频 API；注册被拒、record 建立失败或清理不确定都按失败处理。凭据接管期间的音频与采集隔离仍按 D3 另行执行。
+
+**理由**
+
+目标体验是用户继续正常使用手机时 Agent 在后台操作 App；如果目标 App 在私有屏播放声音，会打扰用户、暴露 Agent 正在操作的内容，也无法证明“不打断用户”。同时不能为静音目标而全局静音或降低设备音量，否则会误伤用户主屏应用。UID 级路由是当前无 Root/无系统签名条件下可验证的折中。
+
+**实现约束**
+
+- 仅 capability/shell 层执行；brain 与 GUI skill 不接触音频策略或音频数据。
+- 镜像通道按交互接管、手机只读、电脑只读独立编号；各自可启动/停止，不影响其他 Surface。镜像 RPC 串行并带超时补偿；开始失败时仅补偿对应通道，避免“远程可能已启动但本地未知”的永久卡死。
+- 交还控制必须以“确认重新静音”为前提：关闭预览、handoff 通知继续或移回私有屏时，先停止交互镜像并确认静音，未确认则保持暂停并提示，不得先恢复 Agent 再补救。
+- 测试覆盖 bind→muted、只读→muted、接管→audible、回交→muted、释放→released、创建失败不提交、清理不确定保留所有权、同 UID 重复 bind 幂等、主屏失败保留所有权、释放失败可重试、目标被切前台时交还声音。
+- release/teardown 必须逐步尝试所有清理步骤（帧、target、display、音频策略），不能因前一步失败跳过音频注销；关闭策略时 stop/release/unregister 逐项尝试并聚合异常。
+- 真机验证必须用系统 dump 证明目标 UID 离开扬声器输出并进入策略专属 remote-submix，其他 UID 路由不变、全局音量不变；声学确认与真实硬件 offload 路径单列未验证。
+- 设备 APK 必须同签名覆盖安装并保留数据；不能用卸载清数据掩盖签名问题。user-service 版本/标签需随协议变更递增，避免旧进程被复用。
+
+**复审触发**
+
+- 第二台设备/Android 13 或真实 App（语音、视频、游戏、DRM）出现无法静音、音频残留或误静音。
+- 目标 App 的音频焦点/设备切换行为对用户造成可见干扰。
+- Android 版本变化使隐藏 API 或 shell 权限不可用，或失败阻止启动过于频繁。
+
 ## 决策依赖
 
 - D1 依赖 D2/D3 的承诺边界：A3 只对“已确认的承诺动作”执行，凭据仍全部人工。
 - D6/D7 是 D3 的实现通道：凭据/IME 场景走主屏接管，不引入自有输入通道。
 - D4 限制证据留存：D6 的接管审计只记事件，不记屏幕内容。
 - D5 决定 brain/app 的模块边界：brain 只依赖 `device-api`，不依赖 `capability` 的 Android 实现。
+- D11 收紧业务执行与验收边界；它不扩大 D1–D3 的权限，也不改变 D5/D9 的分层要求。
+- D12 依赖 D6 的接管语义与 D3 的凭据隔离：恢复声音只跟随用户接管/主屏控制，不改变凭据期间的采集与预览限制；实现留在 capability shell 层，不进入 brain 或 skill。
 
-## 后续执行项（非决策）
+## 历史执行摘要（2026-10-19，非当前路线）
+
+以下保留早期工作记录，不代表纯 GUI Beta 的现状或发布结论。当前实施顺序以 [M0–M6](pure-gui-beta.md) 为准；社区 registry 等早期后续设想不纳入本期。
 
 1. 在旧仓库打归档 tag，确认只读。
 2. `device-api` 首版 + capability adapter host 契约 + app shell 真机 smoke（connect/create/open/observe/frame/input/task move）已完成；瞬时窗口变化已改为可重观察的 `WINDOW_CHANGED`；`FastLoop` 确定性骨架、17 个 host suite、`SlowLoop`（replace/insertBefore/remove/ask/stop）/`LoopRunner` 跨 attempt 预算、FastLoop 与 LoopRunner 真机京东 smoke、可选 `SkillPackage`/`SkillWorkflowPolicy`/`PromptSkillPolicy`（模型端口）/`SkillRegistry`、旧 chat-completions 文本/单帧 PNG API 移植、app prompt 模式真机 smoke、视觉 verify/extract 真机 smoke、TaskPlanner、SessionRunner/SubgoalRunner（多 target + verifier + slow-loop 主图 + StageData）、app bridge（prompt 工厂 + 视觉 verifier + planner→session→prompt→visual 集成）、AndroidPreviewController（host preview/userTouch 端口）、Android 16 平板 preview mirror/userTap/主屏接管 smoke、产品 MainActivity/AgentRuntime/计划审阅/危险动作确认壳、bounded scroll fallback、共享 preview/touch pause/resume、前台服务/通知 stop action、真实首页任务 DONE、加密存储设备验证、calendar domain skill、Chain A（Quark 天气 → 日历提醒）、JD 搜索段、内部 release APK 签名、Settings/privacy（加密状态/memory 清除）已完成；下一步 JD 商品详情/加购/购物车（Chain B 剩余）、20 分钟后台/进程回收、Android 13 安装验收、社区 registry、多帧与更多场景。

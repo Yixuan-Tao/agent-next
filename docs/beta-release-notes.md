@@ -1,37 +1,33 @@
-# AgentNext Internal Beta 0.1
+# AgentNext：内部版本与纯 GUI Beta 目标
 
-构建：`app-release.apk`（内部签名）  
-minSdk：33 / targetSdk：36  
-版本：versionCode 1 / versionName 0.1
+更新：2026-10-20。当前 `versionName=0.1` 的原型与计划中的纯 GUI Beta 不是同一个验收结论。新版在满足 [发布门槛](pure-gui-beta.md) 前不宣称已发布。
 
-## 已包含
+## 0.1 原型：历史能力
 
-- 自然语言目标 → DeepSeek TaskPlanner → 计划审阅/确认 → SessionRunner；
-- 多 App target 串行切换、视觉 verifier、StageData；
-- Chain A：Quark 天气 → calendar 提醒（真机 PASS）；
-- JD 搜索（真机 PASS）；
-- 共享 Preview + 触摸暂停/恢复；
-- 前台服务 + 通知 Stop；
-- 加密 model config/episodic memory；Settings/隐私页；
-- 风控/验证码 STOP + 人工 handoff 代码；
-- 网络/target/Shizuku 故障 fail-closed；
-- 408/429/5xx 模型有界重试。
+包名 `agent.next.app`，minSdk 33 / targetSdk 36，内部签名配置。具体 APK、证书和安装尝试见 [历史发布记录](release-beta.md)；历史 APK 不等于当前源码构建产物。
 
-## 已知限制（发布阻塞）
+- 自然语言 → TaskPlanner → 计划审阅 → SessionRunner 已接入。
+- 私有 display、观察/截图、输入、预览触摸、前台通知和接管有实现与部分设备记录。
+- 模型配置与 episodic memory 加密，设置页支持导入配置和清除事件。
+- JD 搜索及天气→日历等有历史成功记录；日历/目录直接接口写入不属于纯 GUI 验收。
+- 历史二十分钟 soak 只证明服务存活，不能当作真实任务与主屏并发通过。
 
-- **Chain B 未完成**：JD 商品详情无障碍树为空，自动化加购/购物车未通过；JD 风控可能触发。
-- Android 13 手机未连接，Phase 0 手机 gate 未完成。
-- Human handoff 真机链路未验收。
-- 20 分钟后台/Doze、private display 回收未验收。
-- 无正式 release notes/隐私政策 URL/分发校验页。
-- 无社区 registry、多帧视频、任意 App 100% 保证。
-- 内部 Beta 单任务、单用户；不支持支付/下单/发送/删除自动化。
+## 下一版本：纯 GUI 内部 Beta（未验收）
 
-## 安装
+- 默认日常执行和验收全部走 GUI，直接业务写入退出 runtime。
+- 任务要求不被 skill 削弱，所有动作经过统一风险、确认、取消和预算治理。
+- 具备有界恢复、跨 App 数据检查、任务级最终核验和结果报告。
+- Service 持有任务、状态可恢复、进程重启不重放副作用、记忆按任务隔离。
+- Android 13 手机与 Android 16 设备分别通过完整验收。
 
-debug/release 签名不同；先卸载 debug，再安装 release。卸载会清除本地加密 config，
-需要重新导入 `model-config.json` 让 app 迁移。
+发布门槛：24 个开发任务、12 个无专用 skill 保留任务，两台设备各三轮；开发集 ≥80%、保留集 ≥60% 自主完成；误报完成、未经确认提交、停止后新派发输入为零；故障和真实并发套件通过。以上是目标值，不是现有成绩。
 
-## 证据
+## 当前发布阻塞
 
-见 README 的 verified 列表与 `docs/` 下各 smoke/fault 文档。
+纯 GUI 路由迁移、独立风险分类、最终结果验证、正常多步进展与恢复、任务隔离/检查点仍需完成并验证。购物加购、计算器干净状态等历史局限保留在对应设备记录中，不能用手动成功或旧结果替代。
+
+## 安装与数据
+
+当前开发构建流程见 [app README](../app/README.md)。debug/release 签名不同，跨签名覆盖安装通常不可用；卸载会清除 app 私有配置与数据，需重新导入。安装前确认 APK 来源、签名与校验和。
+
+本期仅内部侧载，不包含公开商店发布、iOS 或任意 App 成功承诺。模型服务的数据处理说明见 [隐私草案](privacy.md)。

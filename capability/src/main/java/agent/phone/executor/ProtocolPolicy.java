@@ -1,7 +1,7 @@
 package agent.phone.executor;
 
 public final class ProtocolPolicy {
-    public static final int VERSION = 3;
+    public static final int VERSION = 5;
     public static final String SCOPE = "authorized_target_frame";
     public static final String KEY_PROTOCOL = "protocol_version";
     public static final String KEY_API = "android_api";

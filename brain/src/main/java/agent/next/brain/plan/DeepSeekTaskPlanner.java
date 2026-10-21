@@ -34,7 +34,63 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
 
     @Override
     public PlanningResult plan(PlanningRequest request) throws IOException {
-        String content = stripFences(client.complete(prompt(request), 2048));
+        return generate(request, prompt(request));
+    }
+
+    /** Confirm the final outcome envelope; runtime decisions are made from live pages. */
+    public PlanningResult planReactive(PlanningRequest request) throws IOException {
+        Objects.requireNonNull(request, "request");
+        Map<String,Object> response = Json.object(stripFences(client.complete(
+                outcomePrompt(request),2048)));
+        requireKeys(response,Set.of("successCriteria"));
+        List<String> criteria = strings(response.get("successCriteria"),"successCriteria",1,8);
+        if (criteria.stream().anyMatch(value -> value.length() > 120)) {
+            throw new IllegalArgumentException("outcome condition exceeds 120 characters");
+        }
+        Object handoffValue = response.get("handoffOnVerifiedCompletion");
+        if (response.containsKey("handoffOnVerifiedCompletion") && !(handoffValue instanceof Boolean)) {
+            throw new IllegalArgumentException("handoffOnVerifiedCompletion must be boolean");
+        }
+        boolean handoffOnVerifiedCompletion = handoffValue instanceof Boolean value
+                ? value
+                : criteria.stream().anyMatch(DeepSeekTaskPlanner::describesUserTakeover);
+        TaskSpec task = new TaskSpec(request.taskId(), request.goal(), request.constraints(),
+                criteria.stream().map(new SuccessCriterionFactory()).collect(java.util.stream.Collectors.toList()),
+                request.autonomy(), request.allowedApps(),
+                request.deniedActions(), Budget.defaults(), handoffOnVerifiedCompletion);
+        List<Condition> outcomes = new ArrayList<>();
+        for (int index = 0; index < criteria.size(); index++) {
+            outcomes.add(new Condition("outcome-" + (index + 1),criteria.get(index),true));
+        }
+        Subgoal outcomeSubgoal = new Subgoal("task", request.goal(), Set.of(), List.of(), outcomes,
+                new Fallback(Fallback.Strategy.RETRY, "observe current page and decide again"),
+                RiskClass.LOW, true, request.primaryPackage(), "visual");
+        return PlanningResult.plan(new TaskPlan(task, List.of(outcomeSubgoal),
+                List.of("执行时每轮依据当前页面选择一个动作；完成须独立核验")));
+    }
+
+    private static String outcomePrompt(PlanningRequest request) {
+        return "你只整理手机任务的最终验收条件和完成后是否必须交接用户，不规划步骤，不控制设备。只输出 JSON："
+                + "{\"successCriteria\":[\"可见结果\"],\"handoffOnVerifiedCompletion\":true}。handoffOnVerifiedCompletion只能是JSON布尔值true或false。\n"
+                + "返回1到8条、每条最多120字的独立条件，保留用户要求的对象、型号、颜色、尺码、数量和结果所在应用/页面。"
+                + "每条描述一个可以从页面核实的结果，不得把整段用户指令当成一个条件。"
+                + "验收条件必须描述用户要求的最终状态，并且应能在任务结束时的页面上同时核实；搜索、选品、详情等过程页面只作过程证据，不能列为最终状态。"
+                + "对于要求购买商品的任务，最终状态应到达展示正确商品、规格和数量的订单提交/支付边界；订单核对/结算预览页只是过程页面，不能作为最终状态。此类任务的handoffOnVerifiedCompletion必须为true，表示最终页面经独立核验后要交由用户接管；不得实际提交订单或付款。若用户明确只要求加入购物车，handoffOnVerifiedCompletion必须为false，最终状态是购物车中显示正确商品、规格和数量。其他不涉及需要本人确认的任务填false。successCriteria只描述截图上能验证的事实，不要把“交由用户处理/等待用户”写成页面条件。"
+                + "如果用户明确只要求加入购物车，最终状态应是购物车中显示正确商品、规格和数量。"
+                + "不结算、不支付、不重复添加等限制由原始任务继续约束执行，不要求截图证明过去从未做过某个动作。"
+                + "有条件分支应归纳为同一个最终状态，例如已有1件则不再添加，验收仍为购物车该商品总数量1。"
+                + "不要生成操作步骤、subgoals、坐标或用户未要求的新目标。\n"
+                + "用户原始目标：" + Json.quote(request.goal())
+                + "\n用户约束：" + Json.quote(request.constraints().toString());
+    }
+
+    private static boolean describesUserTakeover(String criterion) {
+        return criterion.contains("等待用户") || criterion.contains("交由用户处理")
+                || criterion.contains("由用户接管") || criterion.contains("交接用户");
+    }
+
+    private PlanningResult generate(PlanningRequest request, String prompt) throws IOException {
+        String content = stripFences(client.complete(prompt, 2048));
         Map<String, Object> root = Json.object(content);
         if (root.containsKey("clarification")) {
             requireKeys(root, Set.of("clarification"));
@@ -121,7 +177,7 @@ public final class DeepSeekTaskPlanner implements TaskPlanner {
                 .append("生成 1..8 个顺序/依赖 subgoal；dependsOn 只能引用本计划中的 id。\n")
                 .append("每个 subgoal 必须给出 1..3 个 postconditions，描述该阶段完成时屏幕上应出现的可见证据；不要用最终汇报条件。\n")
                 .append("successCriteria 1..8 条，必须是页面上可观察/可验证的短文本；每条 successCriteria 必须原样出现在至少一个 subgoal 的 postconditions 中。\n")
-                .append("不要计划支付、下单、发送、删除、登录、验证码或权限授予；遇到时停在需要人确认的边界。\n")
+                .append("不要计划真正支付、提交订单、发送、删除、登录、验证码或权限授予；可以计划进入购物车/结算/确认订单页面，但绝不能计划点击支付或提交订单；系统的运行时风控会在付费边界交接人工。\n")
                 .append("严禁输出坐标、像素、x/y、固定点击序列或原始设备操作。\n")
                 .append("如果目标有实质歧义，只输出 {\"clarification\":\"一个最小问题\"}，不要输出计划。\n")
                 .append("否则只输出：\n")

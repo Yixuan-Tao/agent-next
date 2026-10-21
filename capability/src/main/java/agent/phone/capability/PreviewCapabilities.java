@@ -12,6 +12,7 @@ public final class PreviewCapabilities {
     public static Report probe() {
         try {
             Class<?> builder = Class.forName("android.hardware.display.VirtualDisplayConfig$Builder");
+            Class<?> config = Class.forName("android.hardware.display.VirtualDisplayConfig");
             Constructor<?> constructor = builder.getConstructor(
                     String.class, int.class, int.class, int.class);
             Method mirror = null;
@@ -23,10 +24,12 @@ public final class PreviewCapabilities {
             boolean surface = has(builder, "setSurface", android.view.Surface.class);
             boolean flags = has(builder, "setFlags", int.class);
             boolean build = has(builder, "build");
-            return new Report(true, mirror != null, surface, flags, build,
+            boolean managerMethod = has(android.hardware.display.DisplayManager.class,
+                    "createVirtualDisplay", config);
+            return new Report(true, mirror != null, surface, flags, build, managerMethod,
                     "constructor=" + constructor.getName());
         } catch (Throwable failure) {
-            return new Report(false, false, false, false, false,
+            return new Report(false, false, false, false, false, false,
                     failure.getClass().getSimpleName());
         }
     }
@@ -46,20 +49,24 @@ public final class PreviewCapabilities {
         private final boolean surfaceMethod;
         private final boolean flagsMethod;
         private final boolean buildMethod;
+        private final boolean displayManagerMethod;
         private final String detail;
 
         Report(boolean configApi, boolean mirrorMethod, boolean surfaceMethod,
-                boolean flagsMethod, boolean buildMethod, String detail) {
+                boolean flagsMethod, boolean buildMethod, boolean displayManagerMethod,
+                String detail) {
             this.configApi = configApi;
             this.mirrorMethod = mirrorMethod;
             this.surfaceMethod = surfaceMethod;
             this.flagsMethod = flagsMethod;
             this.buildMethod = buildMethod;
+            this.displayManagerMethod = displayManagerMethod;
             this.detail = detail;
         }
 
         public boolean mirrorUsable() {
-            return configApi && mirrorMethod && surfaceMethod && flagsMethod && buildMethod;
+            return configApi && mirrorMethod && surfaceMethod && flagsMethod && buildMethod
+                    && displayManagerMethod;
         }
 
         @Override
@@ -69,6 +76,7 @@ public final class PreviewCapabilities {
                     + ", surface=" + surfaceMethod
                     + ", flags=" + flagsMethod
                     + ", build=" + buildMethod
+                    + ", displayManager=" + displayManagerMethod
                     + ", usable=" + mirrorUsable()
                     + ", detail=" + detail + '}';
         }

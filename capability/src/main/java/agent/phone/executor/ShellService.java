@@ -9,9 +9,11 @@ import android.os.SharedMemory;
 import android.system.OsConstants;
 import android.util.Log;
 import agent.phone.capability.PreviewCapabilities;
+import agent.phone.capability.AndroidPreviewController;
 import agent.phone.ipc.IAgentShell;
 import agent.phone.connection.ObservationPackets;
 import agent.phone.connection.TargetPackets;
+import agent.phone.connection.TargetObservation;
 import agent.phone.connection.FrameEvidence;
 import agent.phone.connection.FramePackets;
 import agent.phone.connection.TargetTap;
@@ -27,6 +29,7 @@ import agent.phone.connection.TargetTextPackets;
 import java.nio.ByteBuffer;
 
 public final class ShellService extends IAgentShell.Stub {
+    private static final String TAG = "AgentShellService";
     private final android.content.Context context;
     private final String ownerPackage;
     private final PreviewMirror mirror = new PreviewMirror();
@@ -34,9 +37,10 @@ public final class ShellService extends IAgentShell.Stub {
     private volatile boolean destroyed;
     private final DisplayLifecycle displays = new DisplayLifecycle(new AndroidDisplayResources());
     private final FrameLease<SharedMemory> frames = new FrameLease<>();
+    private final TargetAudioIsolation audio = new TargetAudioIsolation(new AndroidTargetAudio());
 
     private final TargetLifecycle targets = new TargetLifecycle(this::currentDisplay,
-            new AndroidTargetObserver(), new AndroidInputDispatcher());
+            new AndroidTargetObserver(), new AndroidInputDispatcher(),audio);
 
     public ShellService() {
         this((android.content.Context) null);
@@ -50,9 +54,16 @@ public final class ShellService extends IAgentShell.Stub {
         installedAppUid = InstalledAppIdentity.resolveUid(ownerPackage);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             synchronized (ShellService.this) {
-                try { mirror.stop(); frames.close(); targets.close(); displays.close(); } catch (Exception unconfirmed) { }
+                clean(mirror::stop); clean(frames::close); clean(targets::close); clean(displays::close);
             }
         }, "agent-display-exit"));
+    }
+
+    private interface Cleanup { void run() throws Exception; }
+
+    /** Runs every cleanup even when an earlier one is unconfirmed; process death is the last resort. */
+    private static void clean(Cleanup action) {
+        try { action.run(); } catch (Exception unconfirmed) { }
     }
 
 
@@ -97,7 +108,16 @@ public final class ShellService extends IAgentShell.Stub {
             }
             DisplayLifecycle.Session session;
             try {
-                if (operation == 2) { displays.check(token,generation); frames.close(); targets.close(); }
+                if (operation == 2) {
+                    displays.check(token,generation);
+                    Exception cleanupFailure = null;
+                    try { frames.close(); } catch (Exception failure) { cleanupFailure = failure; }
+                    try { targets.close(); } catch (Exception failure) {
+                        if (cleanupFailure == null) cleanupFailure = failure;
+                        else cleanupFailure.addSuppressed(failure);
+                    }
+                    if (cleanupFailure != null) throw cleanupFailure;
+                }
                 session = operation == 0 ? displays.create() : operation == 1
                         ? displays.check(token, generation) : displays.release(token, generation);
             } catch (SecurityException denied) { throw denied; }
@@ -157,7 +177,15 @@ public final class ShellService extends IAgentShell.Stub {
             frames.replace(memory); memory = null;
             return packet;
         } catch (SecurityException denied) { throw denied; }
-        catch (Exception failure) { throw new IllegalStateException("Frame capture failed; disconnect to clean up"); }
+        catch (Exception failure) {
+            Log.e(TAG, "Frame capture failed: " + failure.getClass().getSimpleName()
+                    + ": " + failure.getMessage(), failure);
+            if (failure instanceof IllegalStateException && failure.getMessage() != null
+                    && failure.getMessage().startsWith("Frame capture rejected:")) {
+                throw new IllegalStateException(failure.getMessage());
+            }
+            throw new IllegalStateException("Frame capture failed; disconnect to clean up");
+        }
         finally {
             if (mapping != null) SharedMemory.unmap(mapping);
             if (memory != null) memory.close();
@@ -174,8 +202,14 @@ public final class ShellService extends IAgentShell.Stub {
             frames.close();
             requireEnvironment();
             return TargetTapPackets.encode(tap);
+        } catch (TargetTap.StaleException changed) {
+            Log.i(TAG,"tap not injected: window changed before input",changed);
+            return TargetTapPackets.stale(changed);
         } catch (SecurityException | IllegalArgumentException denied) { throw denied; }
-        catch (Exception failure) { throw new IllegalStateException("Target action failed; disconnect to clean up"); }
+        catch (Exception failure) {
+            Log.e(TAG,"Target tap failed",failure);
+            throw new IllegalStateException("Target action failed; disconnect to clean up");
+        }
         finally { Binder.restoreCallingIdentity(identity); }
     }
     @Override public synchronized Bundle setTextTarget(String token,long generation,String observationId,String ref,String text) {
@@ -240,7 +274,7 @@ public final class ShellService extends IAgentShell.Stub {
         finally { Binder.restoreCallingIdentity(identity); }
     }
 
-    @Override public synchronized Bundle startPreviewMirror(String token,long generation,android.view.Surface surface) {
+    @Override public synchronized Bundle startPreviewMirror(String token,long generation,android.view.Surface surface,int channel) {
         ClientPolicy.requireAppCaller(Binder.getCallingUid(),installedAppUid);
         long identity = Binder.clearCallingIdentity();
         try {
@@ -248,7 +282,9 @@ public final class ShellService extends IAgentShell.Stub {
             if (current.status != DisplayLifecycle.Status.ACTIVE || current.info == null) {
                 throw new IllegalStateException("Display session is not active");
             }
-            mirror.start(context,current.info.displayId,current.info.width,current.info.height,current.info.densityDpi,surface);
+            mirror.start(context,current.info.displayId,current.info.width,current.info.height,
+                    current.info.densityDpi,surface,channel);
+            if (channel == AndroidPreviewController.MIRROR_INTERACTIVE) audio.preview(true);
             Bundle packet = new Bundle();
             packet.putBoolean("ok",true);
             packet.putInt("display_id",current.info.displayId);
@@ -264,12 +300,13 @@ public final class ShellService extends IAgentShell.Stub {
         finally { Binder.restoreCallingIdentity(identity); }
     }
 
-    @Override public synchronized void stopPreviewMirror(String token,long generation) {
+    @Override public synchronized void stopPreviewMirror(String token,long generation,int channel) {
         ClientPolicy.requireAppCaller(Binder.getCallingUid(),installedAppUid);
         long identity = Binder.clearCallingIdentity();
         try {
             displays.check(token,generation);
-            mirror.stop();
+            mirror.stop(channel);
+            if (channel == AndroidPreviewController.MIRROR_INTERACTIVE) audio.preview(false);
         } catch (SecurityException | IllegalArgumentException denied) { throw denied; }
         catch (Exception failure) { throw new IllegalStateException("Preview mirror stop failed"); }
         finally { Binder.restoreCallingIdentity(identity); }
@@ -297,7 +334,12 @@ public final class ShellService extends IAgentShell.Stub {
         long identity = Binder.clearCallingIdentity();
         try {
             requireEnvironment();
-            Bundle result = ObservationPackets.encode(targets.run(token,generation,launch));
+            TargetObservation observed = targets.run(token,generation,launch);
+            Log.i(TAG,"target " + (launch ? "launch" : "observe") + " status=" + observed.status
+                    + " nodes=" + observed.nodes.size() + " lookups=" + observed.lookupCount
+                    + " truncated=" + observed.truncated
+                    + " elapsed_ms=" + (observed.endedNanos - observed.startedNanos) / 1_000_000L);
+            Bundle result = ObservationPackets.encode(observed);
             requireEnvironment();
             return result;
         } catch (SecurityException denied) { throw denied; }
@@ -334,7 +376,7 @@ public final class ShellService extends IAgentShell.Stub {
             long identity = Binder.clearCallingIdentity();
             try {
                 destroyed = true;
-                try { frames.close(); targets.close(); displays.close(); } catch (Exception unconfirmed) { /* Process death owns final cleanup. */ }
+                clean(frames::close); clean(targets::close); clean(displays::close);
             } finally { Binder.restoreCallingIdentity(identity); }
         }
         // Shutdown hooks take this same monitor, so exit must happen after releasing it.

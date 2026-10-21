@@ -170,6 +170,7 @@ public final class FastLoop {
                         "policy produced no action", actions, last);
             }
             LoopAction action = next.get();
+            rememberAction(action);
 
             boolean governed = action instanceof ProposalCarrier;
             if (!governed) {
@@ -181,6 +182,7 @@ public final class FastLoop {
                     return LoopResult.needUser(handoff.reason(), actions, last);
                 }
                 if (decision instanceof RiskDecision.Deny deny) {
+                    rememberFailure("REJECTED: " + deny.reason());
                     event(TaskEvent.EventType.FAILURE, deny.reason(),
                             Map.of("action", action.id()));
                     return LoopResult.slowLoop(SlowLoopReason.RISK_GATE, deny.reason(),
@@ -246,6 +248,7 @@ public final class FastLoop {
                             Map.of("action", action.id()));
                     return LoopResult.stopped(failure.getMessage(), actions, last);
                 }
+                rememberFailure(failure.code() + ": " + failure.getMessage());
                 event(TaskEvent.EventType.FAILURE,
                         "action failed: " + failure.code() + " " + failure.getMessage(),
                         Map.of("action", action.id()));
@@ -258,6 +261,7 @@ public final class FastLoop {
                         + failure.getMessage(), actions, last);
             }
             if (!receipt.accepted()) {
+                rememberFailure("input rejected: " + receipt.status());
                 event(TaskEvent.EventType.FAILURE, "input rejected: " + receipt.status(),
                         Map.of("action", action.id()));
                 if (rejectedActions++ < 3) {
@@ -266,7 +270,8 @@ public final class FastLoop {
                 return LoopResult.failed("input rejected: " + receipt.status(), actions, last);
             }
             actions++;
-            workingMemory.put("last.action", action.id());
+            workingMemory.put("last.result", "ACCEPTED");
+            workingMemory.put("last.failure", "");
             event(TaskEvent.EventType.ACTION, action.id(),
                     Map.of("kind", action.kind().name()));
 
@@ -282,6 +287,7 @@ public final class FastLoop {
             }
             last = after;
             Effect effect = effectEvaluator.evaluate(before, ObservationFingerprint.of(after));
+            workingMemory.put("last.result", "SUCCEEDED");
             workingMemory.put("last.effect", effect.kind().name());
             event(TaskEvent.EventType.EFFECT, effect.kind().name(),
                     Map.of("detail", effect.detail()));
@@ -343,6 +349,29 @@ public final class FastLoop {
         throw new DeviceException(DeviceException.Code.TIMEOUT,
                 "observation not READY/stable: " + (last == null ? "none"
                         : last.status() + " stable=" + last.stable()));
+    }
+
+    private void rememberAction(LoopAction action) {
+        workingMemory.put("last.action", bounded(action.id()));
+        workingMemory.put("last.action.kind", action.getClass().getSimpleName());
+        String description = action.description();
+        if (action instanceof SetTextAction setText) {
+            description += " | text=" + setText.text();
+        }
+        workingMemory.put("last.action.description", bounded(description));
+        workingMemory.put("last.result", "PENDING");
+        workingMemory.put("last.effect", "NOT_OBSERVED");
+        workingMemory.put("last.failure", "");
+    }
+
+    private void rememberFailure(String reason) {
+        workingMemory.put("last.result", "FAILED");
+        workingMemory.put("last.failure", bounded(reason));
+        workingMemory.put("last.effect", "NOT_OBSERVED");
+    }
+
+    private static String bounded(String value) {
+        return value.length() <= 400 ? value : value.substring(0, 400);
     }
 
     private static long elapsedNanos(long started) {

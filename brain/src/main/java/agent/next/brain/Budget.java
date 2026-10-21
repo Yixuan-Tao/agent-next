@@ -4,8 +4,8 @@ import java.time.Duration;
 
 /**
  * Hard task budget. Thresholds are upper bounds; the slow loop may stop
- * earlier. The no-effect/no-progress thresholds are also used by
- * {@link SlowLoopSignals}.
+ * earlier. The no-effect/no-progress thresholds are used by
+ * {@link SlowLoopSignals} and the reactive task loop.
  */
 public record Budget(
         int maxActions,
@@ -21,7 +21,9 @@ public record Budget(
     }
 
     public static Budget defaults() {
-        return new Budget(40, Duration.ofMinutes(10), 2, 3);
+        // Slow native/Web/RN pages can stay visually unchanged for several seconds while loading;
+        // Allow four bounded waits before the loop requires recovery.
+        return new Budget(40, Duration.ofMinutes(10), 4, 5);
     }
 
     @Override

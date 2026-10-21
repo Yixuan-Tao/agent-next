@@ -23,6 +23,9 @@ public final class AgentTaskService extends Service {
     private static final String EXTRA_REASON = "reason";
     private static final String EXTRA_MINUTES = "minutes";
 
+    /** Non-null while a handoff is waiting for the user; keeps the action notification alive. */
+    private static volatile String handoffReason;
+
     public static void start(Context context) {
         Intent intent = new Intent(context, AgentTaskService.class);
         if (Build.VERSION.SDK_INT >= 26) {
@@ -45,21 +48,40 @@ public final class AgentTaskService extends Service {
     }
 
     public static void stop(Context context) {
+        cancelNotification(context);
         context.stopService(new Intent(context, AgentTaskService.class));
+    }
+
+    private static void cancelNotification(Context context) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager != null) {
+            manager.cancel(NOTIFICATION_ID);
+        }
     }
 
     public static void update(Context context, String text) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
-        if (manager != null) {
-            manager.notify(NOTIFICATION_ID, notification(context, text));
+        if (manager == null) {
+            return;
         }
+        String reason = handoffReason;
+        manager.notify(NOTIFICATION_ID, reason == null
+                ? notification(context, text)
+                // A normal state update must not replace the handoff actions the user still needs.
+                : handoffNotification(context, reason));
     }
 
     public static void handoff(Context context, String reason) {
+        handoffReason = reason;
         Intent intent = new Intent(context, AgentTaskService.class)
                 .setAction(ACTION_HANDOFF)
                 .putExtra(EXTRA_REASON, reason);
         context.startService(intent);
+    }
+
+    /** Called when the handoff ends; the next state update may restore the normal notification. */
+    public static void finishHandoff(Context context) {
+        handoffReason = null;
     }
 
     @Override
@@ -73,21 +95,33 @@ public final class AgentTaskService extends Service {
     }
 
     @Override
+    public void onDestroy() {
+        handoffReason = null;
+        cancelNotification(this);
+        super.onDestroy();
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i("AgentNextService", "action=" + (intent == null ? "null" : intent.getAction()));
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            handoffReason = null;
+            cancelNotification(this);
             AgentRuntime.get(this).stop();
             stopSelf();
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_RESUME.equals(intent.getAction())) {
+            handoffReason = null;
             AgentRuntime.get(this).resumeHandoff();
+            AgentRuntime runtime = AgentRuntime.get(this);
+            update(this, runtime.detail());
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_HANDOFF.equals(intent.getAction())) {
             String reason = intent.getStringExtra(EXTRA_REASON);
-            startForeground(NOTIFICATION_ID,
-                    handoffNotification(this, reason == null ? "需要人工接管" : reason));
+            handoffReason = reason == null ? "需要人工接管" : reason;
+            startForeground(NOTIFICATION_ID, handoffNotification(this, handoffReason));
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_SOAK.equals(intent.getAction())) {
@@ -99,7 +133,11 @@ public final class AgentTaskService extends Service {
                     minutes * 60_000L);
             return START_NOT_STICKY;
         }
-        startForeground(NOTIFICATION_ID, notification(this, "任务准备中"));
+        AgentRuntime runtime = AgentRuntime.get(this);
+        String reason = handoffReason;
+        startForeground(NOTIFICATION_ID, reason == null
+                ? notification(this, runtime.detail())
+                : handoffNotification(this, reason));
         return START_NOT_STICKY;
     }
 
@@ -127,7 +165,7 @@ public final class AgentTaskService extends Service {
     }
 
     private static Notification handoffNotification(Context context, String reason) {
-        Intent open = new Intent(context, MainActivity.class);
+        Intent open = new Intent(context, PreviewActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent content = PendingIntent.getActivity(context, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -140,7 +178,7 @@ public final class AgentTaskService extends Service {
         return new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
                 .setContentTitle("AgentNext 需要人工接管")
-                .setContentText(reason + " · 在主屏完成后点“继续”")
+                .setContentText(reason + " · 点通知查看并主动接管，完成后点“继续”")
                 .setOngoing(true)
                 .setContentIntent(content)
                 .addAction(new Notification.Action.Builder(null, "完成，继续", resumeIntent).build())

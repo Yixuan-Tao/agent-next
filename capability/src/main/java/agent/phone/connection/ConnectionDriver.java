@@ -38,9 +38,10 @@ public interface ConnectionDriver extends AutoCloseable {
 
     void moveTargetToDisplay(int displayId, java.util.function.Consumer<Boolean> callback);
 
-    boolean startPreviewMirror(android.view.Surface surface);
+    boolean startPreviewMirror(android.view.Surface surface, int channel);
 
-    void stopPreviewMirror();
+    /** True only when the remote mirror stop is confirmed. */
+    boolean stopPreviewMirror(int channel);
 
     boolean userTap(int x, int y);
 

@@ -5,7 +5,10 @@ import agent.next.brain.ActionKind;
 import agent.next.brain.RiskClass;
 import agent.next.brain.loop.NodeSelector;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.Set;
 
 /**
@@ -15,7 +18,7 @@ import java.util.Set;
  */
 public sealed interface ActionProposal permits ActionProposal.Tap,
         ActionProposal.SetText, ActionProposal.Back, ActionProposal.Swipe,
-        ActionProposal.Wait {
+        ActionProposal.Wait, ActionProposal.VisualTap {
 
     String id();
 
@@ -32,7 +35,22 @@ public sealed interface ActionProposal permits ActionProposal.Tap,
     }
 
     default String payloadHash() {
-        return Integer.toHexString((id() + "|" + description()).hashCode());
+        List<String> fields = new ArrayList<>(List.of(getClass().getSimpleName(), id(),
+                description(), kind().name(), proposedRisk().name()));
+        fields.add(Integer.toString(flags().size()));
+        fields.addAll(flags().stream().map(Enum::name).sorted().collect(Collectors.toList()));
+        if (this instanceof Tap tap) {
+            fields.add(tap.selector().description());
+        } else if (this instanceof SetText setText) {
+            fields.addAll(List.of(setText.selector().description(), setText.text()));
+        } else if (this instanceof Swipe swipe) {
+            fields.addAll(List.of(swipe.direction().name(), Integer.toString(swipe.durationMs())));
+        } else if (this instanceof Wait wait) {
+            fields.add(Long.toString(wait.millis()));
+        } else if (this instanceof VisualTap visualTap) {
+            fields.add(visualTap.target());
+        }
+        return GroundedAction.fingerprint(fields);
     }
 
     record Tap(String id, String description, NodeSelector selector,
@@ -43,10 +61,17 @@ public sealed interface ActionProposal permits ActionProposal.Tap,
             selector = Objects.requireNonNull(selector, "selector");
             proposedRisk = Objects.requireNonNull(proposedRisk, "proposedRisk");
         }
+    }
 
-        @Override
-        public String payloadHash() {
-            return Integer.toHexString((id + "|" + selector.description()).hashCode());
+    /** Semantic target for a fresh-frame visual locator; it never contains model-proposed coordinates. */
+    record VisualTap(String id, String description, String target,
+            RiskClass proposedRisk) implements ActionProposal {
+        public VisualTap {
+            id = requireText(id, "id");
+            description = requireText(description, "description");
+            target = requireText(target, "target");
+            if (target.length() > 120) throw new IllegalArgumentException("visual target is too long");
+            proposedRisk = Objects.requireNonNull(proposedRisk, "proposedRisk");
         }
     }
 
@@ -63,11 +88,6 @@ public sealed interface ActionProposal permits ActionProposal.Tap,
         @Override
         public ActionKind kind() {
             return ActionKind.REVERSIBLE_WRITE;
-        }
-
-        @Override
-        public String payloadHash() {
-            return Integer.toHexString((id + "|" + selector.description() + "|" + text).hashCode());
         }
     }
 

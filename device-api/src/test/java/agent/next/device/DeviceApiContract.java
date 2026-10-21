@@ -39,9 +39,9 @@ public final class DeviceApiContract {
 
     private static DisplayInfo display(DeviceApi api, DisplayHandle display) throws DeviceException {
         DisplayInfo info = api.displays().check(display);
-        TestSupport.check(info.width() == 720, "display width");
-        TestSupport.check(info.height() == 1280, "display height");
-        TestSupport.check(info.densityDpi() == 240, "display density");
+        TestSupport.check(info.width() == 1080, "display width");
+        TestSupport.check(info.height() == 1920, "display height");
+        TestSupport.check(info.densityDpi() == 360, "display density");
         TestSupport.check(info.ownerUid() == 2000, "display owner");
         TestSupport.check(info.generation() > 0, "display generation");
         return info;
@@ -133,8 +133,8 @@ public final class DeviceApiContract {
 
     private static void frames(DeviceApi api, TargetHandle target) throws DeviceException {
         Frame frame = api.observations().captureFrame(target);
-        TestSupport.check(frame.width() == 720, "frame width");
-        TestSupport.check(frame.height() == 1280, "frame height");
+        TestSupport.check(frame.width() == 1080, "frame width");
+        TestSupport.check(frame.height() == 1920, "frame height");
         TestSupport.check(frame.png().length > 0, "frame png");
         TestSupport.check(frame.sequence() > 0, "frame sequence");
     }

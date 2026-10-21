@@ -29,8 +29,8 @@ public final class ConnectionCoordinator {
         TargetSwipe swipeTarget(TargetSession target, String observationId, int startX, int startY, int endX, int endY, int durationMs) throws Exception;
         TargetBack backTarget(TargetSession target, String observationId) throws Exception;
         int moveTargetToDisplay(TargetSession target, int displayId) throws Exception;
-        void startPreviewMirror(DisplaySession display, android.view.Surface surface) throws Exception;
-        void stopPreviewMirror(DisplaySession display) throws Exception;
+        void startPreviewMirror(DisplaySession display, android.view.Surface surface, int channel) throws Exception;
+        void stopPreviewMirror(DisplaySession display, int channel) throws Exception;
         void userTap(TargetSession target, int x, int y) throws Exception;
         void userSwipe(TargetSession target, int startX, int startY, int endX, int endY, int durationMs) throws Exception;
         void destroy() throws Exception;
@@ -103,6 +103,15 @@ public final class ConnectionCoordinator {
         cancelSession(Status.DISCONNECTED, Reason.USER);
     }
 
+    /** Binder-received notifications may arrive after a successful connection. */
+    public void checkIfDisconnected() {
+        if (state.status == Status.CONNECTED && attempt != null
+                && !attempt.cancelled.get()) {
+            return;
+        }
+        check();
+    }
+
     public void check() {
         if (operation != null) return;
         if (attempt != null && attempt.cancelled.get()) {
@@ -119,19 +128,25 @@ public final class ConnectionCoordinator {
     }
 
     public void connect() {
+        if (operation != null && operation.inspecting) {
+            operation.connectRequested = true;
+            return;
+        }
         if (operation != null || !state.canConnect || attempt != null || rpcOutstanding) return;
         inspect(true);
     }
 
     private void inspect(boolean connectRequested) {
         Operation next = new Operation(++operationSequence);
+        next.inspecting = true;
+        next.connectRequested = connectRequested;
         operation = next;
         armDeadline(next);
         update(Status.CONNECTING, Reason.CHECKING, null);
         rpc(next, backend::inspect, (environment, failure) -> {
             if (!current(next)) return;
             if (failure != null) { fail(next, reason(failure)); return; }
-            if (environment.status == Status.PERMISSION_REQUIRED && connectRequested
+            if (environment.status == Status.PERMISSION_REQUIRED && next.connectRequested
                     && environment.reason != Reason.BLOCKED) {
                 next.timer.cancel();
                 next.awaitingPermission = true;
@@ -139,7 +154,7 @@ public final class ConnectionCoordinator {
                 rpc(next, () -> { backend.requestPermission(next.code); return null; }, (ignored, requestFailure) -> {
                     if (current(next) && requestFailure != null) fail(next, reason(requestFailure));
                 });
-            } else if (environment.reason == Reason.AVAILABLE && (connectRequested || attempt != null)) {
+            } else if (environment.reason == Reason.AVAILABLE && (next.connectRequested || attempt != null)) {
                 if (attempt == null) bind(next);
                 else handshake(next, attempt);
             } else {
@@ -303,7 +318,17 @@ public final class ConnectionCoordinator {
         rpc(next, () -> bound.service.readFrame(expected), (result,failure) -> {
             // The service adapter closes shared memory before returning immutable PNG data.
             if (!current(next) || attempt != bound || bound.cancelled.get()) return;
-            if (failure != null) { fail(next,reason(failure)); return; }
+            if (failure != null) {
+                Reason failedReason = reason(failure);
+                if (failedReason == Reason.DENIED) {
+                    // A policy rejection applies to this capture only. Keep the authorized
+                    // target and display alive so an explicit user preview can still take over.
+                    finishOperation();
+                    update(Status.CONNECTED,Reason.DENIED,capabilities);
+                    return;
+                }
+                fail(next,failedReason); return;
+            }
             try {
                 if (result == null) throw new IllegalArgumentException("Missing frame");
                 result.evidence.requireFresh(expected,previousSequence);
@@ -330,7 +355,13 @@ public final class ConnectionCoordinator {
         Capabilities capabilities = state.capabilities;
         rpc(next, () -> bound.service.tapTarget(expected,observationId,x,y), (result,failure) -> {
             if (!current(next) || attempt != bound || bound.cancelled.get()) return;
-            if (failure != null) { fail(next,reason(failure)); return; }
+            if (failure != null) {
+                if (reason(failure) == Reason.STALE_INPUT) {
+                    finishOperation();
+                    update(Status.CONNECTED,Reason.STALE_INPUT,capabilities);
+                } else fail(next,reason(failure));
+                return;
+            }
             try {
                 if (result == null) throw new IllegalArgumentException("Missing tap receipt");
                 result.requireFor(expected.display,observationId);
@@ -456,18 +487,55 @@ public final class ConnectionCoordinator {
         catch (Exception failure) { return false; }
     }
 
-    public boolean startPreviewMirror(android.view.Surface surface) {
-        Attempt bound = attempt;
-        DisplaySession current = display;
-        if (bound == null || bound.service == null || current == null || surface == null || !surface.isValid()) return false;
-        try { bound.service.startPreviewMirror(current,surface); return true; } catch (Exception failure) { return false; }
+    private interface PreviewCall {
+        void run(Service remote, DisplaySession display, TargetSession target) throws Exception;
     }
 
-    public void stopPreviewMirror() {
+    /** Snapshot state on the dispatcher; execute the returned Binder call off that thread. */
+    private Callable<Boolean> preparePreview(PreviewCall action, boolean needsTarget) {
         Attempt bound = attempt;
         DisplaySession current = display;
-        if (bound == null || bound.service == null || current == null) return;
-        try { bound.service.stopPreviewMirror(current); } catch (Exception ignored) { }
+        TargetSession selected = target;
+        Service remote = bound == null ? null : bound.service;
+        return () -> {
+            if (bound == null || remote == null || current == null || bound.cancelled.get()
+                    || needsTarget && selected == null) return false;
+            try { action.run(remote, current, selected); return true; }
+            catch (Exception failure) { return false; }
+        };
+    }
+
+    public Callable<Boolean> prepareStartPreviewMirror(android.view.Surface surface,int channel) {
+        return preparePreview((remote, current, selected) -> {
+            if (surface == null || !surface.isValid()) throw new IllegalArgumentException("invalid surface");
+            remote.startPreviewMirror(current, surface,channel);
+        }, false);
+    }
+
+    static final class MirrorCalls {
+        final Callable<Boolean> start;
+        final Callable<Boolean> stop;
+        MirrorCalls(Callable<Boolean> start, Callable<Boolean> stop) {
+            this.start = start;
+            this.stop = stop;
+        }
+    }
+
+    MirrorCalls prepareMirror(android.view.Surface surface,int channel) {
+        return new MirrorCalls(prepareStartPreviewMirror(surface,channel), prepareStopPreviewMirror(channel));
+    }
+
+    public Callable<Boolean> prepareStopPreviewMirror(int channel) {
+        return preparePreview((remote, current, selected) -> remote.stopPreviewMirror(current,channel), false);
+    }
+
+    public Callable<Boolean> prepareUserTap(int x, int y) {
+        return preparePreview((remote, current, selected) -> remote.userTap(selected, x, y), true);
+    }
+
+    public Callable<Boolean> prepareUserSwipe(int x1, int y1, int x2, int y2, int duration) {
+        return preparePreview((remote, current, selected) ->
+                remote.userSwipe(selected, x1, y1, x2, y2, duration), true);
     }
 
     private void readTarget(boolean launch) {
@@ -618,6 +686,8 @@ public final class ConnectionCoordinator {
     private void refresh() { update(state.status, state.reason, state.capabilities); }
 
     private static final class Operation {
+        boolean inspecting;
+        boolean connectRequested;
         final int code;
         final AtomicBoolean cancelled = new AtomicBoolean();
         Cancellation timer;

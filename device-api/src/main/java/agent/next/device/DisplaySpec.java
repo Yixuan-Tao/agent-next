@@ -22,9 +22,9 @@ public final class DisplaySpec {
         this.densityDpi = densityDpi;
     }
 
-    /** Current capability default: 720 x 1280, 240 dpi. */
+    /** Current capability default: 1080 x 1920, 360 dpi. */
     public static DisplaySpec standard() {
-        return new DisplaySpec(720, 1280, 240);
+        return new DisplaySpec(1080, 1920, 360);
     }
 
     public int width() {

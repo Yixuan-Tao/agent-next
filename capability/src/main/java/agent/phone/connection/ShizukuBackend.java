@@ -160,14 +160,21 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
 
         @Override public TargetObservation readTarget(TargetSession expected, boolean launch)
                 throws ConnectionCoordinator.Failure {
+            Bundle packet;
             try {
                 requireUsable();
                 IAgentShell remote = IAgentShell.Stub.asInterface(binder);
-                Bundle packet = launch ? remote.launchTarget(expected.token,expected.generation)
+                packet = launch ? remote.launchTarget(expected.token,expected.generation)
                         : remote.observeTarget(expected.token,expected.generation);
-                return ObservationPackets.decode(packet,expected,0);
             } catch (RemoteException failure) {
                 throw new ConnectionCoordinator.Failure(Reason.LOST,failure);
+            } catch (IllegalStateException failure) {
+                throw new ConnectionCoordinator.Failure(Reason.FAILURE,failure);
+            } catch (RuntimeException failure) {
+                throw new ConnectionCoordinator.Failure(Reason.MALFORMED,failure);
+            }
+            try {
+                return ObservationPackets.decode(packet,expected,0);
             } catch (RuntimeException failure) {
                 throw new ConnectionCoordinator.Failure(Reason.MALFORMED,failure);
             }
@@ -175,13 +182,22 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
 
         @Override public TargetTap tapTarget(TargetSession expected,String observationId,int x,int y)
                 throws ConnectionCoordinator.Failure {
+            Bundle packet;
             try {
                 requireUsable();
-                Bundle packet = IAgentShell.Stub.asInterface(binder).tapTarget(expected.token,expected.generation,
+                packet = IAgentShell.Stub.asInterface(binder).tapTarget(expected.token,expected.generation,
                         observationId,x,y);
-                return TargetTapPackets.decode(packet,expected.display,observationId);
             } catch (RemoteException failure) {
                 throw new ConnectionCoordinator.Failure(Reason.LOST,failure);
+            } catch (IllegalStateException failure) {
+                throw new ConnectionCoordinator.Failure(Reason.FAILURE,failure);
+            } catch (RuntimeException failure) {
+                throw new ConnectionCoordinator.Failure(Reason.MALFORMED,failure);
+            }
+            try {
+                return TargetTapPackets.decode(packet,expected.display,observationId);
+            } catch (TargetTap.StaleException failure) {
+                throw new ConnectionCoordinator.Failure(Reason.STALE_INPUT,failure);
             } catch (RuntimeException failure) {
                 throw new ConnectionCoordinator.Failure(Reason.MALFORMED,failure);
             }
@@ -242,12 +258,12 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
             catch (RuntimeException failure) { throw new ConnectionCoordinator.Failure(Reason.MALFORMED, failure); }
         }
 
-        @Override public void startPreviewMirror(DisplaySession expected,android.view.Surface surface)
+        @Override public void startPreviewMirror(DisplaySession expected,android.view.Surface surface,int channel)
                 throws ConnectionCoordinator.Failure {
             try {
                 requireUsable();
                 Bundle packet = IAgentShell.Stub.asInterface(binder).startPreviewMirror(expected.token,
-                        expected.generation,surface);
+                        expected.generation,surface,channel);
                 if (packet == null || !packet.getBoolean("ok")
                         || packet.getInt("display_id",-1) != expected.displayId) {
                     throw new IllegalArgumentException("Malformed mirror receipt");
@@ -259,10 +275,10 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
             }
         }
 
-        @Override public void stopPreviewMirror(DisplaySession expected) throws ConnectionCoordinator.Failure {
+        @Override public void stopPreviewMirror(DisplaySession expected,int channel) throws ConnectionCoordinator.Failure {
             try {
                 requireUsable();
-                IAgentShell.Stub.asInterface(binder).stopPreviewMirror(expected.token,expected.generation);
+                IAgentShell.Stub.asInterface(binder).stopPreviewMirror(expected.token,expected.generation,channel);
             } catch (RemoteException failure) {
                 throw new ConnectionCoordinator.Failure(Reason.LOST, failure);
             } catch (RuntimeException failure) {
@@ -295,6 +311,10 @@ final class ShizukuBackend implements ConnectionCoordinator.Backend {
             } catch (RemoteException failure) {
                 throw new ConnectionCoordinator.Failure(Reason.LOST,failure);
             } catch (RuntimeException failure) {
+                if (failure.getMessage() != null
+                        && failure.getMessage().startsWith("Frame capture rejected:")) {
+                    throw new ConnectionCoordinator.Failure(Reason.DENIED, failure);
+                }
                 throw new ConnectionCoordinator.Failure(Reason.MALFORMED,failure);
             }
         }

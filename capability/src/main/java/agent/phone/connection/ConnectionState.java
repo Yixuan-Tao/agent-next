@@ -12,7 +12,7 @@ public final class ConnectionState {
     public enum Reason {
         CHECKING, AVAILABLE, NO_SHIZUKU, DENIED, BLOCKED, OLD_VERSION,
         ENVIRONMENT, LOST, MALFORMED, FAILURE, TIMEOUT, USER,
-        RPC_BUSY, CLEANUP, CLEANUP_PENDING, CLEANUP_FAILED
+        RPC_BUSY, CLEANUP, CLEANUP_PENDING, CLEANUP_FAILED, STALE_INPUT
     }
 
     public final DisplaySession display;

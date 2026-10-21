@@ -45,7 +45,68 @@ public final class CapabilityAdapterHostTest {
         api.close();
         mainScreenInputRejected();
         previewAndUserTouch();
+        readOnlyMirrorDoesNotOwnInput();
+        failedMirrorStopRetainsOwnership();
+        launchWaitsForObservation();
         System.out.println("CapabilityAdapterHostTest: PASS (BlockingDeviceApi on FakeConnectionDriver)");
+    }
+
+    private static void launchWaitsForObservation() throws Exception {
+        FakeConnectionDriver driver = new FakeConnectionDriver();
+        driver.intermediateLaunchState = true;
+        BlockingDeviceApi api = new BlockingDeviceApi(listener -> {
+            driver.attach(listener);
+            return driver;
+        }, 2_000L);
+        api.connect();
+        DisplayHandle display = api.displays().create(DisplaySpec.standard());
+        api.targets().open(display, TargetSpec.single("launch-race", "com.example.shop"));
+        if (!driver.launchFinished) throw new AssertionError("intermediate NONE state cannot complete launch");
+        api.close();
+    }
+
+    private static void failedMirrorStopRetainsOwnership() throws Exception {
+        FakeConnectionDriver driver = new FakeConnectionDriver();
+        BlockingDeviceApi api = new BlockingDeviceApi(listener -> {
+            driver.attach(listener);
+            return driver;
+        }, 2_000L);
+        api.connect();
+        DisplayHandle display = api.displays().create(DisplaySpec.standard());
+        TargetHandle target = api.targets().open(display,
+                TargetSpec.single("task-stop-mirror", "com.example.shop"));
+        api.startPreview(display, new Surface());
+        if (!driver.lastPreviewUserControl) throw new AssertionError("interactive preview must request audio takeover");
+        driver.rejectPreviewStop = true;
+        boolean failed = false;
+        try { api.stopPreview(display); }
+        catch (Exception expected) { failed = true; }
+        if (!failed) throw new AssertionError("unconfirmed stop must report failure");
+        Observation observed = api.observations().observe(target, ObservationOptions.defaults());
+        try {
+            api.input().tap(target, observed, new Point(10, 10));
+            throw new AssertionError("unconfirmed takeover stop must retain input ownership");
+        } catch (DeviceException expected) {
+            if (expected.code() != DeviceException.Code.REJECTED) throw expected;
+        }
+        driver.rejectPreviewStop = false;
+        api.stopPreview(display);
+        api.startReadOnlyMirror(display, new Surface());
+        if (driver.lastPreviewUserControl) throw new AssertionError("read-only monitoring must not unmute audio");
+        driver.rejectPreviewStop = true;
+        failed = false;
+        try { api.stopReadOnlyMirror(display); }
+        catch (Exception expected) { failed = true; }
+        if (!failed) throw new AssertionError("unconfirmed read-only stop must report failure");
+        try {
+            api.startPreview(display, new Surface());
+            throw new AssertionError("unconfirmed read-only stop cannot grant a new mirror");
+        } catch (DeviceException expected) {
+            if (expected.code() != DeviceException.Code.REJECTED) throw expected;
+        }
+        driver.rejectPreviewStop = false;
+        api.stopReadOnlyMirror(display);
+        api.close();
     }
 
     private static void mainScreenInputRejected() throws Exception {
@@ -126,6 +187,48 @@ public final class CapabilityAdapterHostTest {
         if (!afterPreview.accepted()) {
             throw new AssertionError("agent input resumes after preview stops");
         }
+        api.targets().release(target);
+        api.displays().release(display);
+        api.close();
+    }
+
+    private static void readOnlyMirrorDoesNotOwnInput() throws Exception {
+        FakeConnectionDriver driver = new FakeConnectionDriver();
+        BlockingDeviceApi api = new BlockingDeviceApi(listener -> {
+            driver.attach(listener);
+            return driver;
+        }, 2_000L);
+        api.connect();
+        DisplayHandle display = api.displays().create(DisplaySpec.standard());
+        TargetHandle target = api.targets().open(display,
+                TargetSpec.single("task-monitor", "com.example.shop"));
+        api.startReadOnlyMirror(display, new Surface());
+        Observation observed = api.observations().observe(target, ObservationOptions.defaults());
+        if (!api.input().tap(target, observed, new Point(10, 10)).accepted()) {
+            throw new AssertionError("read-only monitoring must not pause agent input");
+        }
+        api.stopPreview(display);
+        if (!driver.previewStarted()) {
+            throw new AssertionError("closing takeover must not stop a read-only mirror");
+        }
+        try {
+            api.startPreview(display, new Surface());
+            throw new AssertionError("takeover must explicitly stop the read-only mirror first");
+        } catch (DeviceException expected) {
+            if (expected.code() != DeviceException.Code.REJECTED) {
+                throw new AssertionError("mirror ownership rejection code", expected);
+            }
+        }
+        api.stopReadOnlyMirror(display);
+        if (driver.previewStarted()) {
+            throw new AssertionError("read-only mirror must stop on request");
+        }
+        api.startPreview(display, new Surface());
+        api.stopReadOnlyMirror(display);
+        if (!driver.previewStarted()) {
+            throw new AssertionError("closing a monitor must not stop takeover");
+        }
+        api.stopPreview(display);
         api.targets().release(target);
         api.displays().release(display);
         api.close();

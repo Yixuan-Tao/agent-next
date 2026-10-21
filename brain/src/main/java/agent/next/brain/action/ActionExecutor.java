@@ -2,6 +2,7 @@ package agent.next.brain.action;
 
 import agent.next.brain.ConfirmationRequest;
 import agent.next.brain.ConfirmationToken;
+import agent.next.brain.ActionDescriptor;
 import agent.next.brain.HumanGateway;
 import agent.next.brain.HumanUnavailableException;
 import agent.next.brain.RiskDecision;
@@ -12,6 +13,7 @@ import agent.next.brain.loop.LoopControl;
 import agent.next.brain.loop.LoopStoppedException;
 import agent.next.device.DeviceApi;
 import agent.next.device.DeviceException;
+import agent.next.device.Frame;
 import agent.next.device.InputReceipt;
 import agent.next.device.InputStatus;
 import agent.next.device.NodeBounds;
@@ -45,25 +47,41 @@ public final class ActionExecutor {
     private final RiskGate riskGate;
     private final HumanGateway humanGateway;
     private final LoopControl control;
+    private final VisualTapResolver visualTapResolver;
     private final ActionGrounder grounder = new ActionGrounder();
 
     public ActionExecutor(DeviceApi api, RiskGate riskGate, HumanGateway humanGateway,
             LoopControl control) {
+        this(api, riskGate, humanGateway, control, null);
+    }
+
+    public ActionExecutor(DeviceApi api, RiskGate riskGate, HumanGateway humanGateway,
+            LoopControl control, VisualTapResolver visualTapResolver) {
         this.api = Objects.requireNonNull(api, "api");
         this.riskGate = Objects.requireNonNull(riskGate, "riskGate");
         this.humanGateway = Objects.requireNonNull(humanGateway, "humanGateway");
         this.control = Objects.requireNonNull(control, "control");
+        this.visualTapResolver = visualTapResolver;
     }
 
     public Execution execute(TaskSpec task, TargetHandle target, ActionProposal proposal)
             throws DeviceException, LoopStoppedException, HumanUnavailableException {
+        return execute(task,target,proposal,() -> { });
+    }
+
+    /** Called immediately before device input, after grounding and confirmation have succeeded. */
+    public Execution execute(TaskSpec task, TargetHandle target, ActionProposal proposal,Runnable beforeInput)
+            throws DeviceException, LoopStoppedException, HumanUnavailableException {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(proposal, "proposal");
+        Objects.requireNonNull(beforeInput,"beforeInput");
         control.checkpoint();
         Observation before = api.observations().observe(target, ObservationOptions.defaults());
         GroundedAction grounded = grounder.ground(task, target, before, proposal);
         RiskDecision decision = riskGate.evaluate(grounded.descriptor(), task);
+        ConfirmationRequest approvedRequest = null;
+        ConfirmationToken approval = null;
         boolean confirmed = false;
         if (decision instanceof RiskDecision.Deny deny) {
             throw new DeviceException(DeviceException.Code.REJECTED, deny.reason());
@@ -75,6 +93,8 @@ public final class ActionExecutor {
             ConfirmationRequest request = confirm.request();
             ConfirmationToken token = humanGateway.confirm(request);
             token.requireValidFor(request, Instant.now());
+            approvedRequest = request;
+            approval = token;
             confirmed = true;
         }
         control.checkpoint();
@@ -87,18 +107,81 @@ public final class ActionExecutor {
                     "action target/content changed after confirmation");
         }
         control.checkpoint();
-        InputReceipt receipt = act(current, target, fresh);
+        if (approval != null) {
+            approval.requireValidFor(approvedRequest, Instant.now());
+        }
+        if (proposal instanceof ActionProposal.VisualTap visualTap) {
+            return executeVisualTap(task, target, current, fresh, visualTap,beforeInput);
+        }
+        InputReceipt receipt = act(current, target, fresh,beforeInput);
         return new Execution(fresh, receipt, confirmed, Instant.now());
     }
 
+    private Execution executeVisualTap(TaskSpec task, TargetHandle target, Observation before,
+            GroundedAction grounded, ActionProposal.VisualTap proposal,Runnable beforeInput)
+            throws DeviceException, HumanUnavailableException, LoopStoppedException {
+        if (visualTapResolver == null) {
+            throw new DeviceException(DeviceException.Code.REJECTED, "visual tap is unavailable");
+        }
+        Frame frame = api.observations().captureFrame(target);
+        VisualTapResolution resolved = visualTapResolver.locate(target, proposal.target(), frame);
+        Point point = resolved.point();
+        if (resolved.confidence() < 0.8 || point.x() < 0 || point.y() < 0
+                || point.x() >= frame.width() || point.y() >= frame.height()) {
+            throw new DeviceException(DeviceException.Code.REJECTED,
+                    "visual target confidence or bounds check failed");
+        }
+        ActionDescriptor reviewed = new ActionDescriptor(grounded.descriptor().id(),
+                grounded.descriptor().description() + "\nLocated visual label: " + resolved.label(),
+                grounded.descriptor().kind(), grounded.descriptor().risk(),
+                grounded.targetPackage(), GroundedAction.fingerprint(java.util.List.of(
+                        grounded.descriptor().payloadHash(), resolved.label(),
+                        Integer.toString(point.x()), Integer.toString(point.y()))),
+                grounded.descriptor().flags());
+        RiskDecision resolvedRisk = riskGate.evaluate(GuiRiskClassifier.raise(reviewed), task);
+        if (resolvedRisk instanceof RiskDecision.Deny deny) {
+            throw new DeviceException(DeviceException.Code.REJECTED, deny.reason());
+        }
+        if (resolvedRisk instanceof RiskDecision.Handoff handoff) {
+            throw new HumanHandoffRequiredException(handoff.reason());
+        }
+        boolean confirmed = false;
+        if (resolvedRisk instanceof RiskDecision.Confirm confirm) {
+            ConfirmationRequest request = confirm.request();
+            ConfirmationToken token = humanGateway.confirm(request);
+            token.requireValidFor(request, Instant.now());
+            confirmed = true;
+        }
+        control.checkpoint();
+        Observation current = api.observations().observe(target, ObservationOptions.defaults());
+        if (!current.packageName().equals(before.packageName())
+                || current.displayId() != before.displayId()
+                || current.windowId() != before.windowId()
+                || current.windowBounds().isEmpty()
+                || point.x() < current.windowBounds().orElseThrow().left()
+                || point.x() >= current.windowBounds().orElseThrow().right()
+                || point.y() < current.windowBounds().orElseThrow().top()
+                || point.y() >= current.windowBounds().orElseThrow().bottom()) {
+            throw new DeviceException(DeviceException.Code.STALE,
+                    "target changed after visual location");
+        }
+        beforeInput.run();
+        InputReceipt receipt = api.input().tap(target, current, point);
+        GroundedAction resolvedAction = new GroundedAction(grounded.taskId(), grounded.targetPackage(),
+                grounded.targetToken(), current.reference().orElseThrow(), proposal,
+                new GroundedAction.None(), reviewed);
+        return new Execution(resolvedAction, receipt, confirmed, Instant.now());
+    }
+
     private InputReceipt act(Observation observation, TargetHandle target,
-            GroundedAction action) throws DeviceException {
+            GroundedAction action,Runnable beforeInput) throws DeviceException {
         ActionProposal proposal = action.proposal();
         if (proposal instanceof ActionProposal.Tap) {
             if (!(action.target() instanceof GroundedAction.Node node)) {
                 throw new DeviceException(DeviceException.Code.INTERNAL, "tap without node");
             }
             NodeBounds bounds = node.bounds();
+            beforeInput.run();
             return api.input().tap(target, observation,
                     new Point(bounds.centerX(), bounds.centerY()));
         }
@@ -106,9 +189,11 @@ public final class ActionExecutor {
             if (!(action.target() instanceof GroundedAction.Node node)) {
                 throw new DeviceException(DeviceException.Code.INTERNAL, "setText without node");
             }
+            beforeInput.run();
             return api.input().setText(target, observation, node.ref(), setText.text());
         }
         if (proposal instanceof ActionProposal.Back) {
+            beforeInput.run();
             return api.input().back(target, observation);
         }
         if (proposal instanceof ActionProposal.Swipe swipe) {
@@ -116,6 +201,7 @@ public final class ActionExecutor {
                     new DeviceException(DeviceException.Code.REJECTED,
                             "swipe requires window bounds"));
             Point[] points = swipePoints(bounds, swipe.direction());
+            beforeInput.run();
             return api.input().swipe(target, observation, points[0], points[1],
                     swipe.durationMs());
         }

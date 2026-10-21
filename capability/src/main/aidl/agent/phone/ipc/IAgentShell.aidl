@@ -17,8 +17,8 @@ interface IAgentShell {
     Bundle swipeTarget(String targetToken, long targetGeneration, String observationId, int startX, int startY, int endX, int endY, int durationMs) = 10;
     Bundle backTarget(String targetToken, long targetGeneration, String observationId) = 11;
     Bundle moveTargetToDisplay(String targetToken, long targetGeneration, int displayId) = 12;
-    Bundle startPreviewMirror(String displayToken, long displayGeneration, in Surface surface) = 13;
-    void stopPreviewMirror(String displayToken, long displayGeneration) = 14;
+    Bundle startPreviewMirror(String displayToken, long displayGeneration, in Surface surface, int channel) = 13;
+    void stopPreviewMirror(String displayToken, long displayGeneration, int channel) = 14;
     void userTap(String targetToken, long targetGeneration, int x, int y) = 15;
     void userSwipe(String targetToken, long targetGeneration, int x1, int y1, int x2, int y2, int durationMs) = 16;
     // Shizuku requires Binder transaction 16777115 (AIDL method ID + 1).

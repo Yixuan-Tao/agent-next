@@ -16,6 +16,7 @@ import agent.next.brain.plan.TaskPlannerTest;
 import agent.next.brain.session.SessionBridgeTest;
 import agent.next.brain.session.SessionIntegrationTest;
 import agent.next.brain.session.SessionRunnerTest;
+import agent.next.brain.skill.PopupDetectorTest;
 import agent.next.brain.skill.SkillFeatureTest;
 
 /** Entry point for the dependency-free brain host tests. */
@@ -37,6 +38,7 @@ public final class BrainHostTest {
         LoopTest.run();
         SlowLoopTest.run();
         ActionExecutorTest.run();
+        agent.next.brain.action.ObservedNodeSelectorTest.run();
         SequenceActionTest.run();
         TaskContractTest.run();
         TaskClarificationTest.run();
@@ -45,12 +47,15 @@ public final class BrainHostTest {
         BoundedReplanTest.run();
         TaskTimeTest.run();
         GroundingTest.run();
+        PopupDetectorTest.run();
         SkillFeatureTest.run();
         ModelApiTest.run();
         TaskPlannerTest.run();
         SessionRunnerTest.run();
         SessionBridgeTest.run();
         SessionIntegrationTest.run();
-        System.out.println("BrainHostTest: PASS (26 suites)");
+        agent.next.brain.reactive.ReactiveSessionTest.run();
+        agent.next.brain.session.AutomaticTaskFlowTest.run();
+        System.out.println("BrainHostTest: PASS (30 suites)");
     }
 }

@@ -5,7 +5,7 @@ import java.util.Collections;
 
 public final class TargetPacketsTest {
     public static void main(String[] args) {
-        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,720,1280,240,1,DisplaySession.Status.ACTIVE);
+        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,1080,1920,360,1,DisplaySession.Status.ACTIVE);
         TargetSession first = target(display,"first",1,"com.example.first",10123);
         TargetSession second = target(display,"second",2,"com.example.second",10124);
         Bundle bound = TargetPackets.encode(first);
@@ -17,7 +17,7 @@ public final class TargetPacketsTest {
         Bundle extra = TargetPackets.encode(first); extra.putString("command","hidden");
         denied(() -> TargetPackets.decode(extra,display,"task","com.example.first"));
         TargetObservation observation = new TargetObservation(first,"observation",1,100,200,
-                TargetObservation.Status.READY,6,new TargetObservation.Bounds(0,0,720,1280),2,false,Collections.emptyList());
+                TargetObservation.Status.READY,6,new TargetObservation.Bounds(0,0,1080,1920),2,false,Collections.emptyList());
         Bundle packet = ObservationPackets.encode(observation);
         check(ObservationPackets.decode(packet,first,0).target.sameIdentity(first),"observation round trip");
         denied(() -> ObservationPackets.decode(packet,second,0));
@@ -25,7 +25,7 @@ public final class TargetPacketsTest {
         denied(() -> ObservationPackets.decode(packet,target(display,"first",1,"com.example.first",10125),0));
         denied(() -> ObservationPackets.decode(packet,new TargetSession(display,"other-task","first",1,
                 "com.example.first",10123,"com.example.first.Main"),0));
-        DisplaySession newer = new DisplaySession("new-display",2,4,"owned",2000,720,1280,240,1,DisplaySession.Status.ACTIVE);
+        DisplaySession newer = new DisplaySession("new-display",2,4,"owned",2000,1080,1920,360,1,DisplaySession.Status.ACTIVE);
         denied(() -> ObservationPackets.decode(packet,target(newer,"first",1,"com.example.first",10123),0));
         denied(() -> ObservationPackets.decode(packet,first,1));
         Bundle forged = ObservationPackets.encode(observation);

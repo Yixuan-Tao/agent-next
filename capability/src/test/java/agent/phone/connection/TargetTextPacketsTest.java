@@ -4,7 +4,7 @@ import android.os.Bundle;
 
 public final class TargetTextPacketsTest {
     public static void main(String[] args) {
-        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,720,1280,240,1,
+        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,1080,1920,360,1,
                 DisplaySession.Status.ACTIVE);
         TargetText valid = new TargetText(4,6,"observation:2",5,3000,"observation");
         TargetText decoded = TargetTextPackets.decode(TargetTextPackets.encode(valid),display,"observation","observation:2");

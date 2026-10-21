@@ -54,7 +54,8 @@ public final class VisualSubgoalVerifier implements SubgoalVerifier {
             VisualVerification result = visual.verify(new VisualVerificationRequest(
                     subgoal.intent(), conditions, frame));
             String evidence = "matched=" + result.matched().size()
-                    + ", missing=" + result.missing().size();
+                    + ", missing=" + result.missing().size()
+                    + "; missingConditions=" + result.missing();
             return new Verification(result.verified(), evidence);
         } catch (IOException failure) {
             throw new DeviceException(DeviceException.Code.INTERNAL,

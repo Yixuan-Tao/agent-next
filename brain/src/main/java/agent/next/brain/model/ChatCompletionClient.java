@@ -8,8 +8,8 @@ import java.util.Objects;
 
 /**
  * Chat-completions client matching the previous project's request shape:
- * model, thinking, reasoning_effort, json_object response, finish_reason=stop,
- * then choices[0].message.content. Supports text-only and one PNG image.
+ * model, thinking, and reasoning_effort for text, JSON, and strict function calls.
+ * Supports text-only and one PNG image.
  */
 public final class ChatCompletionClient {
 
@@ -21,6 +21,10 @@ public final class ChatCompletionClient {
     public interface Sleeper {
         void sleep(long millis) throws InterruptedException;
     }
+
+    public record ToolCall(String name, String arguments) { }
+
+    public record FunctionTool(String name, String description, String parametersJson) { }
 
     private final ModelConfig config;
     private final ChatCompletionTransport transport;
@@ -82,6 +86,68 @@ public final class ChatCompletionClient {
         return post(messages, maxTokens);
     }
 
+    public ToolCall callStrictTool(String prompt, byte[] png, int maxTokens,
+            List<FunctionTool> tools) throws IOException {
+        validatePrompt(prompt);
+        validateTokens(maxTokens);
+        if (png != null && (png.length == 0 || png.length > MAX_IMAGE_BYTES)) {
+            throw new IllegalArgumentException("invalid image size");
+        }
+        if (tools == null || tools.isEmpty() || tools.size() > 32) {
+            throw new IllegalArgumentException("invalid function tools");
+        }
+        String content = png == null
+                ? Json.quote(prompt)
+                : "[{\"type\":\"text\",\"text\":" + Json.quote(prompt)
+                        + "},{\"type\":\"image_url\",\"image_url\":{\"url\":"
+                        + Json.quote("data:image/png;base64," + Base64.getEncoder().encodeToString(png))
+                        + ",\"detail\":\"original\"}}]";
+        String messages = "[{\"role\":\"user\",\"content\":" + content + "}]";
+        StringBuilder toolJson = new StringBuilder("[");
+        for (int i = 0; i < tools.size(); i++) {
+            FunctionTool tool = Objects.requireNonNull(tools.get(i), "tool");
+            if (tool.name() == null || !tool.name().matches("[A-Za-z0-9_-]{1,64}")
+                    || tool.description() == null || tool.parametersJson() == null) {
+                throw new IllegalArgumentException("invalid function tool definition");
+            }
+            try {
+                Json.object(tool.parametersJson());
+            } catch (IllegalArgumentException invalid) {
+                throw new IllegalArgumentException("invalid function tool schema", invalid);
+            }
+            if (i > 0) toolJson.append(',');
+            toolJson.append("{\"type\":\"function\",\"function\":{\"name\":")
+                    .append(Json.quote(tool.name())).append(",\"description\":")
+                    .append(Json.quote(tool.description())).append(",\"strict\":true,\"parameters\":")
+                    .append(tool.parametersJson()).append("}}");
+        }
+        toolJson.append(']');
+        String body = "{\"model\":" + Json.quote(config.model())
+                + ",\"thinking\":{\"type\":\"enabled\"}"
+                + ",\"reasoning_effort\":\"low\",\"max_tokens\":" + maxTokens
+                + ",\"messages\":" + messages + ",\"tools\":" + toolJson
+                + ",\"tool_choice\":\"auto\",\"parallel_tool_calls\":false}";
+        String raw = postWithRetry(body, config.strictToolEndpoint());
+        Map<String, Object> response = responseObject(raw);
+        Object choicesValue = response.get("choices");
+        if (!(choicesValue instanceof List<?> choices) || choices.isEmpty()
+                || !(choices.get(0) instanceof Map<?, ?> choice)) {
+            throw new IOException("model response has no choice");
+        }
+        if (!"tool_calls".equals(choice.get("finish_reason"))) {
+            throw new IOException("model did not return a tool call");
+        }
+        if (!(choice.get("message") instanceof Map<?, ?> message)
+                || !(message.get("tool_calls") instanceof List<?> calls) || calls.size() != 1
+                || !(calls.get(0) instanceof Map<?, ?> call)
+                || !(call.get("function") instanceof Map<?, ?> function)
+                || !(function.get("name") instanceof String name)
+                || !(function.get("arguments") instanceof String arguments)) {
+            throw new IOException("model response must contain exactly one function call");
+        }
+        return new ToolCall(name, arguments);
+    }
+
     private String post(String messages, int maxTokens) throws IOException {
         String body = "{"
                 + "\"model\":" + Json.quote(config.model())
@@ -95,12 +161,7 @@ public final class ChatCompletionClient {
         if (raw == null || raw.length() > MAX_CONTENT_CHARS) {
             throw new IOException("invalid model response size");
         }
-        Map<String, Object> response;
-        try {
-            response = Json.object(raw);
-        } catch (IllegalArgumentException invalid) {
-            throw new IOException("invalid model response JSON", invalid);
-        }
+        Map<String, Object> response = responseObject(raw);
         Object choicesValue = response.get("choices");
         if (!(choicesValue instanceof List<?> choices) || choices.isEmpty()
                 || !(choices.get(0) instanceof Map<?, ?> choice)) {
@@ -119,11 +180,15 @@ public final class ChatCompletionClient {
     }
 
     private String postWithRetry(String body) throws IOException {
+        return postWithRetry(body, config.endpoint());
+    }
+
+    private String postWithRetry(String body, String endpoint) throws IOException {
         IOException last = null;
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 budget.acquire();
-                return transport.post(config.endpoint(), "Bearer " + config.apiKey(), body);
+                return transport.post(endpoint, "Bearer " + config.apiKey(), body);
             } catch (ModelHttpException failure) {
                 last = failure;
                 if (!failure.retryable() || attempt == maxRetries) {
@@ -141,6 +206,17 @@ public final class ChatCompletionClient {
             }
         }
         throw last == null ? new IOException("model call failed") : last;
+    }
+
+    private static Map<String, Object> responseObject(String raw) throws IOException {
+        if (raw == null || raw.length() > MAX_CONTENT_CHARS) {
+            throw new IOException("invalid model response size");
+        }
+        try {
+            return Json.object(raw);
+        } catch (IllegalArgumentException invalid) {
+            throw new IOException("invalid model response JSON", invalid);
+        }
     }
 
     private static void validatePrompt(String prompt) {

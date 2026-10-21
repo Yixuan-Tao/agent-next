@@ -4,7 +4,7 @@ import android.os.Bundle;
 
 public final class TargetSwipePacketsTest {
     public static void main(String[] args) {
-        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,720,1280,240,1,
+        DisplaySession display = new DisplaySession("display",1,4,"owned",2000,1080,1920,360,1,
                 DisplaySession.Status.ACTIVE);
         TargetSwipe valid = new TargetSwipe(4,6,100,200,300,500,400,3000,"observation");
         TargetSwipe decoded = TargetSwipePackets.decode(TargetSwipePackets.encode(valid),display,"observation");
@@ -16,7 +16,7 @@ public final class TargetSwipePacketsTest {
         fails(() -> TargetSwipePackets.decode(wrongType,display,"observation"));
         fails(() -> TargetSwipePackets.decode(TargetSwipePackets.encode(valid),display,"other"));
         fails(() -> TargetSwipePackets.decode(TargetSwipePackets.encode(
-                new TargetSwipe(4,6,0,0,720,500,400,2,"observation")),display,"observation"));
+                new TargetSwipe(4,6,0,0,1080,500,400,2,"observation")),display,"observation"));
         fails(() -> new TargetSwipe(4,6,0,0,300,500,99,2,"observation"));
         fails(() -> new TargetSwipe(4,6,0,0,300,500,2001,2,"observation"));
         System.out.println("TargetSwipePacketsTest: PASS (strict receipt, display, duration, observation)");

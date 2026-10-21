@@ -2,6 +2,8 @@
 
 brain 与 capability 之间的接口层。**不依赖 Android**，Java 8 兼容，方便 capability 的 Android library 实现；brain 使用 Java 17，但只通过这里的类型调用设备。
 
+在 [纯 GUI Beta](../docs/pure-gui-beta.md) 中继续作为设备端口边界，不增加直接完成日历、文件、闹钟等任务的业务 API。以下列出当前端口；统一执行器与取消上下文的演进是上层交付要求，不能据此假定当前接口已支持完整取消。
+
 ## 设计边界
 
 ```text
@@ -18,14 +20,14 @@ app → brain → device-api ← capability
 
 | 端口 | 作用 |
 |---|---|
-| `DeviceApi` | connect + capabilities + 四组控制器 + close |
+| `DeviceApi` | connect + capabilities + display/target/observation/input/task 五组控制器 + close |
 | `DisplayController` | 创建/检查/释放私有 display |
 | `TargetController` | 授权并启动目标、查询状态、释放 |
 | `ObservationController` | 观察 UI 树、抓取单帧 |
 | `InputController` | 定向 tap/setText/swipe/back；成功即消费观察 |
 | `TaskController` | 主屏接管（moveToMain）与回到私有 display |
 
-`DisplaySpec.standard()` 对应 capability 当前支持的 720×1280 / 240dpi；自定义尺寸由实现端决定是否接受。
+`DisplaySpec.standard()` 对应 capability 当前支持的 1080×1920 / 360dpi；像素与密度同步提高，因此逻辑 UI 尺寸保持不变。自定义尺寸由实现端决定是否接受。
 
 ## capability adapter
 
@@ -38,7 +40,7 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
 已知边界：
 
 - adapter 是阻塞式，需在 worker thread 调用；默认超时 15s。
-- `TargetController.release` 只清理客户端绑定；远端 target 随 private display 释放。
+- `TargetController.release` 经 connection driver 发起释放并等待 target 绑定清理；display 仍由拥有者显式释放。
 - `Observation.activityName` 目前为空；capability 的 observation 还没有当前 Activity 字段。
 - 真机 smoke 已覆盖 connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝。窗口切换的瞬时状态现在以 `WINDOW_CHANGED` 返回，可重试 observe。见 [device-adapter-smoke-2026-10-19.md](../docs/device-adapter-smoke-2026-10-19.md)。
 
@@ -71,4 +73,4 @@ JAVA_HOME=/path/to/jdk21 sh tools/test-device-api.sh
 ./gradlew :device-api:hostTest
 ```
 
-`DeviceApiContract` 定义端口语义；`FakeDeviceApi` 是参考实现/测试替身。capability adapter 接入后应复用同一套契约。
+`DeviceApiContract` 定义端口语义；`FakeDeviceApi` 是参考实现/测试替身，capability adapter 的 host 测试复用该契约。接口测试不能证明业务结果正确或实际设备兼容；这些由任务 verifier 和设备套件分别覆盖。

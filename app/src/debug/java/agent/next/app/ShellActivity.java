@@ -3,13 +3,19 @@ package agent.next.app;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Typeface;
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
+import android.media.ImageReader;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.Surface;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -117,6 +123,9 @@ public final class ShellActivity extends Activity {
 
     private TextView log;
     private ScrollView scroll;
+    private AudioTrack bystander;
+    private Thread bystanderWriter;
+    private volatile boolean bystanderRunning;
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -130,6 +139,8 @@ public final class ShellActivity extends Activity {
             startPromptSkill();
         } else if ("compat".equals(getIntent().getStringExtra("mode"))) {
             startCompatProbe();
+        } else if ("audio".equals(getIntent().getStringExtra("mode"))) {
+            startAudioProbe();
         } else if (getIntent().getBooleanExtra("autorun", true)) {
             startSmoke();
         }
@@ -211,6 +222,14 @@ public final class ShellActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         compatParams.topMargin = padding / 2;
         root.addView(compat, compatParams);
+
+        Button audio = new Button(this);
+        audio.setText("Run audio isolation probe");
+        audio.setOnClickListener(view -> startAudioProbe());
+        LinearLayout.LayoutParams audioParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        audioParams.topMargin = padding / 2;
+        root.addView(audio, audioParams);
 
         Button preview = new Button(this);
         preview.setText("Open preview / touch takeover");
@@ -330,6 +349,184 @@ public final class ShellActivity extends Activity {
             }
             running = false;
             append("--- compatibility probe end ---");
+        }
+    }
+
+    private void startAudioProbe() {
+        if (running) {
+            return;
+        }
+        running = true;
+        append("--- audio isolation probe start ---");
+        worker.execute(this::runAudioProbe);
+    }
+
+    private void runAudioProbe() {
+        BlockingDeviceApi api = null;
+        DisplayHandle display = null;
+        TargetHandle target = null;
+        ImageReader imageReader = null;
+        Surface surface = null;
+        boolean readOnlyMirror = false;
+        boolean preview = false;
+        try {
+            String packageName = getIntent().getStringExtra("package");
+            if (packageName == null || packageName.isBlank()) {
+                packageName = TARGET_PACKAGE;
+            }
+            if (!isInstalled(packageName)) {
+                append("AUDIO SKIP: package not installed " + packageName);
+                return;
+            }
+            append("audio: package=" + packageName);
+            api = new BlockingDeviceApi(
+                    listener -> new ShizukuConnectionDriver(getApplicationContext(), listener),
+                    60_000L);
+            append("audio: connect");
+            api.connect();
+            startBystanderTone(880);
+            append("audio: PHASE bystander_tone_on (unmuted expected)");
+            display = api.displays().create(DisplaySpec.standard());
+            append("audio: display " + display.token());
+            target = api.targets().open(display,
+                    TargetSpec.single("audio-probe", packageName));
+            append("audio: PHASE target_open (muted expected)");
+            pause(2500);
+            imageReader = ImageReader.newInstance(480, 800, PixelFormat.RGBA_8888, 3);
+            surface = imageReader.getSurface();
+            api.startReadOnlyMirror(display, surface);
+            readOnlyMirror = true;
+            append("audio: PHASE read_only_on (muted expected)");
+            pause(2000);
+            api.stopReadOnlyMirror(display);
+            readOnlyMirror = false;
+            append("audio: PHASE read_only_off (muted expected)");
+            pause(1500);
+            api.startPreview(display, surface);
+            preview = true;
+            append("audio: PHASE takeover_on (audible expected)");
+            pause(2500);
+            api.stopPreview(display);
+            preview = false;
+            append("audio: PHASE takeover_off (muted expected)");
+            pause(2000);
+            api.tasks().moveToMain(target);
+            append("audio: PHASE main_screen (audible expected)");
+            pause(2500);
+            api.tasks().moveToPrivate(target, display);
+            append("audio: PHASE private_screen (muted expected)");
+            pause(2000);
+            append("AUDIO PROBE PASS");
+        } catch (Throwable failure) {
+            Log.e(TAG, "audio isolation probe failed", failure);
+            append("AUDIO PROBE FAIL: " + failure);
+        } finally {
+            if (display != null && (preview || readOnlyMirror)) {
+                try {
+                    if (preview) {
+                        api.stopPreview(display);
+                    } else {
+                        api.stopReadOnlyMirror(display);
+                    }
+                } catch (Throwable failure) {
+                    append("audio: mirror cleanup " + failure);
+                }
+            }
+            if (target != null) {
+                try {
+                    api.targets().release(target);
+                    append("audio: PHASE target_released (restore follows on display release)");
+                } catch (Throwable failure) {
+                    append("audio: release target " + failure);
+                }
+            }
+            if (display != null) {
+                try {
+                    api.displays().release(display);
+                } catch (Throwable failure) {
+                    append("audio: release display " + failure);
+                }
+            }
+            if (imageReader != null) {
+                imageReader.close();
+            }
+            stopBystanderTone();
+            if (api != null) {
+                api.close();
+            }
+            running = false;
+            append("--- audio isolation probe end ---");
+        }
+    }
+
+    /** Plays a media tone from this app's UID so the device check can show its route is untouched. */
+    private void startBystanderTone(int frequency) {
+        int sampleRate = 48000;
+        int minimum = AudioTrack.getMinBufferSize(sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        AudioTrack created = new AudioTrack.Builder()
+                .setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build())
+                .setAudioFormat(new AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build())
+                .setBufferSizeInBytes(Math.max(minimum, 4096) * 2)
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .build();
+        bystander = created;
+        created.setVolume(1.0f);
+        created.play();
+        bystanderRunning = true;
+        bystanderWriter = new Thread(() -> {
+            short[] buffer = new short[1024];
+            double phase = 0;
+            double step = 2 * Math.PI * frequency / sampleRate;
+            try {
+                while (bystanderRunning) {
+                    for (int i = 0; i < buffer.length; i++) {
+                        buffer[i] = (short) (Math.sin(phase) * 12000);
+                        phase += step;
+                        if (phase > 2 * Math.PI) {
+                            phase -= 2 * Math.PI;
+                        }
+                    }
+                    created.write(buffer, 0, buffer.length);
+                }
+            } catch (Throwable failure) {
+                if (bystanderRunning) {
+                    Log.w(TAG, "bystander tone stopped", failure);
+                }
+            }
+        }, "bystander-tone");
+        bystanderWriter.start();
+        append("audio: bystander tone pkg=" + getPackageName()
+                + " uid=" + android.os.Process.myUid() + " freq=" + frequency);
+    }
+
+    private void stopBystanderTone() {
+        bystanderRunning = false;
+        AudioTrack current = bystander;
+        bystander = null;
+        if (current != null) {
+            try {
+                current.stop();
+            } catch (Throwable ignored) {
+                // The track may already be in an error state.
+            }
+            current.release();
+        }
+        append("audio: bystander tone stopped");
+    }
+
+    private static void pause(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 

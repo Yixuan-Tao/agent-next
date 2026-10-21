@@ -41,6 +41,7 @@ public final class SessionBridgeTest {
 
     public static void run() {
         promptFactoryCarriesStageData();
+        promptFactoryAllowsScopedBack();
         visualVerifierUsesConditions();
         try {
             scrollFallbackIsBounded();
@@ -95,6 +96,29 @@ public final class SessionBridgeTest {
         } catch (Exception failure) {
             throw new AssertionError("visual verifier test failed", failure);
         }
+    }
+
+    private static void promptFactoryAllowsScopedBack() {
+        LoopFakeDevice api = new LoopFakeDevice();
+        TargetHandle target = new TargetHandle("bridge-target", 1, "bridge-task",
+                "com.example.shop");
+        InMemoryWorkingMemory memory = new InMemoryWorkingMemory();
+        PromptSessionPolicyFactory factory = new PromptSessionPolicyFactory(request -> {
+            check(request.capabilities().contains(agent.next.brain.skill.SkillCapability.BACK),
+                    "generic session declares Back for recovery");
+            return new SkillModelStep.Back(RiskClass.LOW);
+        }, ignored -> null, memory);
+        LoopPolicy policy = factory.create(task(), subgoal(), target, 1);
+        LoopAction action = policy.next(new LoopContext(task(), subgoal(), observe(api, target),
+                0, 0, 0, memory)).orElseThrow();
+        check(action instanceof agent.next.brain.loop.BackAction, "Back proposal is usable");
+        Observation base = observe(api, target);
+        Observation outside = new Observation(base.status(), base.reference().orElseThrow(),
+                "com.example.other", base.activityName(), base.displayId(), base.windowId(),
+                true, base.capturedAt(), base.lookupCount(), false,
+                base.windowBounds().orElseThrow(), base.nodes());
+        check(policy.next(new LoopContext(task(), subgoal(), outside,
+                0, 0, 0, memory)).isEmpty(), "Back does not expand allowed target packages");
     }
 
     private static void scrollFallbackIsBounded() throws Exception {

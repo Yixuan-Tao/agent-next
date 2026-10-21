@@ -25,7 +25,57 @@ public final class TaskPlannerTest {
         rejectsFirstTargetMismatch();
         rejectsCycle();
         ignoresUnknownFields();
+        reactivePlanConfirmsOutcomesOnly();
+        reactivePlanPreservesGoalAndScope();
+        reactivePlanRejectsUnboundedConditions();
         System.out.println("TaskPlannerTest: PASS (plan, clarification, scope, DAG)");
+    }
+
+    private static void reactivePlanConfirmsOutcomesOnly() {
+        try {
+            PlanningResult result = planner("{\"successCriteria\":[\"天气显示\",\"日历提醒存在\"]}")
+                    .planReactive(request());
+            check(result.plan().subgoals().size() == 1, "one outcome envelope");
+            check(result.plan().subgoals().get(0).intent().equals(request().goal()), "original goal drives loop");
+            check(result.plan().subgoals().get(0).postconditions().get(0).description().equals("天气显示"),
+                    "visible outcomes replace procedural goal text");
+            check(result.plan().task().successCriteria().size() == 2,"independent bounded outcome conditions");
+        } catch (IOException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    private static void reactivePlanPreservesGoalAndScope() {
+        PlanningResult result;
+        try {
+            result = planner("{\"successCriteria\":[\"天气显示\"]}").planReactive(request());
+        } catch (IOException failure) {
+            throw new AssertionError("reactive outcome extraction", failure);
+        }
+        check(!result.needsClarification(), "ordinary request proceeds without confirmation");
+        check(result.plan().task().successCriteria().size() == 1,
+                "model extracts only outcome conditions");
+        check(result.plan().task().goal().equals(request().goal()),"complete original task is preserved");
+        check(result.plan().task().constraints().equals(request().constraints()),"constraints are preserved");
+        check(result.plan().task().deniedActions().equals(request().deniedActions()),"denied actions are preserved");
+        check(result.plan().task().allowedApps().equals(request().allowedApps()),"app scope is preserved");
+        check(result.plan().subgoals().size() == 1
+                        && result.plan().subgoals().get(0).intent().equals(request().goal()),
+                "reactive loop receives the complete original goal");
+    }
+
+    private static void reactivePlanRejectsUnboundedConditions() {
+        for (String content : List.of("{\"successCriteria\":[]}",
+                "{\"successCriteria\":[\"" + "x".repeat(121) + "\"]}")) {
+            try {
+                planner(content).planReactive(request());
+                throw new AssertionError("invalid outcome conditions must be rejected");
+            } catch (IllegalArgumentException expected) {
+                // An invalid extraction must never fall back to unverified completion.
+            } catch (IOException failure) {
+                throw new AssertionError(failure);
+            }
+        }
     }
 
     private static void validPlan() {

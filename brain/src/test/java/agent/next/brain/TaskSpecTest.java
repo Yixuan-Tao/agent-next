@@ -99,8 +99,8 @@ final class TaskSpecTest {
                 () -> new Budget(1, Duration.ofMinutes(1), 2, 0), "zero no-progress threshold");
         check(Budget.defaults().maxActions() == 40, "default action budget");
         check(Budget.defaults().maxDuration().equals(Duration.ofMinutes(10)), "default duration");
-        check(Budget.defaults().maxConsecutiveNoEffect() == 2, "default no-effect threshold");
-        check(Budget.defaults().maxConsecutiveNoProgress() == 3, "default no-progress threshold");
+        check(Budget.defaults().maxConsecutiveNoEffect() == 4, "default no-effect threshold");
+        check(Budget.defaults().maxConsecutiveNoProgress() == 5, "default no-progress threshold");
     }
 
     private static TaskSpec spec(AutonomyLevel level) {

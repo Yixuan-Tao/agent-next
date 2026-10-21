@@ -13,6 +13,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.view.Display;
 import android.view.Surface;
+import agent.next.device.DisplaySpec;
 import java.lang.reflect.Constructor;
 
 /** API 36 shell adapter. Hidden names are pinned to the Android 16 sources in docs/device-capability.md. */
@@ -87,13 +88,15 @@ final class AndroidDisplayResources implements DisplayLifecycle.Factory {
 
         @Override public void open() throws Exception {
             requirePrimaryFocus();
+            DisplaySpec spec = DisplaySpec.standard();
             Constructor<DisplayManager> constructor = DisplayManager.class.getDeclaredConstructor(Context.class);
             constructor.setAccessible(true);
             DisplayManager manager = constructor.newInstance(shellContext());
-            reader = ImageReader.newInstance(720, 1280, PixelFormat.RGBA_8888, 3);
+            reader = ImageReader.newInstance(spec.width(), spec.height(), PixelFormat.RGBA_8888, 3);
             reader.setOnImageAvailableListener(this::drain, new Handler(Looper.getMainLooper()));
             surface = reader.getSurface();
-            display = manager.createVirtualDisplay("agent-phone", 720, 1280, 240, surface, creationFlags());
+            display = manager.createVirtualDisplay("agent-phone", spec.width(), spec.height(),
+                    spec.densityDpi(), surface, creationFlags());
             if (display == null) throw new IllegalStateException("DisplayManager did not create a display");
             displayId = display.getDisplay().getDisplayId();
             if (displayId <= 0) throw new IllegalStateException("Independent display must not be display 0");

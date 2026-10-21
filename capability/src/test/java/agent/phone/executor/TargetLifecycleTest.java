@@ -66,7 +66,73 @@ public final class TargetLifecycleTest {
         tapsRequireTheLatestObservationAndWindow();
         textsRequireTheLatestObservationAndField();
         swipesAndBacksRequireTheLatestObservation();
+        audioMustBeIsolatedBeforeLaunch();
+        slowObservationsCanRecoverWithoutReusingOldInputEvidence();
+        staleTapBeforeInjectionCanRecover();
         System.out.println("TargetLifecycleTest: PASS");
+    }
+    private static void staleTapBeforeInjectionCanRecover() throws Exception {
+        Fixture f = new Fixture(); TargetSession target = f.bind("com.example.first");
+        TargetObservation observed = f.lifecycle.run(target.token,target.generation,false);
+        f.staleBeforeTap = true;
+        fails(() -> f.lifecycle.tap(target.token,target.generation,observed.observationId,100,100));
+        f.staleBeforeTap = false;
+        fails(() -> f.lifecycle.tap(target.token,target.generation,observed.observationId,100,100));
+        TargetObservation fresh = f.lifecycle.run(target.token,target.generation,false);
+        f.lifecycle.tap(target.token,target.generation,fresh.observationId,100,100);
+        check(f.allocations == 1,"a pre-injection window change requires a fresh observation, not a new session");
+    }
+    private static void slowObservationsCanRecoverWithoutReusingOldInputEvidence() throws Exception {
+        Fixture f = new Fixture();
+        TargetSession target = f.bind("com.example.first");
+        TargetObservation first = f.lifecycle.run(target.token,target.generation,false);
+        f.expireDuringRead = true;
+        TargetObservation slow = f.lifecycle.run(target.token,target.generation,false);
+        check(slow.status == TargetObservation.Status.TARGET_NOT_READY && slow.nodes.isEmpty(),
+                "observation deadline returns no actionable content without breaking the connection");
+        fails(() -> f.lifecycle.tap(target.token,target.generation,first.observationId,100,100));
+        f.expireDuringRead = false;
+        TargetObservation recovered = f.lifecycle.run(target.token,target.generation,false);
+        check(recovered.status == TargetObservation.Status.READY && recovered.sequence > slow.sequence
+                && f.allocations == 1 && f.closes == 0,
+                "a later observation recovers on the same authorized observer");
+        f.lifecycle.tap(target.token,target.generation,recovered.observationId,100,100);
+        f.expireDuringRead = true; f.throwTimeoutDuringRead = true;
+        check(f.lifecycle.run(target.token,target.generation,false).status == TargetObservation.Status.TARGET_NOT_READY,
+                "a deadline thrown inside the observer is also retryable");
+        f.expireDuringRead = false; f.throwTimeoutDuringRead = false;
+        check(f.lifecycle.run(target.token,target.generation,false).status == TargetObservation.Status.READY,
+                "observer timeout does not invalidate the authorized target");
+        Fixture changed = new Fixture(); TargetSession other = changed.bind("com.example.first");
+        changed.expireDuringRead = true; changed.throwTimeoutDuringRead = true; changed.changeDuringRead = true;
+        fails(() -> changed.lifecycle.run(other.token,other.generation,false));
+        changed.expireDuringRead = false; changed.changeDuringRead = false; changed.invalid = false;
+        fails(() -> changed.lifecycle.run(other.token,other.generation,false));
+    }
+    private static void audioMustBeIsolatedBeforeLaunch() throws Exception {
+        Fixture f = new Fixture();
+        TargetSession target = f.bind("com.example.first");
+        f.failAudio = true;
+        fails(() -> f.lifecycle.run(target.token,target.generation,true));
+        check(f.launches == 0 && f.allocations == 0,"unavailable audio isolation blocks target launch");
+        Fixture foreground = new Fixture();
+        TargetSession other = foreground.bind("com.example.first");
+        foreground.foreground = true;
+        foreground.lifecycle.run(other.token,other.generation,true);
+        check(foreground.audioMutes == 0,"a user's foreground app must not be muted on refusal");
+        Fixture lateForeground = new Fixture();
+        TargetSession late = lateForeground.bind("com.example.first");
+        lateForeground.lifecycle.run(late.token,late.generation,false);
+        check(lateForeground.audioMutes == 1 && lateForeground.audioReleases == 0,
+                "agent-bound target starts muted");
+        lateForeground.foreground = true;
+        check(lateForeground.lifecycle.run(late.token,late.generation,false).status
+                        == TargetObservation.Status.FOREGROUND_CONFLICT
+                        && lateForeground.audioReleases == 1,
+                "post-bind foreground refusal hands sound back to the user");
+        lateForeground.foreground = false;
+        lateForeground.lifecycle.close();
+        check(lateForeground.audioReleases == 1,"close after user handback does not double release");
     }
     static void capturesUseTheCurrentObserverAndRejectChangedOwnership() throws Exception {
         Fixture f = new Fixture(); TargetSession target = f.bind("com.example.first");
@@ -96,7 +162,10 @@ public final class TargetLifecycleTest {
         fails(() -> f.lifecycle.tap(target.token,target.generation,first.observationId,100,200));
         TargetObservation second = f.lifecycle.run(target.token,target.generation,false);
         fails(() -> f.lifecycle.tap(target.token,target.generation,first.observationId,100,200));
-        fails(() -> f.lifecycle.tap(target.token,target.generation,second.observationId,720,200));
+        fails(() -> f.lifecycle.tap(target.token,target.generation,second.observationId,1080,200));
+        Fixture edge = new Fixture(); TargetSession edgeTarget = edge.bind("com.example.first");
+        TargetObservation edgeObservation = edge.lifecycle.run(edgeTarget.token,edgeTarget.generation,true);
+        edge.lifecycle.tap(edgeTarget.token,edgeTarget.generation,edgeObservation.observationId,1079,1919);
         fails(() -> f.lifecycle.tap("stale",target.generation,second.observationId,100,200));
         f.foreground = true;
         fails(() -> f.lifecycle.tap(target.token,target.generation,second.observationId,100,200));
@@ -147,7 +216,7 @@ public final class TargetLifecycleTest {
         fails(() -> f.lifecycle.back(target.token,target.generation,second.observationId));
         Fixture bounds = new Fixture(); TargetSession bt = bounds.bind("com.example.first");
         TargetObservation bo = bounds.lifecycle.run(bt.token,bt.generation,true);
-        fails(() -> bounds.lifecycle.swipe(bt.token,bt.generation,bo.observationId,0,0,720,900,400));
+        fails(() -> bounds.lifecycle.swipe(bt.token,bt.generation,bo.observationId,0,0,1080,900,400));
         fails(() -> bounds.lifecycle.swipe(bt.token,bt.generation,bo.observationId,0,0,100,900,99));
         Fixture primary = new Fixture(); TargetSession pt = primary.bind("com.example.first");
         TargetObservation po = primary.lifecycle.run(pt.token,pt.generation,true);
@@ -168,12 +237,19 @@ public final class TargetLifecycleTest {
         String launcher = "Main";
         boolean secondarySupported = true;
         boolean foreground,failOpen,failClose,ready = true,changeDuringRead,foregroundDuringRead,uidDuringRead,invalid;
-        boolean expireDuringCapture,wrongFrameId,wrongTapWindow;
-        final DisplayLifecycle.Info info = new DisplayLifecycle.Info(4,"owned",2000,720,1280,240,1,"agent-phone");
+        boolean expireDuringRead,throwTimeoutDuringRead,expireDuringCapture,wrongFrameId,wrongTapWindow,staleBeforeTap;
+        boolean failAudio;
+        int audioMutes,audioReleases;
+        final TargetAudioIsolation audio = new TargetAudioIsolation(uid -> {
+            if (failAudio) throw new IllegalStateException("audio unavailable");
+            audioMutes++;
+            return () -> audioReleases++;
+        });
+        final DisplayLifecycle.Info info = new DisplayLifecycle.Info(4,"owned",2000,1080,1920,360,1,"agent-phone");
         final TargetLifecycle lifecycle = new TargetLifecycle((token,generation) -> {
             if (invalid || !"display".equals(token) || generation != 1) throw new SecurityException("invalid display");
             return new DisplayLifecycle.Session(token,generation,info,DisplayLifecycle.Status.ACTIVE);
-        },this);
+        },this,audio);
         TargetSession bind(String pkg) throws Exception {
             return lifecycle.bind("task","display",1,new String[]{"com.example.first","com.example.second"},pkg);
         }
@@ -189,12 +265,14 @@ public final class TargetLifecycleTest {
                 @Override public void open() { if (failOpen) throw new IllegalStateException("partial connect"); }
                 @Override public TargetObservation read(String id,long sequence,long started,long deadline,boolean nodes) {
                     invalid = changeDuringRead; foreground = foregroundDuringRead; if (uidDuringRead) uid++;
+                    if (expireDuringRead) now = deadline;
+                    if (throwTimeoutDuringRead) throw new TargetLifecycle.RequestTimeoutException();
                     TargetObservation.Node field = new TargetObservation.Node(id + ":0",0,6,-1,
-                            new TargetObservation.Bounds(0,0,720,400),"field","","com.example:id/field",
+                            new TargetObservation.Bounds(0,0,1080,400),"field","","com.example:id/field",
                             "android.widget.EditText",true,true,true,false,true,true,false,false);
                     return new TargetObservation(target,id,sequence,started,now,
                             ready ? TargetObservation.Status.READY : TargetObservation.Status.TARGET_NOT_READY,
-                            ready ? 6 : -1,ready ? new TargetObservation.Bounds(0,0,720,1280) : null,2,false,
+                            ready ? 6 : -1,ready ? new TargetObservation.Bounds(0,0,1080,1920) : null,2,false,
                             ready ? Collections.singletonList(field) : Collections.emptyList());
                 }
                 @Override public void close() { closes++; if (failClose) throw new IllegalStateException("cleanup failure"); }
@@ -202,9 +280,10 @@ public final class TargetLifecycleTest {
                     captures++; invalid = changeDuringRead; foreground = foregroundDuringRead; if (uidDuringRead) uid++;
                     if (expireDuringCapture) now = deadline;
                     return new FrameEvidence.Capture(new FrameEvidence(target,wrongFrameId ? "old-frame" : id,sequence,started,now,observationId,
-                            6,720,1280,45),FrameEvidenceTest.png());
+                            6,1080,1920,45),FrameEvidenceTest.png());
                 }
                 @Override public TargetTap tap(String observationId,int x,int y,int expectedWindowId,long deadline) {
+                    if (staleBeforeTap) throw new TargetTap.StaleException(4,observationId,null);
                     return new TargetTap(4,wrongTapWindow ? 7 : expectedWindowId,x,y,now,observationId);
                 }
                 @Override public TargetText setText(String observationId,String ref,String text,int expectedWindowId,long deadline) {

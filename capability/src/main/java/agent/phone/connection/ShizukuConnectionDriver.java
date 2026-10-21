@@ -85,13 +85,13 @@ public final class ShizukuConnectionDriver implements ConnectionDriver {
     }
 
 
-    public boolean startPreviewMirror(android.view.Surface surface) {
-        return connection.startPreviewMirror(surface);
+    public boolean startPreviewMirror(android.view.Surface surface, int channel) {
+        return connection.startPreviewMirror(surface,channel);
     }
 
 
-    public void stopPreviewMirror() {
-        connection.stopPreviewMirror();
+    public boolean stopPreviewMirror(int channel) {
+        return connection.stopPreviewMirror(channel);
     }
 
 

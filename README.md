@@ -1,113 +1,135 @@
-# agent-next
+# AgentNext
 
-新项目的 **capability 种子仓库**。当前包含设备能力层、纯 JVM 设备边界、领域骨架、最小 app shell 和测试工具；尚不包含完整 brain loop 或产品 UI。
+AgentNext 是一个 Android 手机 Agent 原型，探索这样一种体验：**用户继续正常使用手机时，Agent 在同一台手机上操作真实 App，完成真实任务，而不切换用户前台、不抢焦点和输入法。**用户可以在不方便或需要本人处理的步骤收到提示，并自行决定何时接管。
 
-来源：从旧仓库 `agent-phone`（提交 `5846095`）按 [新项目保留清单](docs/new-project-retention.md) 复制。旧仓库保留为证据和参考，不在这里通过 submodule/源码依赖引用旧 `AgentLoop`/`TaskPlanner`/`MainActivity`。
+这道题关注的核心是“同时使用”和“不打扰”。Agent 必须根据正在发生的界面状态选择下一步；固定点击回放不算完成。任务结束时应提供可核验的结果，或清楚说明停在什么边界、还需要用户做什么。
 
-## 当前包含
+> **当前状态：可录制单任务演示的研发原型，尚未证明满足题目核心验收。** 2026-10-20 已在 Redmi Pad Pro（平板，API 36、夸克 10.19.0.1165）用同一候选 APK 连续三次完成“搜索做法 → 打开正文 → 返回实际标题”，每轮4次真实界面输入；从绑定目标到完成约54–56秒，不含规划审阅。用户反馈主屏使用正常，但尚无可供评审复核的连续同步视频。这只证明该设备、App版本和同一主题任务的重复性，不是通用成功率，也不等于并行验收已通过。
+
+2026-10-21 增补目标 App 音频隔离：后台执行与电脑只读监看时目标 App 默认静音，用户主动接管时恢复，交还后重新静音；已在同一平板验证系统路由（目标 UID 离开扬声器进入丢弃 sink，其他 App 路由与全局音量不变）。这是单设备工程证据，真实第三方 App 播放路径、耳机/蓝牙、Android 13 与完整音频焦点隔离仍未验证，见[音频隔离验证记录](docs/device-audio-isolation-2026-10-21.md)。
+
+同日完成主动交接（handoff）真机闭环：在真实夸克的受控验证页上，Agent 只发通知、不抢前台地请求接管；用户从通知进入预览完成验证，关闭后服务先确认重新静音，用户点“完成，继续”后 Agent 才回到私有屏继续，停止后通知/音频策略/display 全部释放。验证页是受控内容（非真实登录/支付/CAPTCHA），凭据/承诺动作的主动通知仍是缺口。详见[交接边界验证记录](docs/device-handoff-2026-10-21.md)。
+
+## 题目硬性要求对照（2026-10-21）
+
+2026-10-21 执行策略更新：自然语言提交后直接开始，内部计划不再由用户审阅；只有缺少必要信息时补充后继续，界面显示进展并提供暂停、停止和接管。默认改用任务级“实时观察 → 单个动作 → 新页面反馈”的持续循环，节点按当轮编号选择，失败动作不原样重复；完成须独立视觉核验，跨 App 结果可分别留证。启动固定等待已移除。实现与验证边界见[当前页面驱动执行说明](docs/reactive-agent-2026-10-21.md)；此前真机成功记录对应旧执行版本。
+
+以题目给的六条硬性要求为最终验收口径；内部纯 GUI Beta 门槛比它更严，是工程目标而不是替代口径。当前**尚未满足**全部硬性要求，缺的是可复核证据而不是单点能力。
+
+| 硬性要求 | 当前状态 | 已有证据 / 主要缺口 |
+|---|---|---|
+| 是 Agent，不是回放脚本 | **部分** | 产品浏览器演示由通用模型根据实时观察逐动作决策，失败反馈进入下一轮，未命中定位的提议不派发；已加入开源 watcher 思路的通用弹窗检测/关闭（受控弹窗页真机验证）与慢加载等待。缺口：跨主题/跨 App 泛化未证明；小米商城促销浮层无可访问关闭控件仍会卡住；部分 domain skill 仍是流程化预置。 |
+| 和用户同时用手机 | **部分** | 架构上 Agent 在私有虚拟屏执行，用户主屏继续使用；用户反馈主屏使用正常；交接期间用户前台保持 `MainActivity` 不被切换。缺口：没有用户持续操作的同步演示视频，也没有正式的真实并发验收；20 分钟 soak 只证明前台服务存活，不是任务并发。 |
+| 操作真实第三方 App | **部分** | 夸克 10.19.0.1165 内完成“搜索→打开正文→报告并核验标题”连续三次 DONE；京东 adapter smoke 通过。缺口：仅单一主题重复，冻结任务集上的成功率/稳定性/效率未统计，新主题失败记录仍保留。 |
+| 不打扰用户 | **部分** | 设备层把输入和观察限定在私有 display，不切用户前台/焦点/输入法；目标 App 音频默认静音、只读监看无声、用户接管才恢复；轻量状态提示 + 交接通知；交接通知在用户接管期间保持可操作。验证/风控页与**付费/收银台页面**都会自动请求非抢屏接管（受控付费页已真机验证，任务文本未提停止）；真实小米商城购物流程未跑通（RN 搜索页促销浮层/加载），因此真实 App 付费边界仍待验证。缺口：真实并发卡顿/焦点抖动未量化；凭据动作尚未主动发通知；音频按 UID 隔离。 |
+| 结果可验证 | **部分** | 浏览器任务做最终同帧标题/主题/正文核验，失败如实报 FAILED/NEED_USER，并说明停在的边界；受控验证页上验证了“停在边界→用户处理→页面出现完成标记→Agent 重新观察确认”的闭环；付费边界自动停在“确认订单”页（受控页面）。缺口：独立结果契约只覆盖浏览器任务；真实小米商城/支付/登录/验证码边界未验证。 |
+| 设备权限可说明 | **满足** | 使用无线 ADB + Shizuku（普通开发者可得），**不使用 Root、系统签名或修改 ROM**。普通用户落地仍需先安装 Shizuku 并通过无线调试授权，当前是开发者可配置路径，一键化流程未解决；HyperOS 首次侧载需开启“USB 安装/USB 调试（安全设置）”。 |
+
+答辩时还需说明：若后续改用 Root/系统签名/改 ROM 方案，必须在 README 与答辩中补充权限、风险和普通用户落地方式；当前方案不依赖这些能力。
+
+## 目标体验
+
+用户在主屏继续刷内容、聊天或输入；Agent 在独立的私有虚拟屏中打开同一 Android 用户空间里的 App，观察控件和页面变化，逐步决定如何操作。后台任务不应把 App 切到用户前台，不应改变用户正在看的页面、键盘或焦点，也不应把目标 App 的声音送到用户扬声器。用户可看到轻量状态，并在需要时主动接管；接管时目标 App 声音恢复，交还后重新静音。
+
+演示应同时呈现三件事：用户持续操作手机、Agent 的真实执行画面、真实 App 中最终达成的结果。建议用一个已在目标设备反复跑通的低风险多步任务；账号、消息和个人内容使用演示数据。若任务需要本人确认，展示清楚的暂停状态和完成边界。
+
+## 技术路径与取舍
+
+当前选用 Android 私有虚拟屏作为隔离 Agent 操作与用户主屏的主要路径：通过 Shizuku user service 创建 display，将目标 App task 移入私有屏，再对该屏做定向观察和输入；交互预览用于人工接管，另有 Debug 版电脑只读监看，可在 Agent 执行时显示实际后台画面。目标 App 的声音默认隔离：后台执行和只读监看时按 UID 静音，只有用户主动接管（交互预览或移到主屏接管）才恢复，交还 Agent 后重新静音；隔离失败会阻止任务启动，而不是有声执行。
+
+这条路径让 Agent 操作 Android 上的真实 App UI，同时避免直接用主屏手势争抢用户焦点。设备层限制输入目标和观察凭证，brain 负责任务规划、循环、风险和验证，app 负责产品入口与运行时接线。它的代价是依赖 Shizuku 和系统对虚拟屏、task move、按 UID 音频路由的支持，跨厂商兼容性、安装门槛和生命周期恢复都要继续验证。最低 SDK 声明只是构建配置，不代表所有 Android 版本和设备已通过验收。
+
+当前原型不要求 Root、系统签名或修改 ROM；运行前需要用户单独安装并启动 Shizuku，再授权 AgentNext 使用其 user service。非 Root 设备上，Shizuku 的首次启动通常要通过 Android 无线调试/ADB 完成。因而现阶段属于开发者可配置的测试路径，不是面向普通用户的一键安装体验；普通设备的完整设置指引、厂商兼容性和无电脑初始化流程仍待补齐。
+
+本项目把界面作为业务执行路径，不以 CalendarContract、MediaStore 或业务私有接口直接写入来替代 App 操作。测试工具可以独立检查结果，但不能把检查数据喂给 Agent 冒充其看见的界面证据。支付、发送、删除、登录与验证码等边界需要明确的风险策略和用户参与；当前实现仍需更多对抗性验证。
+
+### 当前实现状态
+
+| 部分 | 已有内容 | 当前限制 |
+|---|---|---|
+| 设备执行 | Shizuku/AIDL 服务、私有 display、目标 App 启动、定向观察/截图/输入、task move、预览、目标 UID 音频隔离 | 设备与 ROM 兼容面有限；并发使用和长期运行尚未完整验收；音频只按 UID 隔离，真实第三方播放路径与第二设备未验证 |
+| Agent 核心 | JVM 任务规划、子目标执行、模型动作反馈、语义动作执行器、基于实际控件的风险检查；限定浏览器任务已有原始目标与标题核验 | 已禁用产品路径有缺陷的全任务重规划；结果核验尚未覆盖其他任务，泛化与故障恢复证据有限 |
+| App 入口 | 任务输入、计划审阅、执行状态、停止、设置、人工接管 | Service 尚未完整拥有可恢复会话；任务隔离、进程恢复和结果报告待完善 |
+| GUI 能力 | 控件观察与输入；部分 App/诊断流程和 Google Files 建文件夹流程 | 不等于通用 App 泛化；弹窗、页面变化、不同语言和失败恢复需要更多真机证据 |
+| 评测 | host 回归、设备探针及按日期保存的 smoke 记录 | 尚无冻结任务集上的端到端成功率，也没有题目要求的并行演示视频 |
+
+因此，当前适合称为**手机并行操作方向的工程原型**。它还不是可以承诺任意 App、任意任务可靠完成的通用 Agent，也尚不能宣称通过了“用户持续使用手机时无干扰完成任务”的验收。
+
+## 项目结构
 
 ```text
-capability/   Android library：AIDL、Shizuku 连接、display/target、
-              observation/frame、定向输入、preview mirror、主屏 task move、安全策略
-device-api/   纯 JVM 设备边界：display/target/observation/frame/input/task-move 端口与契约
-brain/        纯 JVM 骨架：TaskSpec/TaskGraph/FastLoop/SlowLoop/SkillPackage/Memory/Effect/RiskGate/HumanGateway
-app/          最小 shell：device-api smoke + FastLoop + LoopRunner + 真实模型 prompt skill
-testkit/      合成前台 App、准入探针、设备故障探针、旧 loop 的布景脚本（仅参考）
-tools/        capability/device-api/brain 的 host 回归脚本
-docs/         loop 重设计 + 保留清单 + capability 契约 + 决策记录 + 设备回归
+app/          Android 任务入口、运行时、预览与设置
+brain/        纯 JVM 规划、循环、动作策略、风险与验证
+device-api/   纯 JVM 设备操作接口和数据契约
+capability/   Android/Shizuku 服务、虚拟屏、观察与定向输入
+testkit/      设备布景、诊断探针、故障注入与独立核验工具
+docs/         架构决策、按日期记录的验证证据和后续计划
+tools/        host 测试与构建辅助脚本
 ```
 
-尚未包含：
+主要调用关系：
 
-- `brain/` 的任意 DAG 重排、多帧/视频、社区 registry：当前有 TaskPlanner、SessionRunner、FastLoop + SlowLoop、workflow/prompt skill（真实文本+PNG API）、视觉 verify/extract、验证/信任门；
-- preview mirror + 用户触摸接管的真机链路；
-- `app/` 的产品 UI/自然语言入口/人工网关/前台服务：当前只有最小 smoke shell；
-- 新 loop 的真实设备验收；
-- 真正的视频/文字接管 UI（capability 只提供底层能力）。
+```text
+自然语言任务 → app → brain 规划与逐步决策
+                         ↓ 语义动作
+私有 display ← capability ← device-api
+     ↓
+真实 App 界面 → 新观察与结果核验 → 向用户报告完成或交接
+```
 
-## 构建
+## 构建与运行
 
-需要 Android SDK 36、JDK 21、Gradle wrapper。Beta 基线为 Android 13（API 33）及以上；第二台 Android 13 手机待连接验收。`local.properties` 不提交，按本机 SDK 路径创建。
+需要 JDK 21、Android SDK 36 / Build Tools 36.0.0 和仓库 Gradle wrapper。最低安装 API 为 33；该配置不代表 API 33 设备验收通过。先在本地 `local.properties` 配好 `sdk.dir`，并设置 JDK 与 Gradle 缓存路径：
 
 ```sh
-JAVA_HOME=/path/to/jdk21 \
-GRADLE_USER_HOME=/path/to/gradle-cache \
-./gradlew --offline :capability:assembleDebug :app:assembleDebug
+export JAVA_HOME=/path/to/jdk21
+export GRADLE_USER_HOME=/path/to/gradle-cache
+./gradlew :capability:assembleDebug :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n agent.next.app/.MainActivity
 ```
 
-`capability` 是 Android library；`app` 是用于真机 smoke 的最小 shell，不是产品 UI。
+依赖已缓存时可以添加 `--offline`。运行前需要启动并授权 Shizuku，并在“设置与隐私”中导入模型配置。Debug keystore 准备方式和诊断入口见 [app README](app/README.md)；设备服务边界和已有真机 smoke 见 [capability README](capability/README.md)。模型调用会向配置的服务发送任务上下文及界面观察数据，请使用演示账号与非敏感内容，详见[隐私说明](docs/privacy.md)。
 
-## host / 设备回归
+## 验证与演示
+
+仓库有 JVM/host 测试及设备 smoke。常用命令如下：
 
 ```sh
-QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-service.sh
-GRADLE_USER_HOME=/path/to/gradle-cache \
-QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-shizuku-adapter.sh
-QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-device-api.sh
-QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-capability-adapter.sh
-QUAL_JAVA_HOME=/path/to/jdk21 sh tools/test-brain.sh
+QUAL_JAVA_HOME="$JAVA_HOME" sh tools/test-service.sh
+QUAL_JAVA_HOME="$JAVA_HOME" sh tools/test-shizuku-adapter.sh
+QUAL_JAVA_HOME="$JAVA_HOME" sh tools/test-device-api.sh
+QUAL_JAVA_HOME="$JAVA_HOME" sh tools/test-capability-adapter.sh
+QUAL_JAVA_HOME="$JAVA_HOME" sh tools/test-brain.sh
+QUAL_JAVA_HOME="$JAVA_HOME" sh tools/test-browser-verifier.sh
+python3 -m unittest discover -s tools -p test_demo_viewer.py
 ```
 
-已验证：
+这些测试验证模块、协议和部分策略，不证明真实 App 任务成功，更不证明主屏并发使用无干扰。设备诊断会因模式不同而实际启动 App 或注入操作，运行前请查看 [app 诊断说明](app/README.md)。已有记录列在[验证文档](#文档与验证记录)。
 
-- `:capability:assembleDebug` BUILD SUCCESSFUL；
-- `:app:assembleDebug` BUILD SUCCESSFUL；
-- `test-service.sh` 全部 PASS（服务/display/target/observation/frame/packet）；
-- `test-shizuku-adapter.sh` PASS（真实 13.1.5 AIDL 适配、UID/callback/cancel 竞态）；
-- `test-device-api.sh` PASS（FakeDeviceApi 上的 display/target/observation/input/task-move 契约）；
-- `test-capability-adapter.sh` PASS（BlockingDeviceApi + FakeConnectionDriver 契约，含 preview/user touch 端口）；
-- Settings/privacy：加密 config 状态、episodic memory 计数与清除、隐私说明真机 PASS；
-- Release APK：已用内部 keystore 签名，minSdk 33/target 36，release 的 PreviewActivity 不导出；待 Android 13 安装验证；详见 [docs/release-beta.md](docs/release-beta.md)；
-- 本地加密存储（AES-GCM + AndroidKeyStore）：`model-config.enc`、`episodic.enc` 真机迁移验证 PASS；明文 config 已删除；
-- `test-brain.sh` 全部 PASS（17 个 suite：TaskGraph/autonomy/spec/risk/effect/confirmation/memory/slow-loop/skill/fast-loop/slow-loop-runner/skill-feature/model-api/task-planner/session-runner/session-bridge/session-integration）；
-- 设备首轮回归 PASS：Redmi Pad Pro / Android 16 上的私有 display、京东观察、单帧、中文 setText、定向触摸、主屏 task move、SharedMemory 帧内存；详见 [docs/device-regression-2026-10-19.md](docs/device-regression-2026-10-19.md)；
-- capability adapter 真机 smoke PASS：connect/create/open/observe/frame/tap/setText/search/task-move/release；主屏 agent 输入被拒绝；详见 [docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；
-- FastLoop 真机 smoke PASS：京东首页 → 搜索 → setText → 提交 → 结果页，DONE actions=4；详见 [docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；
-- LoopRunner 真机 smoke PASS：第一轮 NO_EFFECT → SlowLoop 替换 approach → 第二轮成功，DONE attempts=2 replans=1 totalActions=6；详见 [docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；
-- 兼容性准入：Android 16 平板上 `mode=compat` PASS，shell service 报告 `PREVIEW_MIRROR`；Android 13 手机待连接；详见 [docs/android-13-compat.md](docs/android-13-compat.md)；
-- Product UI/plan review smoke：真实模型四段计划、确认按钮、SessionRunner 接线 PASS；s2 加入 bounded scroll fallback 后 verifier 2/2 通过，DONE actions=1 attempts=2；详见 [docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；
-- Chain A PASS：Quark 天气结果 + 降雨信息视觉 verifier 2/2，calendar domain skill 创建“带伞”明天 09:00 提醒，DONE actions=3 attempts=6；详见 [docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；
-- 20min foreground soak PASS：13:05 start → 13:10/13:15 前台服务存活 → 13:25 定时停止，进程未崩溃；不是完整 agent 并发；详见 [docs/foreground-soak.md](docs/foreground-soak.md)；
-- Chain B cart PASS：JD 首页 → 购物车，视觉 verifier s2/s3 true，DONE actions=1 attempts=3，未结算；
-- JD 去硬编码坐标 + 视觉定位已实现；JD deeplink 触发验证，纯自动加购不可保证；
-- JD 自动化已去除硬编码坐标，改用控件+视觉定位；s2 搜索提交仍失败；
-- JD result-card policy 已加入；s2 被首页广告浮层阻塞，自动化加购未 PASS；
-- JD 规划器已强制独立加购子目标（4 subgoals），执行仍停在搜索；
-- JD 搜索确定性 policy 已加入但自动化加购仍停在 s2；
-- JD 加购自动化仍未 PASS：搜索 s2 停滞；人工加购 PASS 数量 3→4；
-- JD 加购自动化 policy 已加入（未验证）；人工加购 PASS：数量 3→4；
-- JD 详情/加购人工 PASS：验证后详情 136 nodes，加入购物车后数量 3→4，未结算；agent 自动化加购待做；详见 [docs/chain-b-notes.md](docs/chain-b-notes.md)；
-- Release end-to-end PASS：文件管理器安装/非 debuggable/config 导入/Shizuku/JD 首页 DONE actions=2 attempts=4；Android 13 待验；
-- Release verification：`tools/verify-release.sh` PASS（签名/SDK/launcher/exported/checksum）；
-- Release artifacts：`dist/agent-next-beta-0.1.apk` + SHA-256 `ed115490ff987a268b037015d30122fdc067c1c105bc2961de88acf12fdc7ac4`；隐私说明与 release notes 草案已写；
-- Model retry/budget：408/429/5xx 有界退避 + 80 calls/任务上限；host test PASS；
-- Shizuku user-service kill：执行中 kill -9 → FAILED post-action observe failed，无 DONE/支付；
-- Human handoff stop：等待期间 STOP_TASK → not approved、service 停止、不 DONE；
-- Human handoff resume：主屏 → RESUME_TASK → 回私有 display → 重新 observe 真机 PASS；验证页未完成会再次 handoff（正确）；
-- Human handoff trigger：京东验证 → 主屏 + 通知 action 真机观察 PASS；resume 点击仍待验收；
-- Target-loss fault：执行中关闭 JD → FAILED post-action observe failed，无 DONE/支付；
-- Network fault injection：规划中断网 → FAILED，无动作/无 DONE；详见 [docs/fault-injection-2026-10-19.md](docs/fault-injection-2026-10-19.md)；
-- Human handoff：风险页 → 主屏 + 通知“完成，继续/停止” + 回私有 display 已接入；真机链路待验收；详见 [docs/human-handoff.md](docs/human-handoff.md)；
-- Risk guard PASS：JD 进入“京东验证”时不再盲点，FastLoop 返回 NEED_USER actions=0；Chain B 仍因详情页/风控阻塞；
-- JD search PASS：搜索入口 → 输入 → 提交 → 结果页，DONE actions=2 attempts=3；加购/购物车段仍被商品详情无障碍阻塞；详见 [docs/chain-b-attempt-2026-10-19.md](docs/chain-b-attempt-2026-10-19.md)；
-- Calendar domain skill PASS：CalendarContract 创建“带伞”明天 09:00 提醒，4 个 calendar 子目标 verifier 通过 DONE；详见 [docs/calendar-domain-skill-2026-10-19.md](docs/calendar-domain-skill-2026-10-19.md)；
-- Calendar E2E（非 JD）PASS：Redmi Pad Pro 上“在日程中周五下午7点添加提醒我面试” → 事件“面试”2026-10-23 19:00–20:00 + 开始时提醒，`DONE actions=1 attempts=1`；新增口语“点”时间解析、标题提取与确定性 calendar 计划；详见 [docs/calendar-e2e-2026-10-20.md](docs/calendar-e2e-2026-10-20.md)；
-- Agent task suite 1 PASS：10 条日历/文件管理任务全部端到端通过（日历 7 条含幂等、下载目录 3 条），结果用 CalendarContract / MediaStore 确认；设置/计算器/时钟等探索记录见 [docs/agent-task-suite-2026-10-20.md](docs/agent-task-suite-2026-10-20.md)；
-- Agent task suite v2（调研版）：按豆包手机、Meta Muse、Grok Bot、Perplexity/Harvard、SPA-Bench、iOSWorld 的真实用户场景，重构为 10 条“目的各不相同”的测试集（研究决策、购物比价、出行规划、文档产出、个人清单、闹钟、文件整理、邮件草稿、计算、联系人），并标注当前能力状态；详见 [docs/agent-task-suite-v2-2026-10-20.md](docs/agent-task-suite-v2-2026-10-20.md)；
-- Foreground service smoke PASS：dataSync|specialUse、通知 Stop action、RUNNING 启动/DONE 停止；详见 [docs/foreground-service-smoke-2026-10-19.md](docs/foreground-service-smoke-2026-10-19.md)；
-- Shared runtime preview/touch pause PASS：预览打开暂停 agent、触摸注入、关闭后 resume，4 段 plan DONE；
-- Preview mirror/touch 真机 smoke PASS：TextureView 镜像京东私有 display，userTap 映射到 720×1280 并进入 11.11 会场；主屏接管/返回私有 display 开关验证；详见 [docs/preview-touch-smoke-2026-10-19.md](docs/preview-touch-smoke-2026-10-19.md)；
-- Prompt Skill 真机 smoke PASS：真实 DeepSeek 模型输出 SetText/Tap/Wait 语义动作，经 RiskGate 执行，JD 结果页 verifier 通过，DONE actions=4；视觉 verify `verified=true matched=2 missing=0`，extract 30 字摘要/7 实体；详见 [docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)。
+Debug 版在任务页勾选“电脑只读监看”，电脑执行以下命令后打开提示的本机地址。页面显示真实后台画面、帧序号、时间与失效状态；关闭网页不会停止 Agent。此功能不进入人工接管，也不代替并发验收。浏览器任务核验成功后会保留私有正文页供检查，用户点击“停止”或发起新任务后释放；本轮三次均保存了实际正文画面与结果报告。无线调试端口以设备当前显示为准，勿复用旧端口。
 
-## 新项目边界
+```sh
+adb connect DEVICE_IP:DEBUG_PORT
+python3 tools/demo-viewer.py --adb /path/to/adb --serial DEVICE_IP:DEBUG_PORT
+# 打开 http://127.0.0.1:8765/
+```
 
-- capability 只提供“设备身体”：私有 display、目标会话、观察/截图、定向输入、预览镜像、主屏 task move、安全校验。
-- 新 brain 不得直接依赖 Android `ShellService`/坐标；只能通过 capability API。
-- 旧 loop 的固定计划、预设、条件/预算数字不作为新设计基线。
-- 测试工具中的旧 model-loop 脚本只用于布景/参考，不代表新 loop 验收。
-- 文档计划：[docs/loop-redesign.md](docs/loop-redesign.md)；保留/迁移：[docs/new-project-retention.md](docs/new-project-retention.md)；已定决策：[docs/decisions.md](docs/decisions.md)；adapter 真机 smoke：[docs/device-adapter-smoke-2026-10-19.md](docs/device-adapter-smoke-2026-10-19.md)；FastLoop 真机 smoke：[docs/device-fast-loop-smoke-2026-10-19.md](docs/device-fast-loop-smoke-2026-10-19.md)；slow-loop 真机 smoke：[docs/device-slow-loop-smoke-2026-10-19.md](docs/device-slow-loop-smoke-2026-10-19.md)；prompt skill 真机 smoke：[docs/device-prompt-skill-smoke-2026-10-19.md](docs/device-prompt-skill-smoke-2026-10-19.md)；preview/touch 真机 smoke：[docs/preview-touch-smoke-2026-10-19.md](docs/preview-touch-smoke-2026-10-19.md)；产品 UI/plan review：[docs/product-ui-plan-smoke-2026-10-19.md](docs/product-ui-plan-smoke-2026-10-19.md)；前台服务：[docs/foreground-service-smoke-2026-10-19.md](docs/foreground-service-smoke-2026-10-19.md)；Chain A 尝试：[docs/chain-a-attempt-2026-10-19.md](docs/chain-a-attempt-2026-10-19.md)；calendar domain skill：[docs/calendar-domain-skill-2026-10-19.md](docs/calendar-domain-skill-2026-10-19.md)；calendar E2E：[docs/calendar-e2e-2026-10-20.md](docs/calendar-e2e-2026-10-20.md)；agent task suite 1：[docs/agent-task-suite-2026-10-20.md](docs/agent-task-suite-2026-10-20.md)；agent task suite v2：[docs/agent-task-suite-v2-2026-10-20.md](docs/agent-task-suite-v2-2026-10-20.md)；Chain B 尝试：[docs/chain-b-attempt-2026-10-19.md](docs/chain-b-attempt-2026-10-19.md)；release：[docs/release-beta.md](docs/release-beta.md)；设置/隐私：[docs/settings-privacy.md](docs/settings-privacy.md)；人工接管：[docs/human-handoff.md](docs/human-handoff.md)；故障注入：[docs/fault-injection-2026-10-19.md](docs/fault-injection-2026-10-19.md)；模型重试：[docs/model-retry.md](docs/model-retry.md)；隐私说明：[docs/privacy.md](docs/privacy.md)；release notes：[docs/beta-release-notes.md](docs/beta-release-notes.md)。
-- capability 约束：[docs/device-capability.md](docs/device-capability.md)。
+监看只读取应用私有缓存中的最新一帧，默认关闭，仅 Debug 可开启；电脑只监听 `127.0.0.1`，不保存帧历史。设备缓存保留最后一帧，下一次监看开始时覆盖；录制前检查内容，结束后关闭监看并按需清理应用缓存。电脑只读监看期间目标 App 保持静音，声音只在用户主动接管时恢复；不能用监看页面的声音判断真实播放状态。实际尝试与复现步骤见[提交演练记录](docs/submission-demo.md)，音频隔离的系统路由证据见[音频隔离验证记录](docs/device-audio-isolation-2026-10-21.md)。
 
-## 关于目录
+**题目要求的 1–2 分钟演示目前尚未在仓库中得到满足。** 录制前先在目标设备上重复跑通一项真实多步任务，再连续录制：用户在主屏持续操作；画面同时展示 Agent 私有屏的实时操作；最后展示 App 内真实结果。保留完整运行，不用进度提示代替 Agent 执行画面，也不要用拼接镜头暗示同时发生。
 
-当前 `agent-next/` 位于旧工作区下，是一个**独立 Git 仓库**，便于在文件沙箱内创建；正式接入远程前可整体移动到同级目录，不影响内部路径。
+## 文档与验证记录
+
+- [设备 adapter smoke](docs/device-adapter-smoke-2026-10-19.md)：连接、私有屏、观察、输入和 task move。
+- [预览与触摸接管](docs/preview-touch-smoke-2026-10-19.md)：预览镜像和接管能力的设备记录。
+- [目标 App 音频隔离](docs/device-audio-isolation-2026-10-21.md)：按 UID 默认静音、接管恢复与回交再静音的设备路由证据及未验证边界。
+- [主动交接边界](docs/device-handoff-2026-10-21.md)：真实夸克受控验证页上的非抢屏通知、用户接管、完成标记与交还继续的真机闭环及未验证边界。
+- [小米商城流程与付费边界](docs/shop-flow-attempt-2026-10-21.md)：自动付费边界交接的受控页真机证据；真实小米商城流程未跑通的失败记录、原因与后续。
+- [弹窗检测与关闭](docs/popup-handling-2026-10-21.md)：基于 uiautomator2 Watcher / UiAutomator UiWatcher / Appium UIWatchers 的通用弹窗策略、安全护栏与真机受控页验证。
+- [前台服务 soak](docs/foreground-soak.md)：服务存活记录；它本身不是并发任务验收。
+- [纯 GUI Beta 路线](docs/pure-gui-beta.md)：内部工程改进计划，不代表当前版本已经达到 Beta。
+- [架构决策](docs/decisions.md)：设计边界与取舍记录。
+- [app 说明](app/README.md)、[brain 说明](brain/README.md)、[capability 说明](capability/README.md)：模块职责、运行方式和已知限制。
+
+完整题目交付仍需补齐可访问的 GitHub 仓库链接、技术选型说明，以及能证明同时使用和实际结果的演示视频。当前 README 解释了技术路径和已知差距，视频与公开访问配置需要在提交前完成。

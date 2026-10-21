@@ -14,6 +14,8 @@ rm -rf "$SERVICE_BUILD/classes"
 mkdir -p "$SERVICE_BUILD/classes"
 "$SERVICE_JAVAC" --release 8 -encoding UTF-8 -Xlint:all,-options -Werror \
   -d "$SERVICE_BUILD/classes" \
+  "$SERVICE_ROOT/device-api/src/main/java/agent/next/device/Text.java" \
+  "$SERVICE_ROOT/device-api/src/main/java/agent/next/device/DisplaySpec.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/ClientPolicy.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/DisplayLifecycle.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/ObservationBudget.java" \
@@ -22,6 +24,8 @@ mkdir -p "$SERVICE_BUILD/classes"
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/FrameSafetyPolicy.java" \
   "$SERVICE_ROOT/capability/src/test/java/agent/phone/executor/FrameSafetyPolicyTest.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/TargetLifecycle.java" \
+  "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/TargetAudioIsolation.java" \
+  "$SERVICE_ROOT/capability/src/test/java/agent/phone/executor/TargetAudioIsolationTest.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/TargetTaskMover.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/executor/PrimaryTaskPolicy.java" \
   "$SERVICE_ROOT/capability/src/test/java/agent/phone/executor/PrimaryTaskPolicyTest.java" \
@@ -43,11 +47,14 @@ mkdir -p "$SERVICE_BUILD/classes"
   "$SERVICE_ROOT/capability/src/test/java/agent/phone/connection/FrameEvidenceTest.java" \
   "$SERVICE_ROOT/capability/src/test/java/agent/phone/connection/TargetObservationTest.java" \
   "$SERVICE_ROOT/capability/src/main/java/agent/phone/connection/ConnectionCoordinator.java" \
+  "$SERVICE_ROOT/capability/src/main/java/agent/phone/connection/PreviewRpc.java" \
+  "$SERVICE_ROOT/capability/src/test/java/agent/phone/connection/PreviewRpcTest.java" \
   "$SERVICE_ROOT/capability/src/test/java/agent/phone/connection/ConnectionCoordinatorTest.java" \
   "$SERVICE_ROOT/tools/service-tests/stubs/android/os/Parcelable.java" \
   "$SERVICE_ROOT/tools/service-tests/stubs/android/os/Parcel.java" \
   "$SERVICE_ROOT/tools/service-tests/stubs/android/view/Surface.java"
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.ServicePolicyTest
+"$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.connection.PreviewRpcTest
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.connection.ConnectionCoordinatorTest
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.DisplayLifecycleTest
 
@@ -56,6 +63,7 @@ mkdir -p "$SERVICE_BUILD/classes"
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.connection.TargetObservationTest
 
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.TargetLifecycleTest
+"$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.TargetAudioIsolationTest
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.PrimaryTaskPolicyTest
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.FrameLeaseTest
 "$SERVICE_JAVA" -cp "$SERVICE_BUILD/classes" agent.phone.executor.FrameSafetyPolicyTest
