@@ -1,2 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="920" viewBox="0 0 1500 920"><style>text{font-family:Segoe UI,Arial,sans-serif;fill:#0f172a}.title{font-size:20px;font-weight:700}.subtitle{font-size:13px;fill:#64748b}.root-title{font-size:18px;font-weight:700;fill:#fff}.root-sub{font-size:12px;fill:#cbd5e1}.section{font-size:14px;font-weight:700;letter-spacing:1px;fill:#475569}.card-title{font-size:16px;font-weight:700}.card-line{font-size:13px;fill:#334155}.foot{font-size:12px;fill:#475569}</style><rect width="1500" height="920" fill="#f8fafc"/><text x="40" y="34" class="title">AgentNext · Project Structure</text><text x="40" y="62" class="subtitle">Android application source map · 2026-10-22</text><rect x="525" y="35" width="450" height="78" rx="18" fill="#0f172a"/><text x="750" y="69" text-anchor="middle" class="root-title">AgentNext</text><text x="750" y="92" text-anchor="middle" class="root-sub">repository root</text><path d="M 750 113 C 750 141, 345 139, 345 165" fill="none" stroke="#94a3b8" stroke-width="2"/><rect x="40" y="165" width="610" height="660" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M 58 217 H 632" stroke="#e2e8f0"/><text x="62" y="199" class="section">RUNTIME MODULES</text><path d="M 750 113 C 750 141, 850 139, 850 165" fill="none" stroke="#94a3b8" stroke-width="2"/><rect x="670" y="165" width="360" height="660" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M 688 217 H 1012" stroke="#e2e8f0"/><text x="692" y="199" class="section">QUALITY &amp; TOOLING</text><path d="M 750 113 C 750 141, 1255 139, 1255 165" fill="none" stroke="#94a3b8" stroke-width="2"/><rect x="1050" y="165" width="410" height="660" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M 1068 217 H 1442" stroke="#e2e8f0"/><text x="1072" y="199" class="section">PROJECT MATERIALS</text><rect x="60" y="237" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/><text x="76" y="265" class="card-title">app</text><text x="76" y="291" class="card-line">Android entry point</text><text x="76" y="313" class="card-line">UI · foreground service · notifications · preview</text><rect x="353" y="237" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/><text x="369" y="265" class="card-title">brain</text><text x="369" y="291" class="card-line">Pure JVM agent loop</text><text x="369" y="313" class="card-line">Planning · observation · action · verification</text><rect x="60" y="429" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/><text x="76" y="457" class="card-title">capability</text><text x="76" y="483" class="card-line">Domain and device capabilities</text><text x="76" y="505" class="card-line">Task-specific skills and policies</text><rect x="353" y="429" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/><text x="369" y="457" class="card-title">device-api</text><text x="369" y="483" class="card-line">Device operation contracts</text><text x="369" y="505" class="card-line">Display · observation · input abstractions</text><rect x="690" y="237" width="320" height="146" rx="12" fill="#dcfce7" stroke="#cbd5e1"/><text x="706" y="265" class="card-title">testkit</text><text x="706" y="291" class="card-line">Foreground harness · qualification</text><text x="706" y="313" class="card-line">Diagnostics · probes · test fixtures</text><rect x="690" y="399" width="320" height="146" rx="12" fill="#dcfce7" stroke="#cbd5e1"/><text x="706" y="427" class="card-title">tools</text><text x="706" y="453" class="card-line">Host verification · module checks</text><text x="706" y="475" class="card-line">Browser verifier · visual tap tests</text><rect x="1070" y="237" width="370" height="125" rx="12" fill="#fef3c7" stroke="#cbd5e1"/><text x="1086" y="265" class="card-title">docs</text><text x="1086" y="291" class="card-line">Architecture · decisions · evidence</text><text x="1086" y="313" class="card-line">Compatibility · release · task records</text><rect x="1070" y="378" width="370" height="125" rx="12" fill="#fef3c7" stroke="#cbd5e1"/><text x="1086" y="406" class="card-title">gradle</text><text x="1086" y="432" class="card-line">Build wrapper and configuration</text><rect x="1070" y="519" width="370" height="125" rx="12" fill="#fef3c7" stroke="#cbd5e1"/><text x="1086" y="547" class="card-title">root build files</text><text x="1086" y="573" class="card-line">settings.gradle · build.gradle</text><text x="1086" y="595" class="card-line">Gradle version catalog and project config</text><rect x="40" y="850" width="1420" height="42" rx="10" fill="#eef2f7"/><text x="58" y="877" class="foot">Based on Yixuan-Tao/agent-next main tree. Build outputs and generated distribution artifacts are omitted.</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="920" viewBox="0 0 1500 920">
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#0f172a}.title{font-size:20px;font-weight:700}.subtitle{font-size:13px;fill:#64748b}.root-title{font-size:18px;font-weight:700;fill:#fff}.root-sub{font-size:12px;fill:#cbd5e1}.section{font-size:14px;font-weight:700;letter-spacing:1px;fill:#475569}.card-title{font-size:16px;font-weight:700}.card-line{font-size:13px;fill:#334155}.foot{font-size:12px;fill:#475569}</style>
+<rect width="1500" height="920" fill="#f8fafc"/>
+<text x="40" y="34" class="title">AgentNext · Project Structure</text>
+<text x="40" y="62" class="subtitle">Android application source map · 2026-10-22</text>
+<rect x="525" y="35" width="450" height="78" rx="18" fill="#0f172a"/>
+<text x="750" y="69" text-anchor="middle" class="root-title">AgentNext</text>
+<text x="750" y="92" text-anchor="middle" class="root-sub">repository root</text>
+<path d="M 750 113 C 750 141, 345 139, 345 165" fill="none" stroke="#94a3b8" stroke-width="2"/>
+<rect x="40" y="165" width="610" height="660" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+<path d="M 58 217 H 632" stroke="#e2e8f0"/>
+<text x="62" y="199" class="section">RUNTIME MODULES</text>
+<path d="M 750 113 C 750 141, 850 139, 850 165" fill="none" stroke="#94a3b8" stroke-width="2"/>
+<rect x="670" y="165" width="360" height="660" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+<path d="M 688 217 H 1012" stroke="#e2e8f0"/>
+<text x="692" y="199" class="section">QUALITY &amp; TOOLING</text>
+<path d="M 750 113 C 750 141, 1255 139, 1255 165" fill="none" stroke="#94a3b8" stroke-width="2"/>
+<rect x="1050" y="165" width="410" height="660" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+<path d="M 1068 217 H 1442" stroke="#e2e8f0"/>
+<text x="1072" y="199" class="section">PROJECT MATERIALS</text>
+<rect x="60" y="237" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
+<text x="76" y="265" class="card-title">app</text>
+<text x="76" y="291" class="card-line">Android entry point</text>
+<text x="76" y="313" class="card-line">UI · foreground service · notifications · preview</text>
+<rect x="353" y="237" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
+<text x="369" y="265" class="card-title">brain</text>
+<text x="369" y="291" class="card-line">Pure JVM agent loop</text>
+<text x="369" y="313" class="card-line">Planning · observation · action · verification</text>
+<rect x="60" y="429" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
+<text x="76" y="457" class="card-title">capability</text>
+<text x="76" y="483" class="card-line">Domain and device capabilities</text>
+<text x="76" y="505" class="card-line">Task-specific skills and policies</text>
+<rect x="353" y="429" width="277" height="176" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
+<text x="369" y="457" class="card-title">device-api</text>
+<text x="369" y="483" class="card-line">Device operation contracts</text>
+<text x="369" y="505" class="card-line">Display · observation · input abstractions</text>
+<rect x="690" y="237" width="320" height="146" rx="12" fill="#dcfce7" stroke="#cbd5e1"/>
+<text x="706" y="265" class="card-title">testkit</text>
+<text x="706" y="291" class="card-line">Foreground harness · qualification</text>
+<text x="706" y="313" class="card-line">Diagnostics · probes · test fixtures</text>
+<rect x="690" y="399" width="320" height="146" rx="12" fill="#dcfce7" stroke="#cbd5e1"/>
+<text x="706" y="427" class="card-title">tools</text>
+<text x="706" y="453" class="card-line">Host verification · module checks</text>
+<text x="706" y="475" class="card-line">Browser verifier · visual tap tests</text>
+<rect x="1070" y="237" width="370" height="125" rx="12" fill="#fef3c7" stroke="#cbd5e1"/>
+<text x="1086" y="265" class="card-title">docs</text>
+<text x="1086" y="291" class="card-line">Architecture · decisions · evidence</text>
+<text x="1086" y="313" class="card-line">Compatibility · release · task records</text>
+<rect x="1070" y="378" width="370" height="125" rx="12" fill="#fef3c7" stroke="#cbd5e1"/>
+<text x="1086" y="406" class="card-title">gradle</text>
+<text x="1086" y="432" class="card-line">Build wrapper and configuration</text>
+<rect x="1070" y="519" width="370" height="125" rx="12" fill="#fef3c7" stroke="#cbd5e1"/>
+<text x="1086" y="547" class="card-title">root build files</text>
+<text x="1086" y="573" class="card-line">settings.gradle · build.gradle</text>
+<text x="1086" y="595" class="card-line">Gradle version catalog and project config</text>
+<rect x="40" y="850" width="1420" height="42" rx="10" fill="#eef2f7"/>
+<text x="58" y="877" class="foot">Based on Yixuan-Tao/agent-next main tree. Build outputs and generated distribution artifacts are omitted.</text>
+</svg>
